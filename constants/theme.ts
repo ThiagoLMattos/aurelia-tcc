@@ -1,53 +1,121 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Aurélia — Design tokens
+ * Single source of truth for colors, typography scale, and spacing.
+ * All screens import from here — never hardcode hex values in component files.
  */
 
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
 export const Colors = {
+  // Primary — teal
+  primary: '#0F8080',
+  primaryDark: '#0A5F5F',
+  primaryLight: '#E0F7FA',
+  primaryText: '#0F6E56',
+
+  // Surface & background
+  surface: '#F8FAFC',
+  white: '#FFFFFF',
+  border: '#DDE3E8',
+  borderLight: '#E2E6EA',
+  borderMid: '#C8D0D8',
+
+  // Text
+  textPrimary: '#0F172A',
+  textSecondary: '#5F5E5A',
+  textMuted: '#9A9A95',
+
+  // Sage green — completed / success
+  successBg: '#EAF3DE',
+  successText: '#3B6D11',
+  successBorder: '#1D9E75',
+
+  // Amber — missed / warning
+  warningBg: '#FAEEDA',
+  warningText: '#854F0B',
+  warningBorder: '#EF9F27',
+  warningAccent: '#FAC775',
+
+  // Red — danger / breach / destructive
+  dangerBg: '#FCEBEB',
+  dangerText: '#A32D2D',
+  dangerBorder: '#E24B4A',
+  dangerHeader: '#A32D2D',
+  dangerDot: '#E24B4A',
+
+  // Lavender — Aurélia-branded elements ONLY
+  aureliaBg: '#EEEDFE',
+  aureliaText: '#534AB7',
+  aureliaBorder: '#CECBF6',
+
+  // Tab bar
+  tabBarBg: '#FFFFFF',
+  tabActive: '#0F8080',
+  tabInactive: '#5F5E5A',
+
+  // Misc
+  progressBg: '#EEF1F3',
+  inputBg: '#FFFFFF',
+  skeletonBg: '#EEF1F3',
+};
+
+/**
+ * Tab bar colors wired to expo-router tab layout.
+ * Kept as light/dark shape so the tab layout can reference Colors[scheme].tint.
+ */
+export const TabColors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: Colors.textPrimary,
+    background: Colors.surface,
+    tint: Colors.primary,
+    icon: Colors.tabInactive,
+    tabIconDefault: Colors.tabInactive,
+    tabIconSelected: Colors.primary,
   },
   dark: {
     text: '#ECEDEE',
     background: '#151718',
-    tint: tintColorDark,
+    tint: Colors.primary,
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    tabIconSelected: Colors.primary,
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+export const Typography = {
+  size: {
+    xs: 10,
+    sm: 12,
+    base: 14,
+    md: 16,
+    lg: 20,
+    xl: 24,
+    xxl: 32,
   },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+  weight: {
+    regular: '400' as const,
+    medium: '500' as const,
+    semibold: '600' as const,
+    bold: '700' as const,
   },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  lineHeight: {
+    tight: 1.2,
+    base: 1.45,
+    relaxed: 1.6,
   },
-});
+};
+
+export const Radius = {
+  sm: 8,
+  md: 10,
+  lg: 12,
+  xl: 16,
+  full: 999,
+};
+
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+};
