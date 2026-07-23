@@ -208,4 +208,12 @@ export const Shadow = {
     shadowRadius: 12,
     elevation: 8,
   },
+  // Headers (Sombra pronunciada para BAIXO) -> Adicione esta se quiser uma sombra forte no topo!
+  header: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 }, // Positivo joga a sombra pra BAIXO
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+  },
 };

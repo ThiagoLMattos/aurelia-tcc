@@ -4,237 +4,238 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 
-// Importacao dos seus tokens e do componente de botao
+// Importação dos tokens de tema e do componente customizado de botão
 import { PatientColors, Shadow } from '@/constants/theme';
-import BotaoHome from '@/components/components_idoso/BotaoHome';
+import HomeButton from '@/components/components_idoso/BotaoHome';
 
-// Dados simulados para a interface
-const DADOS_PACIENTE = {
-  nome: 'Maria Aparecida',
-  data: '22/07/2026',
-  tarefas: [
-    { id: '1', nome: '1 - Omeprazol', horario: '14:00' },
-    { id: '2', nome: 'X - Tarefa', horario: '00:00' },
-    { id: '3', nome: 'X - Tarefa', horario: '00:00' },
-    { id: '4', nome: 'X - Tarefa', horario: '00:00' },
-    { id: '5', nome: 'X - Tarefa', horario: '00:00' },
+// Dados simulados para a interface de tarefas do paciente
+const PATIENT_DATA = {
+  name: 'Maria Aparecida',
+  date: '22/07/2026',
+  tasks: [
+    { id: '1', name: ' - Omeprazol', time: '14:00' },
+    { id: '2', name: ' - Tarefa', time: '00:00' },
+    { id: '3', name: ' - Tarefa', time: '00:00' },
+    { id: '4', name: ' - Tarefa', time: '00:00' },
+    { id: '5', name: ' - Tarefa', time: '00:00' },
+    { id: '6', name: ' - Tarefa', time: '00:00' },
+    { id: '7', name: ' - Tarefa', time: '00:00' },
   ]
 };
 
-export default function TelaHomePaciente() {
+export default function PatientHomeScreen() {
   const router = useRouter();
 
   return (
-    <View style={estilos.container}>
+    <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Cabecalho verde com nome e data */}
-      <View style={estilos.cabecalho}>
-        <Text style={estilos.textoOla}>
-          OLÁ ({DADOS_PACIENTE.nome.toUpperCase()})
+      {/* Cabeçalho verde com nome e data */}
+      <View style={styles.header}>
+        <Text style={styles.greetingText}>
+          OLÁ {PATIENT_DATA.name.toUpperCase()}
         </Text>
-        <Text style={estilos.textoData}>{DADOS_PACIENTE.data}</Text>
+        <Text style={styles.dateText}>{PATIENT_DATA.date}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={estilos.rolagem} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Cartao de resumo das tarefas (fundo creme) */}
-        <View style={estilos.cartaoResumo}>
-          {DADOS_PACIENTE.tarefas.map((tarefa) => (
-            <View key={tarefa.id} style={estilos.linhaTarefa}>
-              <Text style={estilos.nomeTarefa}>{tarefa.nome}</Text>
+        {/* Cartão de resumo das tarefas (fundo creme) */}
+        <View style={styles.summaryCard}>
+          {PATIENT_DATA.tasks.slice(0, 7).map((task) => (
+            <View key={task.id} style={styles.taskRow}>
+              <Text style={styles.taskName}>{task.id}{task.name}</Text>
               
-              {/* Pontilhado dinamico tipo sumario */}
-              <Text style={estilos.pontos} numberOfLines={1} ellipsizeMode="clip">
+              {/* Pontilhado dinâmico estilo sumário */}
+              <Text style={styles.dots} numberOfLines={1} ellipsizeMode="clip">
                 ....................................................................................................
               </Text>
               
-              <Text style={estilos.horarioTarefa}>{tarefa.horario}</Text>
+              <Text style={styles.taskTime}>{task.time}</Text>
             </View>
           ))}
         </View>
 
-        {/* Grade com os 4 botoes coloridos usando o componente BotaoHome */}
-        <View style={estilos.gradeBotoes}>
+        {/* Grade de 4 botões usando o componente HomeButton */}
+        <View style={styles.buttonGrid}>
           
-          {/* Botao SOS */}
-          <BotaoHome 
-            corDeFundo={PatientColors.sosMain} 
-            aoPressionar={() => router.push('/sos' as any)}
-            estiloAdicional={estilos.ajusteBotaoGrade}
+          {/* Botão SOS */}
+          <HomeButton 
+            backgroundColor={PatientColors.sosMain} 
+            onPress={() => router.push('/sos' as any)}
+            customStyle={styles.gridButtonAdjustment}
           >
             <Image 
               source={require('@/assets/images/Emergencia_icon.png')} 
             />
-            <Text style={estilos.textoBotaoEmergencia}>SOS</Text>
-          </BotaoHome>
+            <Text style={styles.sosButtonText}>SOS</Text>
+          </HomeButton>
 
-          {/* Botao Tarefas */}
-          <BotaoHome 
-            corDeFundo={PatientColors.tasksMain} 
-            aoPressionar={() => router.push('/tarefas' as any)}
-            estiloAdicional={estilos.ajusteBotaoGrade}
+          {/* Botão Tarefas */}
+          <HomeButton 
+            backgroundColor={PatientColors.tasksMain} 
+            onPress={() => router.push('/tarefas' as any)}
+            customStyle={styles.gridButtonAdjustment}
           >
             <Image 
               source={require('@/assets/images/Tarefas_icon.png')} 
             />
-            <Text style={estilos.textoBotaoTarefas}>TAREFAS</Text>
-          </BotaoHome>
+            <Text style={styles.tasksButtonText}>TAREFAS</Text>
+          </HomeButton>
 
-          {/* Botao Jogos */}
-          <BotaoHome 
-            corDeFundo={PatientColors.gamesMain} 
-            aoPressionar={() => router.push('/jogos' as any)}
-            estiloAdicional={estilos.ajusteBotaoGrade}
+          {/* Botão Jogos */}
+          <HomeButton 
+            backgroundColor={PatientColors.gamesMain} 
+            onPress={() => router.push('/jogos' as any)}
+            customStyle={styles.gridButtonAdjustment}
           >
             <Image 
               source={require('@/assets/images/Jogos_icon.png')} 
             />
-            <Text style={estilos.textoBotaoJogos}>JOGOS</Text>
-          </BotaoHome>
+            <Text style={styles.gamesButtonText}>JOGOS</Text>
+          </HomeButton>
 
-          {/* Botao Telefone */}
-          <BotaoHome 
-            corDeFundo={PatientColors.phoneMain} 
-            aoPressionar={() => router.push('/telefone' as any)}
-            estiloAdicional={estilos.ajusteBotaoGrade}
+          {/* Botão Telefone */}
+          <HomeButton 
+            backgroundColor={PatientColors.phoneMain} 
+            onPress={() => router.push('/telefone' as any)}
+            customStyle={styles.gridButtonAdjustment}
           >
             <Image 
               source={require('@/assets/images/Telefone_icon.png')} 
             />
-            <Text style={estilos.textoBotaoTelefone}>TELEFONE</Text>
-          </BotaoHome>
+            <Text style={styles.phoneButtonText}>TELEFONE</Text>
+          </HomeButton>
 
         </View>
 
-        {/* Botao da Aurelia na parte de baixo */}
-        <BotaoHome 
-          corDeFundo={PatientColors.aureliaMain} 
-          aoPressionar={() => router.push('/aurelia' as any)}
-          estiloAdicional={estilos.ajusteBotaoAurelia}
+        {/* Botão da assistente Aurélia na parte inferior */}
+        <HomeButton 
+          backgroundColor={PatientColors.aureliaMain} 
+          onPress={() => router.push('/aurelia' as any)}
+          customStyle={styles.aureliaButtonAdjustment}
         >
-          <View style={estilos.circuloAvatar}>
+          <View style={styles.avatarCircle}>
             <Image 
               source={require('@/assets/images/LogoAvatar.png')} 
             />
           </View>
-          <Text style={estilos.textoBotaoAurelia}>CONVERSAR COM AURÉLIA</Text>
-        </BotaoHome>
+          <Text style={styles.aureliaButtonText}>CONVERSAR COM AURÉLIA</Text>
+        </HomeButton>
 
       </ScrollView>
     </View>
   );
 }
 
-const estilos = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  cabecalho: {
+  header: {
     backgroundColor: PatientColors.homeHeader,
     paddingTop: 30,
-    paddingBottom: 10,
+    paddingBottom: 12,
     paddingHorizontal: 25,
-    ...Shadow.soft,
+    ...Shadow.header,
   },
-  textoOla: {
+  greetingText: {
     color: PatientColors.homeHeaderText,
     fontSize: 28,
-    fontWeight: 'medium',
+    fontWeight: '500',
     right: 15,
     bottom: 15,
   },
-  textoData: {
+  dateText: {
     color: PatientColors.homeHeaderSubtitle,
     fontSize: 24,
     textAlign: 'right',
     marginTop: 5,
   },
-  rolagem: {
-    padding: 20,
-    gap: 25,
+  scrollContent: {
+    padding: 25,
+    gap: 40,
   },
-  cartaoResumo: {
+  summaryCard: {
     backgroundColor: '#FAEEDA',
     borderColor: '#412402',
     borderWidth: 1,
     borderRadius: 10,
-    paddingTop: 15,
-    paddingHorizontal: 25,
-    paddingBottom: 45,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minHeight: 225,
     ...Shadow.medium,
   },
-  linhaTarefa: {
+  taskRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
     marginVertical: 1,
   },
-  nomeTarefa: {
+  taskName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#000000',
   },
-  pontos: {
+  dots: {
     flex: 1,
     color: '#A09580',
     fontSize: 18,
     letterSpacing: 2,
-    marginHorizontal: 8,
+    marginHorizontal: 6,
     overflow: 'hidden',
   },
-  horarioTarefa: {
+  taskTime: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#000000',
   },
-  gradeBotoes: {
+  buttonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 35,
   },
-  ajusteBotaoGrade: {
+  gridButtonAdjustment: {
     width: 150,
-    height: 135,
+    height: 130,
     flexDirection: 'column',
     borderRadius: 10,
     padding: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
     ...Shadow.medium,
   },
-  textoBotaoEmergencia: {
+  sosButtonText: {
     color: PatientColors.sosHeaderText,
     fontSize: 32,
     fontWeight: 'bold',
   },
-  textoBotaoTarefas: {
+  tasksButtonText: {
     color: PatientColors.tasksHeaderText,
     fontSize: 30,
     fontWeight: 'bold',
   },
-  textoBotaoJogos: {
+  gamesButtonText: {
     color: PatientColors.gamesHeaderText,
     fontSize: 32,
     fontWeight: 'bold',
   },
-  textoBotaoTelefone: {
+  phoneButtonText: {
     color: PatientColors.phoneHeaderText,
     fontSize: 27,
     fontWeight: 'bold',
   },
-  ajusteBotaoAurelia: {
+  aureliaButtonAdjustment: {
     width: '100%',
-    paddingVertical: 20,
-    gap: 20,
+    paddingVertical: 16,
+    gap: 15,
     borderRadius: 10,
-    marginTop: 20,
+    marginTop: 5,
     ...Shadow.medium,
   },
-  circuloAvatar: {
+  avatarCircle: {
     width: 35,
     height: 35,
     borderRadius: 20,
@@ -242,7 +243,7 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  textoBotaoAurelia: {
+  aureliaButtonText: {
     color: PatientColors.aureliaHeaderText,
     fontSize: 20,
     fontWeight: 'bold',

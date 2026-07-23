@@ -1,37 +1,37 @@
 import React, { ReactNode } from 'react';
 import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 
-// Definimos o tipo das propriedades que o botao vai receber
-type PropriedadesBotao = {
+// Definimos o tipo das propriedades que o botão vai receber
+type HomeButtonProps = {
   children: ReactNode;
-  aoPressionar: () => void;
-  corDeFundo?: string;
-  estiloAdicional?: ViewStyle;
+  onPress: () => void;
+  backgroundColor?: string;
+  customStyle?: ViewStyle;
 };
 
-export default function BotaoHome({
+export default function HomeButton({
   children,
-  aoPressionar,
-  corDeFundo = 'rgba(255, 255, 255, 0.1)',
-  estiloAdicional,
-}: PropriedadesBotao) {
+  onPress,
+  backgroundColor = 'rgba(255, 255, 255, 0.1)',
+  customStyle,
+}: HomeButtonProps) {
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       style={[
-        estilos.botao,
-        { backgroundColor: corDeFundo },
-        estiloAdicional,
+        styles.button,
+        { backgroundColor },
+        customStyle,
       ]}
-      onPress={aoPressionar}
+      onPress={onPress}
     >
       {children}
     </TouchableOpacity>
   );
 }
 
-const estilos = StyleSheet.create({
-  botao: {
+const styles = StyleSheet.create({
+  button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
