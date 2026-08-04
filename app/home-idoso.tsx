@@ -1,12 +1,12 @@
 // @ts-nocheck
 
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import React from 'react';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 // Importação dos tokens de tema e do componente customizado de botão
-import { PatientColors, Shadow } from '@/constants/theme';
-import HomeButton from '@/components/components_idoso/BotaoHome';
+import HomeButton from '@/components/HomeButton';
+import { PatientColors, PatientTypography, Shadow, Layout } from '@/constants/theme';
 
 // Dados simulados para a interface de tarefas do paciente
 const PATIENT_DATA = {
@@ -14,12 +14,12 @@ const PATIENT_DATA = {
   date: '22/07/2026',
   tasks: [
     { id: '1', name: ' - Omeprazol', time: '14:00' },
-    { id: '2', name: ' - Tarefa', time: '00:00' },
-    { id: '3', name: ' - Tarefa', time: '00:00' },
-    { id: '4', name: ' - Tarefa', time: '00:00' },
-    { id: '5', name: ' - Tarefa', time: '00:00' },
-    { id: '6', name: ' - Tarefa', time: '00:00' },
-    { id: '7', name: ' - Tarefa', time: '00:00' },
+    { id: '2', name: ' - Caminhada', time: '00:00' },
+    { id: '3', name: ' - Café da manhã', time: '00:00' },
+    { id: '4', name: ' - Losartana', time: '00:00' },
+    { id: '5', name: ' - Almoço', time: '00:00' },
+    { id: '6', name: ' - Repouso', time: '00:00' },
+    { id: '7', name: ' - Metformina', time: '00:00' },
   ]
 };
 
@@ -74,7 +74,7 @@ export default function PatientHomeScreen() {
           {/* Botão Tarefas */}
           <HomeButton 
             backgroundColor={PatientColors.tasksMain} 
-            onPress={() => router.push('/tarefas' as any)}
+            onPress={() => router.push('/tarefa-idoso' as any)}
             customStyle={styles.gridButtonAdjustment}
           >
             <Image 
@@ -135,9 +135,8 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: PatientColors.homeHeader,
-    paddingTop: 30,
-    paddingBottom: 12,
     paddingHorizontal: 25,
+    height: Layout.headerHeight,   
     ...Shadow.header,
   },
   greetingText: {
@@ -145,13 +144,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '500',
     right: 15,
-    bottom: 15,
+    marginTop: 10,
   },
   dateText: {
     color: PatientColors.homeHeaderSubtitle,
-    fontSize: 24,
+    fontSize: PatientTypography.size.common,
     textAlign: 'right',
-    marginTop: 5,
+    marginTop: 15,
   },
   scrollContent: {
     padding: 25,
@@ -174,20 +173,20 @@ const styles = StyleSheet.create({
     marginVertical: 1,
   },
   taskName: {
-    fontSize: 20,
+    fontSize: PatientTypography.size.reduced,
     fontWeight: 'bold',
     color: '#000000',
   },
   dots: {
     flex: 1,
     color: '#A09580',
-    fontSize: 18,
+    fontSize: PatientTypography.size.minimum,
     letterSpacing: 2,
     marginHorizontal: 6,
     overflow: 'hidden',
   },
   taskTime: {
-    fontSize: 20,
+    fontSize: PatientTypography.size.reduced,
     fontWeight: 'bold',
     color: '#000000',
   },

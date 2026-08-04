@@ -56,6 +56,15 @@ export default function RootLayout() {
               presentation: 'card',
             }}
           />
+
+          <Stack.Screen
+            name="home-idoso"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="tarefa-idoso"
+            options={{ headerShown: false }}
+          />
         </Stack>
         <StatusBar style="light" backgroundColor={Colors.primary} />
       </ThemeProvider>

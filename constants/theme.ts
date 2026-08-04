@@ -117,6 +117,28 @@ export const PatientColors = {
   aureliaTimestamp: '#888780',   // horário das mensagens
 };
 
+// ─── Tipografia do Paciente ──────────────────────────────────────────────────
+// Escala exclusiva para o app do idoso — tamanhos maiores por acessibilidade
+export const PatientTypography = {
+  size: {
+    // Catalogados no design — usar sempre esses valores nas telas do idoso
+    header: 36,      // texto do header (nome, título da tela) — sem negrito
+    backButton: 30,  // texto do botão VOLTAR — sem negrito
+    common: 24,      // texto comum (nome da tarefa, contato, item de lista) — sem negrito
+    reduced: 20,     // texto reduzido (horário, descrição curta) — sem negrito
+    sheet: 30,       // texto dentro de abas/modais — sem negrito
+    minimum: 18,     // texto no tamanho mínimo WCAG — em negrito obrigatório
+  },
+  weight: {
+    regular: '400' as const,   // sem negrito — padrão para quase tudo
+    bold: '700' as const,      // negrito — obrigatório só no tamanho mínimo (18px)
+  },
+  lineHeight: {
+    normal: 1.7,   // leitura corrida — ideal para Alzheimer inicial
+    tight: 1.5,    // elementos compactos como botões
+  },
+};
+
 /**
  * Tab bar colors wired to expo-router tab layout.
  * Kept as light/dark shape so the tab layout can reference Colors[scheme].tint.
@@ -216,4 +238,8 @@ export const Shadow = {
     shadowRadius: 8,
     elevation: 6,
   },
+};
+
+export const Layout = {
+  headerHeight: 100,  // altura fixa de todos os headers do app do idoso
 };
