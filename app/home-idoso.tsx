@@ -4,23 +4,22 @@ import { Stack, useRouter } from 'expo-router';
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-// Importação dos tokens de tema e do componente customizado de botão
 import HomeButton from '@/components/HomeButton';
-import { PatientColors, PatientTypography, Shadow, Layout } from '@/constants/theme';
+import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme';
 
-// Dados simulados para a interface de tarefas do paciente
+// ─── Dados falsos — substituir pela API do cuidador depois ───────────────────
 const PATIENT_DATA = {
   name: 'Maria Aparecida',
   date: '22/07/2026',
   tasks: [
-    { id: '1', name: ' - Omeprazol', time: '14:00' },
-    { id: '2', name: ' - Caminhada', time: '00:00' },
-    { id: '3', name: ' - Café da manhã', time: '00:00' },
-    { id: '4', name: ' - Losartana', time: '00:00' },
-    { id: '5', name: ' - Almoço', time: '00:00' },
-    { id: '6', name: ' - Repouso', time: '00:00' },
-    { id: '7', name: ' - Metformina', time: '00:00' },
-  ]
+    { id: '1', name: ' - Omeprazol',     time: '07:00' },
+    { id: '2', name: ' - Caminhada',     time: '08:30' },
+    { id: '3', name: ' - Café da manhã', time: '09:00' },
+    { id: '4', name: ' - Losartana',     time: '12:00' },
+    { id: '5', name: ' - Almoço',        time: '12:30' },
+    { id: '6', name: ' - Repouso',       time: '14:00' },
+    { id: '7', name: ' - Metformina',    time: '19:00' },
+  ],
 };
 
 export default function PatientHomeScreen() {
@@ -30,7 +29,7 @@ export default function PatientHomeScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Cabeçalho verde com nome e data */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <Text style={styles.greetingText}>
           OLÁ {PATIENT_DATA.name.toUpperCase()}
@@ -38,87 +37,72 @@ export default function PatientHomeScreen() {
         <Text style={styles.dateText}>{PATIENT_DATA.date}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Cartão de resumo das tarefas (fundo creme) */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Card resumo ── */}
         <View style={styles.summaryCard}>
           {PATIENT_DATA.tasks.slice(0, 7).map((task) => (
             <View key={task.id} style={styles.taskRow}>
               <Text style={styles.taskName}>{task.id}{task.name}</Text>
-              
-              {/* Pontilhado dinâmico estilo sumário */}
               <Text style={styles.dots} numberOfLines={1} ellipsizeMode="clip">
                 ....................................................................................................
               </Text>
-              
               <Text style={styles.taskTime}>{task.time}</Text>
             </View>
           ))}
         </View>
 
-        {/* Grade de 4 botões usando o componente HomeButton */}
+        {/* ── Grade de 4 botões ── */}
         <View style={styles.buttonGrid}>
-          
-          {/* Botão SOS */}
-          <HomeButton 
-            backgroundColor={PatientColors.sosMain} 
+
+          <HomeButton
+            backgroundColor={PatientColors.sosMain}
             onPress={() => router.push('/sos' as any)}
             customStyle={styles.gridButtonAdjustment}
           >
-            <Image 
-              source={require('@/assets/images/Emergencia_icon.png')} 
-            />
+            <Image source={require('@/assets/images/Emergencia_icon.png')} />
             <Text style={styles.sosButtonText}>SOS</Text>
           </HomeButton>
 
-          {/* Botão Tarefas */}
-          <HomeButton 
-            backgroundColor={PatientColors.tasksMain} 
+          <HomeButton
+            backgroundColor={PatientColors.tasksMain}
             onPress={() => router.push('/tarefa-idoso' as any)}
             customStyle={styles.gridButtonAdjustment}
           >
-            <Image 
-              source={require('@/assets/images/Tarefas_icon.png')} 
-            />
+            <Image source={require('@/assets/images/Tarefas_icon.png')} />
             <Text style={styles.tasksButtonText}>TAREFAS</Text>
           </HomeButton>
 
-          {/* Botão Jogos */}
-          <HomeButton 
-            backgroundColor={PatientColors.gamesMain} 
-            onPress={() => router.push('/jogos' as any)}
+          <HomeButton
+            backgroundColor={PatientColors.gamesMain}
+            onPress={() => router.push('/jogos-idoso' as any)}
             customStyle={styles.gridButtonAdjustment}
           >
-            <Image 
-              source={require('@/assets/images/Jogos_icon.png')} 
-            />
+            <Image source={require('@/assets/images/Jogos_icon.png')} />
             <Text style={styles.gamesButtonText}>JOGOS</Text>
           </HomeButton>
 
-          {/* Botão Telefone */}
-          <HomeButton 
-            backgroundColor={PatientColors.phoneMain} 
+          <HomeButton
+            backgroundColor={PatientColors.phoneMain}
             onPress={() => router.push('/telefone' as any)}
             customStyle={styles.gridButtonAdjustment}
           >
-            <Image 
-              source={require('@/assets/images/Telefone_icon.png')} 
-            />
+            <Image source={require('@/assets/images/Telefone_icon.png')} />
             <Text style={styles.phoneButtonText}>TELEFONE</Text>
           </HomeButton>
 
         </View>
 
-        {/* Botão da assistente Aurélia na parte inferior */}
-        <HomeButton 
-          backgroundColor={PatientColors.aureliaMain} 
+        {/* ── Botão Aurélia ── */}
+        <HomeButton
+          backgroundColor={PatientColors.aureliaMain}
           onPress={() => router.push('/aurelia' as any)}
           customStyle={styles.aureliaButtonAdjustment}
         >
           <View style={styles.avatarCircle}>
-            <Image 
-              source={require('@/assets/images/LogoAvatar.png')} 
-            />
+            <Image source={require('@/assets/images/LogoAvatar.png')} />
           </View>
           <Text style={styles.aureliaButtonText}>CONVERSAR COM AURÉLIA</Text>
         </HomeButton>
@@ -128,15 +112,18 @@ export default function PatientHomeScreen() {
   );
 }
 
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+
+  // ── Header — mantido como estava ────────────────────────────────────────────
   header: {
     backgroundColor: PatientColors.homeHeader,
     paddingHorizontal: 25,
-    height: Layout.headerHeight,   
+    height: Layout.headerHeight,
     ...Shadow.header,
   },
   greetingText: {
@@ -152,6 +139,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: 15,
   },
+
+  // ── Card resumo — mantido como estava ───────────────────────────────────────
   scrollContent: {
     padding: 25,
     gap: 40,
@@ -190,6 +179,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000000',
   },
+
+  // ── Grade de botões ─────────────────────────────────────────────────────────
   buttonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -208,24 +199,26 @@ const styles = StyleSheet.create({
   },
   sosButtonText: {
     color: PatientColors.sosHeaderText,
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: PatientTypography.size.header,
+    fontWeight: PatientTypography.weight.bold,
   },
   tasksButtonText: {
     color: PatientColors.tasksHeaderText,
-    fontSize: 30,
-    fontWeight: 'bold',
+    fontSize: PatientTypography.size.backButton,
+    fontWeight: PatientTypography.weight.bold,
   },
   gamesButtonText: {
     color: PatientColors.gamesHeaderText,
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: PatientTypography.size.header,
+    fontWeight: PatientTypography.weight.bold,
   },
   phoneButtonText: {
     color: PatientColors.phoneHeaderText,
-    fontSize: 27,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: PatientTypography.weight.bold,
   },
+
+  // ── Botão Aurélia ───────────────────────────────────────────────────────────
   aureliaButtonAdjustment: {
     width: '100%',
     paddingVertical: 16,
@@ -244,7 +237,7 @@ const styles = StyleSheet.create({
   },
   aureliaButtonText: {
     color: PatientColors.aureliaHeaderText,
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: PatientTypography.size.reduced,
+    fontWeight: PatientTypography.weight.bold,
   },
 });

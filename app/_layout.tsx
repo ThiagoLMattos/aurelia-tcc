@@ -65,6 +65,9 @@ export default function RootLayout() {
             name="tarefa-idoso"
             options={{ headerShown: false }}
           />
+          <Stack.Screen name="jogos-idoso"
+          options={{ headerShown: false }}
+          />
         </Stack>
         <StatusBar style="light" backgroundColor={Colors.primary} />
       </ThemeProvider>

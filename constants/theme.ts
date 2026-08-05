@@ -131,7 +131,7 @@ export const PatientTypography = {
   },
   weight: {
     regular: '400' as const,   // sem negrito — padrão para quase tudo
-    bold: '700' as const,      // negrito — obrigatório só no tamanho mínimo (18px)
+    bold: '625' as const,      // negrito — obrigatório só no tamanho mínimo (18px)
   },
   lineHeight: {
     normal: 1.7,   // leitura corrida — ideal para Alzheimer inicial

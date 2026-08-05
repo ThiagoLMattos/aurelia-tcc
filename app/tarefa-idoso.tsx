@@ -1,11 +1,11 @@
 // @ts-nocheck
 
-import { Layout, PatientColors, PatientTypography, Shadow, Typography, Spacing, Radius } from '@/constants/theme';
+import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// --- Dados falsos - substituir pela API do cuidador depois ---
+// ─── Dados falsos — substituir pela API do cuidador depois ───────────────────
 const MOCK_TASKS = [
   {
     id: '1',
@@ -58,26 +58,19 @@ const MOCK_TASKS = [
   },
 ];
 
-// --- Componente principal ---
+// ─── Componente principal ────────────────────────────────────────────────────
 export default function TarefasIdosoScreen() {
   const router = useRouter();
 
-  // Estado da lista de tarefas
   const [tasks, setTasks] = useState(MOCK_TASKS);
-
-  // Tarefa selecionada para confirmação na aba
   const [selectedTask, setSelectedTask] = useState(null);
-
-  // Controle da aba de confirmação
   const [showConfirmSheet, setShowConfirmSheet] = useState(false);
 
-  // Abre a aba de confirmação para a tarefa selecionada
   const handleConcluirPress = (task) => {
     setSelectedTask(task);
     setShowConfirmSheet(true);
   };
 
-  // Confirma a conclusão da tarefa
   const handleConfirm = () => {
     setTasks((prev) =>
       prev.map((t) =>
@@ -88,7 +81,6 @@ export default function TarefasIdosoScreen() {
     setSelectedTask(null);
   };
 
-  // Cancela sem fazer nada
   const handleCancel = () => {
     setShowConfirmSheet(false);
     setSelectedTask(null);
@@ -98,7 +90,7 @@ export default function TarefasIdosoScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* --- Header --- */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>TAREFAS</Text>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
@@ -106,7 +98,7 @@ export default function TarefasIdosoScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* --- Lista de tarefas --- */}
+      {/* ── Lista de tarefas ── */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -116,7 +108,7 @@ export default function TarefasIdosoScreen() {
             key={task.id}
             style={[styles.taskCard, task.done && styles.taskCardDone]}
           >
-            {/* Linha Superior: Nome da tarefa e Botão */}
+            {/* Linha superior: nome + botão */}
             <View style={styles.cardHeader}>
               <Text style={[styles.taskName, task.done && styles.taskNameDone]}>
                 {task.id}. {task.name}
@@ -137,7 +129,7 @@ export default function TarefasIdosoScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Linha Inferior: Descrição expandida */}
+            {/* Linha inferior: descrição */}
             <Text style={styles.taskDescription} numberOfLines={2}>
               {task.time} — {task.description}
             </Text>
@@ -147,7 +139,7 @@ export default function TarefasIdosoScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* --- Aba de confirmação (Modal) --- */}
+      {/* ── Aba de confirmação (Modal) ── */}
       <Modal
         visible={showConfirmSheet}
         transparent
@@ -156,6 +148,7 @@ export default function TarefasIdosoScreen() {
       >
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
+
             <Text style={styles.sheetQuestion}>
               Você já concluiu a tarefa?
             </Text>
@@ -164,7 +157,6 @@ export default function TarefasIdosoScreen() {
               {selectedTask?.id} — {selectedTask?.name.toUpperCase()}
             </Text>
 
-            {/* Botão confirmar */}
             <TouchableOpacity
               style={styles.sheetButtonConfirm}
               onPress={handleConfirm}
@@ -173,7 +165,6 @@ export default function TarefasIdosoScreen() {
               <Text style={styles.sheetButtonConfirmText}>CONCLUÍ</Text>
             </TouchableOpacity>
 
-            {/* Botão cancelar */}
             <TouchableOpacity
               style={styles.sheetButtonCancel}
               onPress={handleCancel}
@@ -181,6 +172,7 @@ export default function TarefasIdosoScreen() {
             >
               <Text style={styles.sheetButtonCancelText}>CANCELAR</Text>
             </TouchableOpacity>
+
           </View>
         </View>
       </Modal>
@@ -188,14 +180,14 @@ export default function TarefasIdosoScreen() {
   );
 }
 
-// --- Estilos ---
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
 
-  // --- Header ---
+  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: PatientColors.tasksMain,
     flexDirection: 'row',
@@ -209,6 +201,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: PatientColors.tasksHeaderText,
     fontSize: PatientTypography.size.header,
+    fontWeight: PatientTypography.weight.regular,
   },
   headerButton: {
     backgroundColor: PatientColors.tasksHeaderButton,
@@ -221,18 +214,19 @@ const styles = StyleSheet.create({
   headerButtonText: {
     color: PatientColors.tasksHeaderText,
     fontSize: PatientTypography.size.backButton,
+    fontWeight: PatientTypography.weight.regular,
   },
 
-  // --- Lista ---
+  // ── Lista ────────────────────────────────────────────────────────────────────
   scrollContent: {
-    paddingHorizontal: 0, // Garante que a lista ocupe toda a largura da tela
+    paddingHorizontal: 0,
   },
   taskCard: {
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#2C2C2C',
+    borderWidth: 0.5,
+    borderColor: '#D3D1C7',
     paddingVertical: 20,
-    paddingHorizontal: 16, // Reduzido de 30 para 16 para aproximar o nome da borda esquerda
+    paddingHorizontal: 16,
     flexDirection: 'column',
     gap: 12,
   },
@@ -251,86 +245,86 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: PatientTypography.size.common,
     fontWeight: PatientTypography.weight.regular,
-    color: '#2C2C2C',
-    marginRight: 4,
+    color: '#2C2C2A',
   },
   taskNameDone: {
     textDecorationLine: 'line-through',
-    color: '#888780',
+    color: '#2C2C2C',
   },
   taskDescription: {
-    fontSize: 16,
+    fontSize: PatientTypography.size.minimum,
+    fontWeight: PatientTypography.weight.bold,
     color: '#2C2C2C',
-    lineHeight: 20 * 1.5,
+    lineHeight: 18 * 1.7,
     width: '100%',
   },
   concludeButton: {
     backgroundColor: PatientColors.tasksMain,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: PatientColors.tasksHeaderButton,
     minWidth: 140,
     minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -2,
-    borderWidth: 1,
-    borderColor: PatientColors.tasksHeaderButton,
     ...Shadow.soft,
   },
   concludeButtonDone: {
-    backgroundColor: '#A0A0A0',
+    backgroundColor: PatientColors.tasksDoneIcon,
+    borderColor: PatientColors.tasksDoneIcon,
   },
   concludeButtonText: {
     color: PatientColors.tasksHeaderText,
     fontSize: PatientTypography.size.reduced,
+    fontWeight: PatientTypography.weight.bold,
   },
 
-  // --- Aba de confirmação ---
+  // ── Aba de confirmação ───────────────────────────────────────────────────────
   sheetOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    padding: Spacing.lg,
-    gap: Spacing.md,
+    backgroundColor: '#F1EFE8',
+    borderTopWidth: 7,
+    borderTopColor: PatientColors.tasksMain,
+    padding: 24,
+    gap: 16,
     ...Shadow.sheet,
   },
   sheetQuestion: {
-    fontSize: Typography.size.base,
-    color: '#5F5E5A',
+    fontSize: PatientTypography.size.reduced,
+    fontWeight: PatientTypography.weight.regular,
+    color: '#2C2C2C',
     textAlign: 'center',
-    marginBottom: Spacing.xs,
   },
   sheetTaskName: {
-    fontSize: Typography.size.title,
-    fontWeight: Typography.weight.bold,
+    fontSize: PatientTypography.size.sheet,
+    fontWeight: PatientTypography.weight.bold,
     color: '#2C2C2A',
     textAlign: 'center',
-    marginBottom: Spacing.sm,
   },
   sheetButtonConfirm: {
     backgroundColor: PatientColors.tasksMain,
-    borderRadius: Radius.lg,
-    paddingVertical: 18,
+    borderRadius: 12,
+    paddingVertical: 20,
     alignItems: 'center',
   },
   sheetButtonConfirmText: {
     color: PatientColors.tasksHeaderText,
-    fontSize: Typography.size.action,
-    fontWeight: Typography.weight.bold,
+    fontSize: PatientTypography.size.sheet,
+    fontWeight: PatientTypography.weight.bold,
   },
   sheetButtonCancel: {
     backgroundColor: PatientColors.tasksHeaderButton,
-    borderRadius: Radius.lg,
-    paddingVertical: 18,
+    borderRadius: 12,
+    paddingVertical: 20,
     alignItems: 'center',
   },
   sheetButtonCancelText: {
     color: PatientColors.tasksHeaderText,
-    fontSize: Typography.size.action,
-    fontWeight: Typography.weight.bold,
+    fontSize: PatientTypography.size.sheet,
+    fontWeight: PatientTypography.weight.bold,
   },
 });
