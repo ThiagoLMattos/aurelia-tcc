@@ -1,9 +1,11 @@
 // @ts-nocheck
 
-import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme';
+import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme-elder';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
 // ─── Dados dos jogos — adicionar rotas quando as telas estiverem prontas ─────
 const GAMES = [
@@ -38,7 +40,8 @@ export default function JogosIdosoScreen() {
   const router = useRouter();
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" backgroundColor={PatientColors.gamesMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Header ── */}
@@ -86,7 +89,7 @@ export default function JogosIdosoScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -160,7 +163,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   gameNameSmall: {
-    fontSize: 22,
+    fontSize: 21,
   },
 
   // ── Botão jogar ──────────────────────────────────────────────────────────────
@@ -177,7 +180,7 @@ const styles = StyleSheet.create({
   },
   playButtonText: {
     color: PatientColors.gamesHeaderText,
-    fontSize: PatientTypography.size.reduced,    // 20px
+    fontSize: PatientTypography.size.reduced,
     fontWeight: PatientTypography.weight.bold,
   },
 });

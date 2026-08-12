@@ -1,9 +1,11 @@
 // @ts-nocheck
 
-import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme';
+import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme-elder';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
 // ─── Dados falsos — substituir pela API do cuidador depois ───────────────────
 const MOCK_TASKS = [
@@ -87,7 +89,8 @@ export default function TarefasIdosoScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" backgroundColor={PatientColors.tasksMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Header ── */}
@@ -176,7 +179,7 @@ export default function TarefasIdosoScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
   headerButton: {
     backgroundColor: PatientColors.tasksHeaderButton,
     borderWidth: 1.5,
-    borderColor: PatientColors.tasksHeaderBorder,
+    borderColor: PatientColors.tasksBorder,
     borderRadius: 10,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -224,7 +227,7 @@ const styles = StyleSheet.create({
   taskCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 0.5,
-    borderColor: '#D3D1C7',
+    borderColor: '#2C2C2C',
     paddingVertical: 20,
     paddingHorizontal: 16,
     flexDirection: 'column',
@@ -245,7 +248,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: PatientTypography.size.common,
     fontWeight: PatientTypography.weight.regular,
-    color: '#2C2C2A',
+    color: '#2C2C2C',
   },
   taskNameDone: {
     textDecorationLine: 'line-through',
@@ -259,10 +262,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   concludeButton: {
-    backgroundColor: PatientColors.tasksMain,
+    backgroundColor: PatientColors.tasksHeaderButton,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: PatientColors.tasksHeaderButton,
+    borderColor: PatientColors.tasksBorder,
     minWidth: 140,
     minHeight: 50,
     alignItems: 'center',
@@ -302,7 +305,7 @@ const styles = StyleSheet.create({
   sheetTaskName: {
     fontSize: PatientTypography.size.sheet,
     fontWeight: PatientTypography.weight.bold,
-    color: '#2C2C2A',
+    color: '#2C2C2C',
     textAlign: 'center',
   },
   sheetButtonConfirm: {

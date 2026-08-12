@@ -1,32 +1,58 @@
 // @ts-nocheck
 
 import { Stack, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
 import HomeButton from '@/components/HomeButton';
-import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme';
+import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme-elder';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-// ─── Dados falsos — substituir pela API do cuidador depois ───────────────────
+// ─── Dynamic date — updates automatically every day ──────────────────────────
+const today = new Date().toLocaleDateString('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+
+// ─── Mock data — replace with caregiver API later ─────────────────────────────
 const PATIENT_DATA = {
   name: 'Maria Aparecida',
-  date: '22/07/2026',
+  date: today,
   tasks: [
-    { id: '1', name: ' - Omeprazol',     time: '07:00' },
-    { id: '2', name: ' - Caminhada',     time: '08:30' },
-    { id: '3', name: ' - Café da manhã', time: '09:00' },
-    { id: '4', name: ' - Losartana',     time: '12:00' },
-    { id: '5', name: ' - Almoço',        time: '12:30' },
-    { id: '6', name: ' - Repouso',       time: '14:00' },
-    { id: '7', name: ' - Metformina',    time: '19:00' },
+    { id: '1', name: ' - Omeprazol',      time: '07:00' },
+    { id: '2', name: ' - Caminhada',      time: '08:30' },
+    { id: '3', name: ' - Café da manhã',  time: '09:00' },
+    { id: '4', name: ' - Losartana',      time: '12:00' },
+    { id: '5', name: ' - Almoço',         time: '12:30' },
+    { id: '6', name: ' - Repouso',        time: '14:00' },
+    { id: '7', name: ' - Metformina',     time: '19:00' },
   ],
 };
 
 export default function PatientHomeScreen() {
   const router = useRouter();
 
+  // ─── Real-time clock — syncs with device system time ─────────────────────
+  const [currentTime, setCurrentTime] = useState(
+    new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(
+        new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      );
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" backgroundColor={PatientColors.aureliaMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Header ── */}
@@ -34,14 +60,19 @@ export default function PatientHomeScreen() {
         <Text style={styles.greetingText}>
           OLÁ {PATIENT_DATA.name.toUpperCase()}
         </Text>
-        <Text style={styles.dateText}>{PATIENT_DATA.date}</Text>
+
+        {/* Time on the left, date on the right */}
+        <View style={styles.dateTimeRow}>
+          <Text style={styles.timeText}>{currentTime}</Text>
+          <Text style={styles.dateText}>{PATIENT_DATA.date}</Text>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Card resumo ── */}
+        {/* ── Summary card ── */}
         <View style={styles.summaryCard}>
           {PATIENT_DATA.tasks.slice(0, 7).map((task) => (
             <View key={task.id} style={styles.taskRow}>
@@ -54,52 +85,52 @@ export default function PatientHomeScreen() {
           ))}
         </View>
 
-        {/* ── Grade de 4 botões ── */}
+        {/* ── Button grid ── */}
         <View style={styles.buttonGrid}>
 
           <HomeButton
             backgroundColor={PatientColors.sosMain}
-            onPress={() => router.push('/sos' as any)}
-            customStyle={styles.gridButtonAdjustment}
+            onPress={() => router.push('/sos-elder' as any)}
+            customStyle={styles.gridButton}
           >
-            <Image source={require('@/assets/images/Emergencia_icon.png')} />
+            <MaterialCommunityIcons name="alarm-light-outline" size={64} color="#FCEBEB" />
             <Text style={styles.sosButtonText}>SOS</Text>
           </HomeButton>
 
           <HomeButton
             backgroundColor={PatientColors.tasksMain}
-            onPress={() => router.push('/tarefa-idoso' as any)}
-            customStyle={styles.gridButtonAdjustment}
+            onPress={() => router.push('/task-elder' as any)}
+            customStyle={styles.gridButton}
           >
-            <Image source={require('@/assets/images/Tarefas_icon.png')} />
+            <MaterialCommunityIcons name="list-box-outline" size={64} color="#E8F8EB" />
             <Text style={styles.tasksButtonText}>TAREFAS</Text>
           </HomeButton>
 
           <HomeButton
             backgroundColor={PatientColors.gamesMain}
-            onPress={() => router.push('/jogos-idoso' as any)}
-            customStyle={styles.gridButtonAdjustment}
+            onPress={() => router.push('/games-elder' as any)}
+            customStyle={styles.gridButton}
           >
-            <Image source={require('@/assets/images/Jogos_icon.png')} />
+            <MaterialCommunityIcons name="puzzle-outline" size={64} color="#FFFFFF" />
             <Text style={styles.gamesButtonText}>JOGOS</Text>
           </HomeButton>
 
           <HomeButton
             backgroundColor={PatientColors.phoneMain}
             onPress={() => router.push('/telefone' as any)}
-            customStyle={styles.gridButtonAdjustment}
+            customStyle={styles.gridButton}
           >
-            <Image source={require('@/assets/images/Telefone_icon.png')} />
+            <Ionicons name="call" size={64} color="#E6F1FB" />
             <Text style={styles.phoneButtonText}>TELEFONE</Text>
           </HomeButton>
 
         </View>
 
-        {/* ── Botão Aurélia ── */}
+        {/* ── Aurélia button ── */}
         <HomeButton
           backgroundColor={PatientColors.aureliaMain}
           onPress={() => router.push('/aurelia' as any)}
-          customStyle={styles.aureliaButtonAdjustment}
+          customStyle={styles.aureliaButton}
         >
           <View style={styles.avatarCircle}>
             <Image source={require('@/assets/images/LogoAvatar.png')} />
@@ -108,18 +139,18 @@ export default function PatientHomeScreen() {
         </HomeButton>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
 
-  // ── Header — mantido como estava ────────────────────────────────────────────
+  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: PatientColors.homeHeader,
     paddingHorizontal: 25,
@@ -133,17 +164,26 @@ const styles = StyleSheet.create({
     right: 15,
     marginTop: 10,
   },
+  dateTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  timeText: {
+    color: PatientColors.homeHeaderSubtitle,
+    fontSize: PatientTypography.size.common,
+  },
   dateText: {
     color: PatientColors.homeHeaderSubtitle,
     fontSize: PatientTypography.size.common,
     textAlign: 'right',
-    marginTop: 15,
   },
 
-  // ── Card resumo — mantido como estava ───────────────────────────────────────
+  // ── Summary card ─────────────────────────────────────────────────────────────
   scrollContent: {
     padding: 25,
-    gap: 40,
+    gap: 37,
   },
   summaryCard: {
     backgroundColor: '#FAEEDA',
@@ -152,7 +192,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    minHeight: 225,
+    minHeight: 200,
     ...Shadow.medium,
   },
   taskRow: {
@@ -162,7 +202,7 @@ const styles = StyleSheet.create({
     marginVertical: 1,
   },
   taskName: {
-    fontSize: PatientTypography.size.reduced,
+    fontSize: PatientTypography.size.minimum,
     fontWeight: 'bold',
     color: '#000000',
   },
@@ -175,19 +215,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   taskTime: {
-    fontSize: PatientTypography.size.reduced,
+    fontSize: PatientTypography.size.minimum,
     fontWeight: 'bold',
     color: '#000000',
   },
 
-  // ── Grade de botões ─────────────────────────────────────────────────────────
+  // ── Button grid ──────────────────────────────────────────────────────────────
   buttonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 35,
+    gap: 30,
   },
-  gridButtonAdjustment: {
+  gridButton: {
     width: 150,
     height: 130,
     flexDirection: 'column',
@@ -214,17 +254,16 @@ const styles = StyleSheet.create({
   },
   phoneButtonText: {
     color: PatientColors.phoneHeaderText,
-    fontSize: 28,
+    fontSize: 26.9,
     fontWeight: PatientTypography.weight.bold,
   },
 
-  // ── Botão Aurélia ───────────────────────────────────────────────────────────
-  aureliaButtonAdjustment: {
+  // ── Aurélia button ────────────────────────────────────────────────────────────
+  aureliaButton: {
     width: '100%',
     paddingVertical: 16,
     gap: 15,
     borderRadius: 10,
-    marginTop: 5,
     ...Shadow.medium,
   },
   avatarCircle: {
