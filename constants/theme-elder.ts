@@ -16,9 +16,9 @@ export const PatientColors = {
   sosHeaderBorder: '#F7C1C1',    // borda botão no header
   sosHeaderText: '#FCEBEB',      // texto e ícones no header SOS
   sosBg: '#FCEBEB',              // fundo da tela SOS
-  sosCardAvatar: '#F7C1C1',      // avatar contatos de emergência
   sosTextEmphasis: '#791F1F',    // nome do contato, ênfase
   sosText: '#501313',            // texto principal sobre fundo claro
+  sosBorder: '#501313',            // borda do card de contato
  
   // ── Tarefas (Verde floresta) ───────────────────────────────────────────────
   tasksMain: '#2D7A3A',          // botão home, header, botão "Concluir"

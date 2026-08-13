@@ -78,7 +78,7 @@ export default function JogosIdosoScreen() {
             {/* Botão jogar */}
             <TouchableOpacity
               style={styles.playButton}
-              onPress={() => router.push(game.route as any)}
+              onPress={() => router.push('/games-elder-embreve' as any)}
               activeOpacity={0.8}
             >
               <Text style={styles.playButtonText}>JOGAR</Text>

@@ -17,7 +17,7 @@ const MOCK_EMERGENCY_CONTACTS = [
 ];
 
 // ─── Componente principal ────────────────────────────────────────────────────
-export default function SosElderScreen() {
+export default function PhoneElderScreen() {
   const router = useRouter();
 
   const [selectedContact, setSelectedContact] = useState(null);
@@ -42,12 +42,12 @@ export default function SosElderScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" backgroundColor={PatientColors.sosMain} />
+      <StatusBar style="light" backgroundColor={PatientColors.phoneMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>SOS</Text>
+        <Text style={styles.headerTitle}>TELEFONE</Text>
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => router.back()}
@@ -55,11 +55,6 @@ export default function SosElderScreen() {
         >
           <Text style={styles.headerButtonText}>VOLTAR</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* ── Label ── */}
-      <View style={styles.labelRow}>
-        <Text style={styles.label}>LIGAR PARA:</Text>
       </View>
 
       {/* ── Lista de contatos de emergência ── */}
@@ -77,7 +72,7 @@ export default function SosElderScreen() {
             {/* Avatar */}
             <View style={styles.avatar}>
               <Image
-                source={require('@/assets/images/ContatoSOS.png')}
+                source={require('@/assets/images/ContatoTelefone.png')}
                 style={styles.avatarImage}
                 resizeMode="cover"
               />
@@ -143,12 +138,12 @@ export default function SosElderScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: PatientColors.sosBg,
+    backgroundColor: '#FFFFFF',
   },
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: PatientColors.sosMain,
+    backgroundColor: PatientColors.phoneMain,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -157,35 +152,22 @@ const styles = StyleSheet.create({
     ...Shadow.header,
   },
   headerTitle: {
-    color: PatientColors.sosHeaderText,
-    fontSize: 50,
+    color: PatientColors.phoneHeaderText,
+    fontSize: 36,
     fontWeight: PatientTypography.weight.regular,
-    marginLeft: 40,
   },
   headerButton: {
-    backgroundColor: PatientColors.sosHeaderButton,
+    backgroundColor: PatientColors.phoneHeaderButton,
     borderWidth: 1.5,
-    borderColor: PatientColors.sosHeaderBorder,
+    borderColor: PatientColors.phoneHeaderBorder,
     borderRadius: 10,
     paddingVertical: 20,
     paddingHorizontal: 20,
   },
   headerButtonText: {
-    color: PatientColors.sosHeaderText,
+    color: PatientColors.phoneHeaderText,
     fontSize: PatientTypography.size.backButton,
     fontWeight: PatientTypography.weight.regular,
-  },
-
-  // ── Label ───────────────────────────────────────────────────────────────────
-  labelRow: {
-    backgroundColor: PatientColors.sosBg,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  label: {
-    fontSize: PatientTypography.size.sheet,
-    color: PatientColors.sosText,
-    textAlign: 'center',
   },
 
   // ── Lista ────────────────────────────────────────────────────────────────────
@@ -193,9 +175,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   contactCard: {
-    backgroundColor: PatientColors.sosBg,
     borderWidth: 0.5,
-    borderColor: PatientColors.sosBorder,
+    borderColor: PatientColors.phoneFieldBorder,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -220,13 +201,13 @@ const styles = StyleSheet.create({
   contactName: {
     fontSize: PatientTypography.size.common,
     fontWeight: PatientTypography.weight.bold,
-    color: PatientColors.sosTextEmphasis,
+    color: "#2C2C2C",
     marginBottom: 4,
   },
   contactPhone: {
     fontSize: PatientTypography.size.reduced,
     fontWeight: PatientTypography.weight.bold,
-    color: PatientColors.sosText,
+    color: "#2C2C2C",
   },
 
   // ── Aba de confirmação ───────────────────────────────────────────────────────
@@ -236,9 +217,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sheet: {
-    backgroundColor: PatientColors.sosBg,
+    backgroundColor: '#F1EFE8',
     borderTopWidth: 7,
-    borderTopColor: PatientColors.sosMain,
+    borderTopColor: PatientColors.phoneMain,
     padding: 24,
     gap: 16,
     ...Shadow.sheet,
@@ -246,34 +227,34 @@ const styles = StyleSheet.create({
   sheetQuestion: {
     fontSize: PatientTypography.size.reduced,
     fontWeight: PatientTypography.weight.regular,
-    color: PatientColors.sosText,
+    color: "#2C2C2C",
     textAlign: 'center',
   },
   sheetContactName: {
     fontSize: PatientTypography.size.sheet,
     fontWeight: PatientTypography.weight.bold,
-    color: PatientColors.sosText,
+    color: "#2C2C2C",
     textAlign: 'center',
   },
   sheetButtonCall: {
-    backgroundColor: PatientColors.sosMain,
+    backgroundColor: PatientColors.phoneMain,
     borderRadius: 12,
     paddingVertical: 20,
     alignItems: 'center',
   },
   sheetButtonCallText: {
-    color: PatientColors.sosHeaderText,
+    color: PatientColors.phoneHeaderText,
     fontSize: PatientTypography.size.sheet,
     fontWeight: PatientTypography.weight.bold,
   },
   sheetButtonCancel: {
-    backgroundColor: PatientColors.sosHeaderButton,
+    backgroundColor: PatientColors.phoneHeaderButton,
     borderRadius: 12,
     paddingVertical: 20,
     alignItems: 'center',
   },
   sheetButtonCancelText: {
-    color: PatientColors.sosHeaderText,
+    color: PatientColors.phoneHeaderText,
     fontSize: PatientTypography.size.sheet,
     fontWeight: PatientTypography.weight.bold,
   },

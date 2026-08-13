@@ -225,7 +225,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   taskCard: {
-    backgroundColor: '#FFFFFF',
     borderWidth: 0.5,
     borderColor: '#2C2C2C',
     paddingVertical: 20,

@@ -46,7 +46,7 @@ export default function PatientHomeScreen() {
       setCurrentTime(
         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       );
-    }, 1000);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -117,7 +117,7 @@ export default function PatientHomeScreen() {
 
           <HomeButton
             backgroundColor={PatientColors.phoneMain}
-            onPress={() => router.push('/telefone' as any)}
+            onPress={() => router.push('/phone-elder' as any)}
             customStyle={styles.gridButton}
           >
             <Ionicons name="call" size={64} color="#E6F1FB" />
@@ -133,7 +133,7 @@ export default function PatientHomeScreen() {
           customStyle={styles.aureliaButton}
         >
           <View style={styles.avatarCircle}>
-            <Image source={require('@/assets/images/LogoAvatar.png')} />
+            <Image source={require('@/assets/images/LogoAvatar.png')} style={styles.avatarImage} resizeMode="contain"/>
           </View>
           <Text style={styles.aureliaButtonText}>CONVERSAR COM AURÉLIA</Text>
         </HomeButton>
@@ -271,6 +271,13 @@ const styles = StyleSheet.create({
     height: 35,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImage: {
+    width: 45,
+    height: 45,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
