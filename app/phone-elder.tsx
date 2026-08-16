@@ -1,56 +1,58 @@
 // @ts-nocheck
 import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme-elder';
-import { Stack, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Stack, useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import {
+  ActivityIndicator, Alert, FlatList, Image,
+  Linking, Modal, StyleSheet, Text, TouchableOpacity, View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Contacts from 'expo-contacts';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function PhoneElderScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+
+  // ── Modo de seleção — ativado quando vem de add-contact-elder ────────────
+  const isSelectMode = params.mode === 'select';
 
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState(null);
   const [showConfirmSheet, setShowConfirmSheet] = useState(false);
 
-  // ── Buscar contatos do dispositivo ─────────────────────────────────────────
-  useEffect(() => {
-    loadDeviceContacts();
-  }, []);
-
+  // ── Carrega contatos do dispositivo e parentescos salvos ──────────────────
   const loadDeviceContacts = async () => {
     try {
       setLoading(true);
-      // Solicita permissão de acesso aos contatos
       const { status } = await Contacts.requestPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(
-          'Permissão Negada',
-          'Precisamos de acesso aos seus contatos para poder exibi-los na tela de telefone.'
-        );
+        Alert.alert('Permissão Negada', 'Precisamos de acesso aos seus contatos.');
         setLoading(false);
         return;
       }
 
-      // Busca todos os contatos que possuem número de telefone
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.PhoneNumbers],
       });
 
       if (data && data.length > 0) {
-        // Mapeia e filtra apenas os contatos que possuem número cadastrado
-        const formattedContacts = data
-          .filter((item) => item.phoneNumbers && item.phoneNumbers.length > 0)
-          .map((item) => ({
-            id: item.id,
-            name: item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'Contato Sem Nome',
-            phone: item.phoneNumbers[0].number,
-            relation: '', // Espaço reservado para ser configurado em outra tela posteriormente
-          }));
-
+        const formattedContacts = await Promise.all(
+          data
+            .filter((item) => item.phoneNumbers && item.phoneNumbers.length > 0)
+            .map(async (item) => {
+              const relation = await AsyncStorage.getItem(`relation_${item.id}`) || '';
+              return {
+                id: item.id,
+                name: item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'Contato Sem Nome',
+                phone: item.phoneNumbers[0].number,
+                relation,
+              };
+            })
+        );
         setContacts(formattedContacts);
       } else {
         Alert.alert('Nenhum contato', 'Nenhum contato encontrado no seu dispositivo.');
@@ -63,15 +65,33 @@ export default function PhoneElderScreen() {
     }
   };
 
-  // ── Ações dos botões e modal ───────────────────────────────────────────────
-  const handleContactPress = (contact) => {
-    setSelectedContact(contact);
-    setShowConfirmSheet(true);
-  };
+  // ── Recarrega ao voltar para a tela ──────────────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      loadDeviceContacts();
+    }, [])
+  );
+
+  // ── Toque no contato — comportamento diferente por modo ───────────────────
+    const handleContactPress = (contact) => {
+      if (isSelectMode) {
+        // Substitui a tela atual passando os dados como params
+        router.replace({
+          pathname: '/add-contact-elder',
+          params: {
+            selectedId: contact.id,
+            selectedName: contact.name,
+            selectedPhone: contact.phone,
+          },
+        } as any);
+        return;
+      }
+      setSelectedContact(contact);
+      setShowConfirmSheet(true);
+    };
 
   const handleCall = () => {
     if (!selectedContact) return;
-    // Remove espaços e caracteres especiais do número para discagem
     const cleanPhone = selectedContact.phone.replace(/[^0-9+]/g, '');
     Linking.openURL(`tel:${cleanPhone}`);
     setShowConfirmSheet(false);
@@ -83,19 +103,13 @@ export default function PhoneElderScreen() {
     setSelectedContact(null);
   };
 
-  // Exemplo de como navegar para a outra tela para adicionar parentesco no futuro:
-  const handleAddRelation = (contact) => {
-    // router.push({ pathname: '/add-relation', params: { id: contact.id, name: contact.name } });
-  };
-
-  // ── Renderização do Item da Lista ──────────────────────────────────────────
+  // ── Renderização do item da lista ─────────────────────────────────────────
   const renderContactItem = ({ item: contact }) => (
     <TouchableOpacity
       style={styles.contactCard}
       onPress={() => handleContactPress(contact)}
       activeOpacity={0.8}
     >
-      {/* Avatar */}
       <View style={styles.avatar}>
         <Image
           source={require('@/assets/images/ContatoTelefone.png')}
@@ -103,11 +117,9 @@ export default function PhoneElderScreen() {
           resizeMode="cover"
         />
       </View>
-
-      {/* Info */}
       <View style={styles.contactInfo}>
         <Text style={styles.contactName}>
-          {contact.name} {contact.relation ? `— ${contact.relation}` : ''}
+          {contact.name}{contact.relation ? ` — ${contact.relation}` : ''}
         </Text>
         <Text style={styles.contactPhone}>{contact.phone}</Text>
       </View>
@@ -119,19 +131,17 @@ export default function PhoneElderScreen() {
       <StatusBar style="light" backgroundColor={PatientColors.phoneMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Header ── */}
+      {/* ── Header — título muda conforme o modo ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>TELEFONE</Text>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-        >
+        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit>
+          {isSelectMode ? 'SELECIONAR CONTATO' : 'TELEFONE'}
+        </Text>
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.8}>
           <Text style={styles.headerButtonText}>VOLTAR</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Conteúdo / Lista de contatos da agenda ── */}
+      {/* ── Lista de contatos ── */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={PatientColors.phoneMain} />
@@ -152,38 +162,31 @@ export default function PhoneElderScreen() {
         />
       )}
 
-      {/* ── Aba de confirmação de ligação ── */}
-      <Modal
-        visible={showConfirmSheet}
-        transparent
-        animationType="slide"
-        onRequestClose={handleCancel}
-      >
+      {/* ── Footer — só aparece no modo normal ── */}
+      {!isSelectMode && (
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.footerButton}
+            onPress={() => router.push('/add-contact-elder' as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.footerButtonText}>+ ADICIONAR PARENTESCO</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Aba de confirmação de ligação — só no modo normal ── */}
+      <Modal visible={showConfirmSheet} transparent animationType="slide" onRequestClose={handleCancel}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
-            <Text style={styles.sheetQuestion}>
-              Certeza que deseja ligar para:
-            </Text>
-
+            <Text style={styles.sheetQuestion}>Certeza que deseja ligar para:</Text>
             <Text style={styles.sheetContactName}>
-              {selectedContact?.name} {selectedContact?.relation ? `— ${selectedContact?.relation}` : ''}
+              {selectedContact?.name}{selectedContact?.relation ? ` — ${selectedContact?.relation}` : ''}
             </Text>
-
-            {/* Botão ligar */}
-            <TouchableOpacity
-              style={styles.sheetButtonCall}
-              onPress={handleCall}
-              activeOpacity={0.85}
-            >
+            <TouchableOpacity style={styles.sheetButtonCall} onPress={handleCall} activeOpacity={0.85}>
               <Text style={styles.sheetButtonCallText}>LIGAR</Text>
             </TouchableOpacity>
-
-            {/* Botão voltar */}
-            <TouchableOpacity
-              style={styles.sheetButtonCancel}
-              onPress={handleCancel}
-              activeOpacity={0.85}
-            >
+            <TouchableOpacity style={styles.sheetButtonCancel} onPress={handleCancel} activeOpacity={0.85}>
               <Text style={styles.sheetButtonCancelText}>VOLTAR</Text>
             </TouchableOpacity>
           </View>
@@ -195,10 +198,7 @@ export default function PhoneElderScreen() {
 
 // ─── Estilos ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: PatientColors.phoneMain },
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
@@ -212,8 +212,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: PatientColors.phoneHeaderText,
-    fontSize: 36,
+    fontSize: PatientTypography.size.header,
     fontWeight: PatientTypography.weight.regular,
+    flexShrink: 1,
   },
   headerButton: {
     backgroundColor: PatientColors.phoneHeaderButton,
@@ -222,6 +223,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 20,
     paddingHorizontal: 20,
+    flexShrink: 0,
   },
   headerButtonText: {
     color: PatientColors.phoneHeaderText,
@@ -229,55 +231,27 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.regular,
   },
 
-  // ── Estados de Carregamento e Vazio ────────────────────────────────────────
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: PatientTypography.size.common,
-    color: '#2C2C2C',
-  },
-  emptyContainer: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: PatientTypography.size.common,
-    color: '#666666',
-  },
+  // ── Carregamento e vazio ─────────────────────────────────────────────────────
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: PatientTypography.size.common, color: '#2C2C2C' },
+  emptyContainer: { padding: 32, alignItems: 'center' },
+  emptyText: { fontSize: PatientTypography.size.common, color: '#666666' },
 
   // ── Lista ────────────────────────────────────────────────────────────────────
-  scrollContent: {
-    paddingHorizontal: 0,
-    paddingBottom: 32,
-  },
+  scrollContent: { paddingHorizontal: 0, paddingBottom: 16 },
   contactCard: {
     borderWidth: 0.5,
     borderColor: PatientColors.phoneFieldBorder,
+    backgroundColor: "#FFFFFF",
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
   },
-
-  // ── Avatar ───────────────────────────────────────────────────────────────────
-  avatar: {
-    width: 100,
-    height: 100,
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-
-  // ── Info do contato ──────────────────────────────────────────────────────────
-  contactInfo: {
-    flex: 1,
-  },
+  avatar: { width: 100, height: 100 },
+  avatarImage: { width: '100%', height: '100%' },
+  contactInfo: { flex: 1 },
   contactName: {
     fontSize: PatientTypography.size.common,
     fontWeight: PatientTypography.weight.bold,
@@ -290,12 +264,29 @@ const styles = StyleSheet.create({
     color: '#2C2C2C',
   },
 
-  // ── Aba de confirmação ───────────────────────────────────────────────────────
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  // ── Footer ───────────────────────────────────────────────────────────────────
+  footer: {
+    backgroundColor: PatientColors.phoneMain,
+    padding: 16,
+    borderTopWidth: 0.5,
+    borderTopColor: '#D3D1C7',
   },
+  footerButton: {
+    backgroundColor: PatientColors.phoneHeaderButton,
+    borderColor: PatientColors.phoneHeaderBorder,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  footerButtonText: {
+    color: PatientColors.phoneHeaderText,
+    fontSize: PatientTypography.size.reduced,
+    fontWeight: PatientTypography.weight.bold,
+  },
+
+  // ── Aba de confirmação ───────────────────────────────────────────────────────
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
   sheet: {
     backgroundColor: '#F1EFE8',
     borderTopWidth: 7,

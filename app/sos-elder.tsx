@@ -1,28 +1,39 @@
 // @ts-nocheck
 
 import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme-elder';
-import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
+import React, { useState, useCallback } from 'react';
 import { Image, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ─── Dados falsos — substituir pelos contatos reais da tela de telefone ───────
-const MOCK_EMERGENCY_CONTACTS = [
-  { id: '1', name: 'Maria',   relation: 'Filha',     phone: '11999999991' },
-  { id: '2', name: 'João',    relation: 'Filho',     phone: '11999999992' },
-  { id: '3', name: 'Carlos',  relation: 'Cuidador',  phone: '11999999993' },
-  { id: '4', name: 'Ana',relation: 'Vizinha',    phone: '11999999994' },
-  { id: '5', name: 'Pedro',   relation: 'Neto',      phone: '11999999995' },
-];
-
-// ─── Componente principal ────────────────────────────────────────────────────
 export default function SosElderScreen() {
   const router = useRouter();
 
+  const [contacts, setContacts] = useState([]);
   const [selectedContact, setSelectedContact] = useState(null);
   const [showConfirmSheet, setShowConfirmSheet] = useState(false);
 
+  // ── Carrega contatos de emergência salvos ─────────────────────────────────
+  const loadEmergencyContacts = async () => {
+    try {
+      const raw = await AsyncStorage.getItem('emergency_contacts');
+      const list = raw ? JSON.parse(raw) : [];
+      setContacts(list);
+    } catch (error) {
+      console.error('Erro ao carregar contatos de emergência:', error);
+    }
+  };
+
+  // ── Recarrega toda vez que a tela abre ────────────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      loadEmergencyContacts();
+    }, [])
+  );
+
+  // ── Ações ─────────────────────────────────────────────────────────────────
   const handleContactPress = (contact) => {
     setSelectedContact(contact);
     setShowConfirmSheet(true);
@@ -30,7 +41,8 @@ export default function SosElderScreen() {
 
   const handleCall = () => {
     if (!selectedContact) return;
-    Linking.openURL(`tel:${selectedContact.phone}`);
+    const cleanPhone = selectedContact.phone.replace(/[^0-9+]/g, '');
+    Linking.openURL(`tel:${cleanPhone}`);
     setShowConfirmSheet(false);
     setSelectedContact(null);
   };
@@ -62,12 +74,22 @@ export default function SosElderScreen() {
         <Text style={styles.label}>LIGAR PARA:</Text>
       </View>
 
+      {/* ── Lista vazia ── */}
+      {contacts.length === 0 && (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            Nenhum contato de emergência cadastrado.{'\n'}
+            Adicione na tela de Telefone.
+          </Text>
+        </View>
+      )}
+
       {/* ── Lista de contatos de emergência ── */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {MOCK_EMERGENCY_CONTACTS.map((contact) => (
+        {contacts.map((contact) => (
           <TouchableOpacity
             key={contact.id}
             style={styles.contactCard}
@@ -86,7 +108,7 @@ export default function SosElderScreen() {
             {/* Info */}
             <View style={styles.contactInfo}>
               <Text style={styles.contactName}>
-                {contact.name} — {contact.relation}
+                {contact.name}{contact.relation ? ` — ${contact.relation}` : ''}
               </Text>
               <Text style={styles.contactPhone}>{contact.phone}</Text>
             </View>
@@ -111,10 +133,9 @@ export default function SosElderScreen() {
             </Text>
 
             <Text style={styles.sheetContactName}>
-              {selectedContact?.name} — {selectedContact?.relation}
+              {selectedContact?.name}{selectedContact?.relation ? ` — ${selectedContact?.relation}` : ''}
             </Text>
 
-            {/* Botão ligar */}
             <TouchableOpacity
               style={styles.sheetButtonCall}
               onPress={handleCall}
@@ -123,7 +144,6 @@ export default function SosElderScreen() {
               <Text style={styles.sheetButtonCallText}>LIGAR</Text>
             </TouchableOpacity>
 
-            {/* Botão voltar */}
             <TouchableOpacity
               style={styles.sheetButtonCancel}
               onPress={handleCancel}
@@ -169,6 +189,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 20,
     paddingHorizontal: 20,
+    flexShrink: 0,
   },
   headerButtonText: {
     color: PatientColors.sosHeaderText,
@@ -188,6 +209,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  // ── Lista vazia ──────────────────────────────────────────────────────────────
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: PatientTypography.size.common,
+    color: PatientColors.sosText,
+    textAlign: 'center',
+    lineHeight: 24 * 1.7,
+  },
+
   // ── Lista ────────────────────────────────────────────────────────────────────
   scrollContent: {
     paddingHorizontal: 0,
@@ -195,7 +230,7 @@ const styles = StyleSheet.create({
   contactCard: {
     backgroundColor: PatientColors.sosBg,
     borderWidth: 0.5,
-    borderColor: PatientColors.sosBorder,
+    borderColor: PatientColors.sosCardAvatar,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',

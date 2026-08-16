@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSContactsUsageDescription": "Este aplicativo precisa de acesso aos seus contatos para realizar ligações de emergência."
+        "NSContactsUsageDescription": "Precisamos acessar seus contatos para exibi-los na tela de telefone."
       }
     },
     "android": {

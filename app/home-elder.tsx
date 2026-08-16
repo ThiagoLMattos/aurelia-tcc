@@ -11,32 +11,32 @@ import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/th
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-// ─── Dynamic date — updates automatically every day ──────────────────────────
+// ─── Data dinâmica — atualiza automaticamente todo dia ───────────────────────
 const today = new Date().toLocaleDateString('pt-BR', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
 });
 
-// ─── Mock data — replace with caregiver API later ─────────────────────────────
+// ─── Dados falsos — substituir pela API do cuidador depois ───────────────────
 const PATIENT_DATA = {
   name: 'Maria Aparecida',
   date: today,
   tasks: [
-    { id: '1', name: ' - Omeprazol',      time: '07:00' },
-    { id: '2', name: ' - Caminhada',      time: '08:30' },
-    { id: '3', name: ' - Café da manhã',  time: '09:00' },
-    { id: '4', name: ' - Losartana',      time: '12:00' },
-    { id: '5', name: ' - Almoço',         time: '12:30' },
-    { id: '6', name: ' - Repouso',        time: '14:00' },
-    { id: '7', name: ' - Metformina',     time: '19:00' },
+    { id: '1', name: ' - Omeprazol',     time: '07:00' },
+    { id: '2', name: ' - Caminhada',     time: '08:30' },
+    { id: '3', name: ' - Café da manhã', time: '09:00' },
+    { id: '4', name: ' - Losartana',     time: '12:00' },
+    { id: '5', name: ' - Almoço',        time: '12:30' },
+    { id: '6', name: ' - Repouso',       time: '14:00' },
+    { id: '7', name: ' - Metformina',    time: '19:00' },
   ],
 };
 
 export default function PatientHomeScreen() {
   const router = useRouter();
 
-  // ─── Real-time clock — syncs with device system time ─────────────────────
+  // ─── Relógio em tempo real — sincroniza com o horário do sistema, atualiza a cada 10s ──
   const [currentTime, setCurrentTime] = useState(
     new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   );
@@ -47,7 +47,7 @@ export default function PatientHomeScreen() {
         new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       );
     }, 10000);
-    return () => clearInterval(interval);
+    return () => clearInterval(interval); // limpa ao sair da tela
   }, []);
 
   return (
@@ -55,13 +55,13 @@ export default function PatientHomeScreen() {
       <StatusBar style="light" backgroundColor={PatientColors.aureliaMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Header ── */}
+      {/* ── Cabeçalho ── */}
       <View style={styles.header}>
         <Text style={styles.greetingText}>
           OLÁ {PATIENT_DATA.name.toUpperCase()}
         </Text>
 
-        {/* Time on the left, date on the right */}
+        {/* Hora à esquerda, data à direita */}
         <View style={styles.dateTimeRow}>
           <Text style={styles.timeText}>{currentTime}</Text>
           <Text style={styles.dateText}>{PATIENT_DATA.date}</Text>
@@ -72,7 +72,7 @@ export default function PatientHomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Summary card ── */}
+        {/* ── Cartão de resumo ── */}
         <View style={styles.summaryCard}>
           {PATIENT_DATA.tasks.slice(0, 7).map((task) => (
             <View key={task.id} style={styles.taskRow}>
@@ -85,7 +85,7 @@ export default function PatientHomeScreen() {
           ))}
         </View>
 
-        {/* ── Button grid ── */}
+        {/* ── Grade de botões ── */}
         <View style={styles.buttonGrid}>
 
           <HomeButton
@@ -126,14 +126,14 @@ export default function PatientHomeScreen() {
 
         </View>
 
-        {/* ── Aurélia button ── */}
+        {/* ── Botão Aurélia ── */}
         <HomeButton
           backgroundColor={PatientColors.aureliaMain}
           onPress={() => router.push('/aurelia' as any)}
           customStyle={styles.aureliaButton}
         >
           <View style={styles.avatarCircle}>
-            <Image source={require('@/assets/images/LogoAvatar.png')} style={styles.avatarImage} resizeMode="contain"/>
+            <Image source={require('@/assets/images/LogoAvatar.png')} style={styles.avatarImage} resizeMode="contain" />
           </View>
           <Text style={styles.aureliaButtonText}>CONVERSAR COM AURÉLIA</Text>
         </HomeButton>
@@ -143,14 +143,14 @@ export default function PatientHomeScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
 
-  // ── Header ──────────────────────────────────────────────────────────────────
+  // ── Cabeçalho ───────────────────────────────────────────────────────────────
   header: {
     backgroundColor: PatientColors.homeHeader,
     paddingHorizontal: 25,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
-  // ── Summary card ─────────────────────────────────────────────────────────────
+  // ── Cartão de resumo ─────────────────────────────────────────────────────────
   scrollContent: {
     padding: 25,
     gap: 37,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 
-  // ── Button grid ──────────────────────────────────────────────────────────────
+  // ── Grade de botões ──────────────────────────────────────────────────────────
   buttonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.bold,
   },
 
-  // ── Aurélia button ────────────────────────────────────────────────────────────
+  // ── Botão Aurélia ────────────────────────────────────────────────────────────
   aureliaButton: {
     width: '100%',
     paddingVertical: 16,

@@ -45,6 +45,10 @@ export default function RootLayout() {
           name="phone-elder"
           options={{ headerShown: false }}
         />
+        <Stack.Screen 
+          name="add-contact-elder" 
+          options={{ headerShown: false }} 
+        />
       </Stack>
     </ThemeProvider>
   );
