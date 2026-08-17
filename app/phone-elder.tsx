@@ -133,7 +133,7 @@ export default function PhoneElderScreen() {
 
       {/* ── Header — título muda conforme o modo ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit>
           {isSelectMode ? 'SELECIONAR CONTATO' : 'TELEFONE'}
         </Text>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.8}>
@@ -208,12 +208,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 25,
     height: Layout.headerHeight,
-    ...Shadow.header,
   },
   headerTitle: {
     color: PatientColors.phoneHeaderText,
     fontSize: PatientTypography.size.header,
     fontWeight: PatientTypography.weight.regular,
+    marginRight: 15,
     flexShrink: 1,
   },
   headerButton: {
