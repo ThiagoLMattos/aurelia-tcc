@@ -14,6 +14,9 @@ export default function SosElderScreen() {
   const [contacts, setContacts] = useState([]);
   const [selectedContact, setSelectedContact] = useState(null);
   const [showConfirmSheet, setShowConfirmSheet] = useState(false);
+  const [showRemoveSheet, setShowRemoveSheet] = useState(false);
+  const [contactToRemove, setContactToRemove] = useState(null);
+  const [showRemoveList, setShowRemoveList] = useState(false);
 
   // ── Carrega contatos de emergência salvos ─────────────────────────────────
   const loadEmergencyContacts = async () => {
@@ -33,7 +36,7 @@ export default function SosElderScreen() {
     }, [])
   );
 
-  // ── Ações ─────────────────────────────────────────────────────────────────
+  // ── Toque no contato — abre aba de ligar ──────────────────────────────────
   const handleContactPress = (contact) => {
     setSelectedContact(contact);
     setShowConfirmSheet(true);
@@ -52,6 +55,34 @@ export default function SosElderScreen() {
     setSelectedContact(null);
   };
 
+  // ── Footer — abre lista para escolher quem remover ────────────────────────
+  const handleRemovePress = (contact) => {
+    setContactToRemove(contact);
+    setShowRemoveList(false);
+    setShowRemoveSheet(true);
+  };
+
+  // ── Confirma remoção ──────────────────────────────────────────────────────
+  const handleRemove = async () => {
+    try {
+      const raw = await AsyncStorage.getItem('emergency_contacts');
+      const list = raw ? JSON.parse(raw) : [];
+      const updated = list.filter((c) => c.id !== contactToRemove.id);
+      await AsyncStorage.setItem('emergency_contacts', JSON.stringify(updated));
+      setContacts(updated);
+    } catch (error) {
+      console.error('Erro ao remover contato:', error);
+    } finally {
+      setShowRemoveSheet(false);
+      setContactToRemove(null);
+    }
+  };
+
+  const handleCancelRemove = () => {
+    setShowRemoveSheet(false);
+    setContactToRemove(null);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" backgroundColor={PatientColors.sosMain} />
@@ -60,11 +91,7 @@ export default function SosElderScreen() {
       {/* ── Header ── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>SOS</Text>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.8}>
           <Text style={styles.headerButtonText}>VOLTAR</Text>
         </TouchableOpacity>
       </View>
@@ -85,10 +112,7 @@ export default function SosElderScreen() {
       )}
 
       {/* ── Lista de contatos de emergência ── */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {contacts.map((contact) => (
           <TouchableOpacity
             key={contact.id}
@@ -96,16 +120,9 @@ export default function SosElderScreen() {
             onPress={() => handleContactPress(contact)}
             activeOpacity={0.8}
           >
-            {/* Avatar */}
             <View style={styles.avatar}>
-              <Image
-                source={require('@/assets/images/ContatoSOS.png')}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
+              <Image source={require('@/assets/images/ContatoSOS.png')} style={styles.avatarImage} resizeMode="cover" />
             </View>
-
-            {/* Info */}
             <View style={styles.contactInfo}>
               <Text style={styles.contactName}>
                 {contact.name}{contact.relation ? ` — ${contact.relation}` : ''}
@@ -114,57 +131,89 @@ export default function SosElderScreen() {
             </View>
           </TouchableOpacity>
         ))}
-
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* ── Aba de confirmação ── */}
-      <Modal
-        visible={showConfirmSheet}
-        transparent
-        animationType="slide"
-        onRequestClose={handleCancel}
-      >
+      {/* ── Footer — só aparece se tiver contatos ── */}
+      {contacts.length > 0 && (
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.footerButton}
+            onPress={() => setShowRemoveList(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.footerButtonText}> REMOVER CONTATO</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Modal: Lista de contatos para remover ── */}
+      <Modal visible={showRemoveList} transparent animationType="slide" onRequestClose={() => setShowRemoveList(false)}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
-
-            <Text style={styles.sheetQuestion}>
-              Certeza que deseja ligar para:
-            </Text>
-
-            <Text style={styles.sheetContactName}>
-              {selectedContact?.name}{selectedContact?.relation ? ` — ${selectedContact?.relation}` : ''}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.sheetButtonCall}
-              onPress={handleCall}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.sheetButtonCallText}>LIGAR</Text>
+            <Text style={styles.sheetQuestion}>Qual contato deseja remover?</Text>
+            {contacts.map((contact) => (
+              <TouchableOpacity
+                key={contact.id}
+                style={styles.removeListItem}
+                onPress={() => handleRemovePress(contact)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.removeListItemText}>
+                  {contact.name}{contact.relation ? ` — ${contact.relation}` : ''}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.sheetButtonCancel} onPress={() => setShowRemoveList(false)} activeOpacity={0.85}>
+              <Text style={styles.sheetButtonCancelText}>CANCELAR</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.sheetButtonCancel}
-              onPress={handleCancel}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.sheetButtonCancelText}>VOLTAR</Text>
-            </TouchableOpacity>
-
           </View>
         </View>
       </Modal>
+
+      {/* ── Modal: Confirmação de remoção ── */}
+      <Modal visible={showRemoveSheet} transparent animationType="slide" onRequestClose={handleCancelRemove}>
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetQuestion}>Deseja remover esse contato de emergência?</Text>
+            <Text style={styles.sheetContactName}>
+              {contactToRemove?.name}{contactToRemove?.relation ? ` — ${contactToRemove?.relation}` : ''}
+            </Text>
+            <TouchableOpacity style={styles.sheetButtonRemove} onPress={handleRemove} activeOpacity={0.85}>
+              <Text style={styles.sheetButtonText}>REMOVER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sheetButtonCancel} onPress={handleCancelRemove} activeOpacity={0.85}>
+              <Text style={styles.sheetButtonCancelText}>CANCELAR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal: Confirmação de ligação ── */}
+      <Modal visible={showConfirmSheet} transparent animationType="slide" onRequestClose={handleCancel}>
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetQuestion}>Certeza que deseja ligar para:</Text>
+            <Text style={styles.sheetContactName}>
+              {selectedContact?.name}{selectedContact?.relation ? ` — ${selectedContact?.relation}` : ''}
+            </Text>
+            <TouchableOpacity style={styles.sheetButtonCall} onPress={handleCall} activeOpacity={0.85}>
+              <Text style={styles.sheetButtonText}>LIGAR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sheetButtonCancel} onPress={handleCancel} activeOpacity={0.85}>
+              <Text style={styles.sheetButtonCancelText}>VOLTAR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
 
 // ─── Estilos ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: PatientColors.sosBg,
-  },
+  container: { flex: 1, backgroundColor: PatientColors.sosBg },
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
@@ -210,12 +259,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Lista vazia ──────────────────────────────────────────────────────────────
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   emptyText: {
     fontSize: PatientTypography.size.common,
     color: PatientColors.sosText,
@@ -224,9 +268,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Lista ────────────────────────────────────────────────────────────────────
-  scrollContent: {
-    paddingHorizontal: 0,
-  },
+  scrollContent: { paddingHorizontal: 0 },
   contactCard: {
     backgroundColor: PatientColors.sosBg,
     borderWidth: 0.5,
@@ -237,21 +279,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-
-  // ── Avatar ───────────────────────────────────────────────────────────────────
-  avatar: {
-    width: 100,
-    height: 100,
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-
-  // ── Info do contato ──────────────────────────────────────────────────────────
-  contactInfo: {
-    flex: 1,
-  },
+  avatar: { width: 100, height: 100 },
+  avatarImage: { width: '100%', height: '100%' },
+  contactInfo: { flex: 1 },
   contactName: {
     fontSize: PatientTypography.size.common,
     fontWeight: PatientTypography.weight.bold,
@@ -264,12 +294,28 @@ const styles = StyleSheet.create({
     color: PatientColors.sosText,
   },
 
-  // ── Aba de confirmação ───────────────────────────────────────────────────────
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  // ── Footer ───────────────────────────────────────────────────────────────────
+  footer: {
+    backgroundColor: PatientColors.sosMain,
+    padding: 16,
+    ...Shadow.sheet,
   },
+  footerButton: {
+    backgroundColor: PatientColors.sosHeaderButton,
+    borderColor: PatientColors.sosHeaderBorder,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  footerButtonText: {
+    color: PatientColors.sosHeaderText,
+    fontSize: PatientTypography.size.reduced,
+    fontWeight: PatientTypography.weight.bold,
+  },
+
+  // ── Modais ───────────────────────────────────────────────────────────────────
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
   sheet: {
     backgroundColor: PatientColors.sosBg,
     borderTopWidth: 7,
@@ -290,13 +336,30 @@ const styles = StyleSheet.create({
     color: PatientColors.sosText,
     textAlign: 'center',
   },
+  removeListItem: {
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: PatientColors.sosCardAvatar,
+    alignItems: 'center',
+  },
+  removeListItemText: {
+    fontSize: PatientTypography.size.common,
+    fontWeight: PatientTypography.weight.regular,
+    color: PatientColors.sosText,
+  },
   sheetButtonCall: {
     backgroundColor: PatientColors.sosMain,
     borderRadius: 12,
     paddingVertical: 20,
     alignItems: 'center',
   },
-  sheetButtonCallText: {
+  sheetButtonRemove: {
+    backgroundColor: PatientColors.sosHeaderButton,
+    borderRadius: 12,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  sheetButtonText: {
     color: PatientColors.sosHeaderText,
     fontSize: PatientTypography.size.sheet,
     fontWeight: PatientTypography.weight.bold,

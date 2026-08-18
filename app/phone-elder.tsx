@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadingText: { fontSize: PatientTypography.size.common, color: '#2C2C2C' },
   emptyContainer: { padding: 32, alignItems: 'center' },
-  emptyText: { fontSize: PatientTypography.size.common, color: '#666666' },
+  emptyText: { fontSize: PatientTypography.size.common, color: '#FFFFFF' },
 
   // ── Lista ────────────────────────────────────────────────────────────────────
   scrollContent: { paddingHorizontal: 0, paddingBottom: 16 },
