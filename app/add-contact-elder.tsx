@@ -1,11 +1,9 @@
 // @ts-nocheck
+
 import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme-elder';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-  Alert, FlatList, Modal, StyleSheet, Text,
-  TextInput, TouchableOpacity, View
-} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,29 +24,46 @@ export default function AddContactElderScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // ── Estado ────────────────────────────────────────────────────────────────
+  // Estado
   const [contactId, setContactId] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [selectedRelation, setSelectedRelation] = useState('');
   const [customRelation, setCustomRelation] = useState('');
 
-  // ── Controle dos modais ───────────────────────────────────────────────────
+  // Quantidade atual de contatos de emergência
+  const [emergencyCount, setEmergencyCount] = useState(0);
+
+  // Controle dos modais
   const [showRelationList, setShowRelationList] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showEmergencySheet, setShowEmergencySheet] = useState(false);
 
-  // ── Recebe o contato selecionado ao voltar de phone-elder ─────────────────
-    useEffect(() => {
+  // Recebe o contato selecionado ao voltar de phone-elder
+  useEffect(() => {
     if (params.selectedId) {
-        setContactId(params.selectedId as string);
-        setContactName(params.selectedName as string);
-        setContactPhone(params.selectedPhone as string);
+      setContactId(params.selectedId as string);
+      setContactName(params.selectedName as string);
+      setContactPhone(params.selectedPhone as string);
     }
-    }, [params.selectedId]);
+  }, [params.selectedId]);
 
-  // ── Navega para phone-elder em modo de seleção ────────────────────────────
+  // Carrega a quantidade atual de contatos de emergência
+  useEffect(() => {
+    const loadCount = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('emergency_contacts');
+        const list = raw ? JSON.parse(raw) : [];
+        setEmergencyCount(list.length);
+      } catch (error) {
+        console.error('Erro ao carregar contatos de emergência:', error);
+      }
+    };
+    loadCount();
+  }, []);
+
+  // Navega para phone-elder em modo de seleção
   const handleSearchContact = () => {
     router.push({
       pathname: '/phone-elder',
@@ -56,7 +71,7 @@ export default function AddContactElderScreen() {
     } as any);
   };
 
-  // ── Seleciona parentesco ──────────────────────────────────────────────────
+  // Seleciona parentesco
   const handleSelectRelation = (relation: string) => {
     if (relation === 'OUTRO') {
       setShowRelationList(false);
@@ -73,7 +88,7 @@ export default function AddContactElderScreen() {
     setShowCustomInput(false);
   };
 
-  // ── Valida e abre confirmação ─────────────────────────────────────────────
+  // Valida e abre confirmação
   const handleAddPress = () => {
     if (!contactName.trim()) {
       Alert.alert('Atenção', 'Selecione um contato.');
@@ -86,18 +101,30 @@ export default function AddContactElderScreen() {
     setShowConfirm(true);
   };
 
-  // ── Salva parentesco e abre pergunta de emergência ────────────────────────
+  // Salva parentesco e abre pergunta de emergência
   const handleConfirmAdd = async () => {
     setShowConfirm(false);
     try {
+      // Salva o parentesco
       await AsyncStorage.setItem(`relation_${contactId}`, selectedRelation);
+
+      // Se esse contato já está na lista de emergência, atualiza o parentesco lá também
+      const raw = await AsyncStorage.getItem('emergency_contacts');
+      if (raw) {
+        const list = JSON.parse(raw);
+        const index = list.findIndex((c) => c.id === contactId);
+        if (index !== -1) {
+          list[index].relation = selectedRelation;
+          await AsyncStorage.setItem('emergency_contacts', JSON.stringify(list));
+        }
+      }
       setShowEmergencySheet(true);
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível salvar o parentesco.');
     }
   };
 
-  // ── Salva como emergência ─────────────────────────────────────────────────
+  // Salva como emergência
   const handleEmergencyYes = async () => {
     try {
       const raw = await AsyncStorage.getItem('emergency_contacts');
@@ -132,15 +159,17 @@ export default function AddContactElderScreen() {
       <StatusBar style="light" backgroundColor={PatientColors.phoneMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>ADICIONAR PARENTESCO</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit>
+          ADICIONAR PARENTESCO
+        </Text>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.8}>
           <Text style={styles.headerButtonText}>VOLTAR</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Formulário ── */}
+      {/* Formulário */}
       <View style={styles.form}>
 
         {/* Selecionar contato */}
@@ -177,7 +206,7 @@ export default function AddContactElderScreen() {
 
       </View>
 
-      {/* ── Modal: Lista de parentescos ── */}
+      {/* Modal: Lista de parentescos */}
       <Modal visible={showRelationList} transparent animationType="slide" onRequestClose={() => setShowRelationList(false)}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -200,7 +229,7 @@ export default function AddContactElderScreen() {
         </View>
       </Modal>
 
-      {/* ── Modal: Parentesco customizado (OUTRO) ── */}
+      {/* Modal: Parentesco customizado (OUTRO) */}
       <Modal visible={showCustomInput} transparent animationType="slide" onRequestClose={() => setShowCustomInput(false)}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -223,7 +252,7 @@ export default function AddContactElderScreen() {
         </View>
       </Modal>
 
-      {/* ── Modal: Confirmação ── */}
+      {/* Modal: Confirmação */}
       <Modal visible={showConfirm} transparent animationType="slide" onRequestClose={() => setShowConfirm(false)}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -239,19 +268,25 @@ export default function AddContactElderScreen() {
         </View>
       </Modal>
 
-      {/* ── Modal: Contato de emergência ── */}
+      {/* Modal: Contato de emergência */}
       <Modal visible={showEmergencySheet} transparent animationType="slide" onRequestClose={handleEmergencyNo}>
         <View style={styles.sheetOverlay}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetQuestion}>
-              Você deseja adicionar essa pessoa como contato de emergência? ({MAX_EMERGENCY} contatos possíveis)
+          <View style={styles.emergencySheet}>
+            <Text style={styles.emergencySheetQuestion}>
+              Você deseja adicionar essa pessoa como contato de emergência?
             </Text>
-            <Text style={styles.sheetContactName}>{contactName} — {selectedRelation}</Text>
-            <TouchableOpacity style={styles.addButton} onPress={handleEmergencyYes} activeOpacity={0.85}>
-              <Text style={styles.addButtonText}>SIM</Text>
+            {/* Contador de vagas disponíveis */}
+            <Text style={styles.emergencyCounter}>
+              {emergencyCount}/{MAX_EMERGENCY} contatos
+            </Text>
+            <Text style={styles.emergencySheetContactName}>
+              {contactName} — {selectedRelation}
+            </Text>
+            <TouchableOpacity style={styles.emergencyButtonYes} onPress={handleEmergencyYes} activeOpacity={0.85}>
+              <Text style={styles.emergencyButtonText}>SIM</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.sheetButtonCancel} onPress={handleEmergencyNo} activeOpacity={0.85}>
-              <Text style={styles.sheetButtonCancelText}>NÃO</Text>
+            <TouchableOpacity style={styles.emergencyButtonNo} onPress={handleEmergencyNo} activeOpacity={0.85}>
+              <Text style={styles.emergencyButtonText}>NÃO</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -261,11 +296,11 @@ export default function AddContactElderScreen() {
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// Estilos
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
 
-  // ── Header ──────────────────────────────────────────────────────────────────
+  // Header
   header: {
     backgroundColor: PatientColors.phoneMain,
     flexDirection: 'row',
@@ -290,6 +325,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 20,
     marginLeft: 12,
+    flexShrink: 0,
   },
   headerButtonText: {
     color: PatientColors.phoneHeaderText,
@@ -297,7 +333,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.regular,
   },
 
-  // ── Formulário ───────────────────────────────────────────────────────────────
+  // Formulário
   form: { padding: 24, gap: 24 },
   fieldGroup: { gap: 10 },
   fieldLabel: {
@@ -352,7 +388,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.bold,
   },
 
-  // ── Modais ───────────────────────────────────────────────────────────────────
+  // Modais padrão (azul)
   sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: '#F1EFE8',
@@ -401,6 +437,51 @@ const styles = StyleSheet.create({
   },
   sheetButtonCancelText: {
     color: PatientColors.phoneHeaderText,
+    fontSize: PatientTypography.size.sheet,
+    fontWeight: PatientTypography.weight.bold,
+  },
+
+  // Modal de emergência — cores do SOS
+  emergencySheet: {
+    backgroundColor: PatientColors.sosBg,
+    borderTopWidth: 7,
+    borderTopColor: PatientColors.sosMain,
+    padding: 24,
+    gap: 14,
+    ...Shadow.sheet,
+  },
+  emergencySheetQuestion: {
+    fontSize: PatientTypography.size.reduced,
+    fontWeight: PatientTypography.weight.regular,
+    color: PatientColors.sosText,
+    textAlign: 'center',
+  },
+  emergencyCounter: {
+    fontSize: PatientTypography.size.sheet,
+    fontWeight: PatientTypography.weight.bold,
+    color: PatientColors.sosTextEmphasis,
+    textAlign: 'center',
+  },
+  emergencySheetContactName: {
+    fontSize: PatientTypography.size.sheet,
+    fontWeight: PatientTypography.weight.bold,
+    color: PatientColors.sosText,
+    textAlign: 'center',
+  },
+  emergencyButtonYes: {
+    backgroundColor: PatientColors.sosMain,
+    borderRadius: 12,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emergencyButtonNo: {
+    backgroundColor: PatientColors.sosHeaderButton,
+    borderRadius: 12,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emergencyButtonText: {
+    color: PatientColors.sosHeaderText,
     fontSize: PatientTypography.size.sheet,
     fontWeight: PatientTypography.weight.bold,
   },

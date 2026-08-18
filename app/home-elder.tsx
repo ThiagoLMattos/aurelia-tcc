@@ -2,41 +2,45 @@
 
 import { Stack, useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import HomeButton from '@/components/HomeButton';
 import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme-elder';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-// ─── Data dinâmica — atualiza automaticamente todo dia ───────────────────────
+// Data dinâmica — atualiza automaticamente todo dia
 const today = new Date().toLocaleDateString('pt-BR', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
 });
 
-// ─── Dados falsos — substituir pela API do cuidador depois ───────────────────
+// Dados falsos — substituir pela API do cuidador depois
+
+// Adendos:
+// O nome deve ter no máximo 15 caracteres, se não estraga o header e fica poluído.
+// Nessa lista de tarefas temos que pensar em uma forma de fazer sentido, então pensei em adicionar
+// pro cuidador uma forma dele poder adicionar 7 tarefas como "importantes".
 const PATIENT_DATA = {
   name: 'Maria Aparecida',
   date: today,
   tasks: [
-    { id: '1', name: ' - Omeprazol',     time: '07:00' },
-    { id: '2', name: ' - Caminhada',     time: '08:30' },
-    { id: '3', name: ' - Café da manhã', time: '09:00' },
-    { id: '4', name: ' - Losartana',     time: '12:00' },
-    { id: '5', name: ' - Almoço',        time: '12:30' },
-    { id: '6', name: ' - Repouso',       time: '14:00' },
-    { id: '7', name: ' - Metformina',    time: '19:00' },
+    { id: '1', name: 'Omeprazol', time: '07:00' },
+    { id: '2', name: 'Caminhada', time: '08:30' },
+    { id: '3', name: 'Café da manhã', time: '09:00' },
+    { id: '4', name: 'Losartana', time: '12:00' },
+    { id: '5', name: 'Almoço', time: '12:30' },
+    { id: '6', name: 'Repouso', time: '14:00' },
+    { id: '7', name: 'Metformina', time: '19:00' },
   ],
 };
 
 export default function PatientHomeScreen() {
   const router = useRouter();
 
-  // ─── Relógio em tempo real — sincroniza com o horário do sistema, atualiza a cada 10s ──
+  // Relógio em tempo real — sincroniza com o horário do sistema, atualiza a cada 10s
   const [currentTime, setCurrentTime] = useState(
     new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   );
@@ -55,7 +59,7 @@ export default function PatientHomeScreen() {
       <StatusBar style="light" backgroundColor={PatientColors.aureliaMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Cabeçalho ── */}
+      {/* Cabeçalho */}
       <View style={styles.header}>
         <Text style={styles.greetingText}>
           OLÁ {PATIENT_DATA.name.toUpperCase()}
@@ -72,11 +76,11 @@ export default function PatientHomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Cartão de resumo ── */}
+        {/* Cartão de resumo */}
         <View style={styles.summaryCard}>
           {PATIENT_DATA.tasks.slice(0, 7).map((task) => (
             <View key={task.id} style={styles.taskRow}>
-              <Text style={styles.taskName}>{task.id}{task.name}</Text>
+              <Text style={styles.taskName}>{task.id} - {task.name}</Text>
               <Text style={styles.dots} numberOfLines={1} ellipsizeMode="clip">
                 ....................................................................................................
               </Text>
@@ -85,72 +89,72 @@ export default function PatientHomeScreen() {
           ))}
         </View>
 
-        {/* ── Grade de botões ── */}
+        {/* Grade de botões */}
         <View style={styles.buttonGrid}>
 
-          <HomeButton
-            backgroundColor={PatientColors.sosMain}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.gridButton, { backgroundColor: PatientColors.sosMain }]}
             onPress={() => router.push('/sos-elder' as any)}
-            customStyle={styles.gridButton}
           >
             <MaterialCommunityIcons name="alarm-light-outline" size={64} color="#FCEBEB" />
             <Text style={styles.sosButtonText}>SOS</Text>
-          </HomeButton>
+          </TouchableOpacity>
 
-          <HomeButton
-            backgroundColor={PatientColors.tasksMain}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.gridButton, { backgroundColor: PatientColors.tasksMain }]}
             onPress={() => router.push('/task-elder' as any)}
-            customStyle={styles.gridButton}
           >
             <MaterialCommunityIcons name="list-box-outline" size={64} color="#E8F8EB" />
             <Text style={styles.tasksButtonText}>TAREFAS</Text>
-          </HomeButton>
+          </TouchableOpacity>
 
-          <HomeButton
-            backgroundColor={PatientColors.gamesMain}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.gridButton, { backgroundColor: PatientColors.gamesMain }]}
             onPress={() => router.push('/games-elder' as any)}
-            customStyle={styles.gridButton}
           >
             <MaterialCommunityIcons name="puzzle-outline" size={64} color="#FFFFFF" />
             <Text style={styles.gamesButtonText}>JOGOS</Text>
-          </HomeButton>
+          </TouchableOpacity>
 
-          <HomeButton
-            backgroundColor={PatientColors.phoneMain}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.gridButton, { backgroundColor: PatientColors.phoneMain }]}
             onPress={() => router.push('/phone-elder' as any)}
-            customStyle={styles.gridButton}
           >
             <Ionicons name="call" size={64} color="#E6F1FB" />
             <Text style={styles.phoneButtonText}>TELEFONE</Text>
-          </HomeButton>
+          </TouchableOpacity>
 
         </View>
 
-        {/* ── Botão Aurélia ── */}
-        <HomeButton
-          backgroundColor={PatientColors.aureliaMain}
+        {/* Botão Aurélia */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.aureliaButton, { backgroundColor: PatientColors.aureliaMain }]}
           onPress={() => router.push('/aurelia' as any)}
-          customStyle={styles.aureliaButton}
         >
           <View style={styles.avatarCircle}>
             <Image source={require('@/assets/images/LogoAvatar.png')} style={styles.avatarImage} resizeMode="contain" />
           </View>
           <Text style={styles.aureliaButtonText}>CONVERSAR COM AURÉLIA</Text>
-        </HomeButton>
+        </TouchableOpacity>
 
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
 
-  // ── Cabeçalho ───────────────────────────────────────────────────────────────
+  // Cabeçalho
   header: {
     backgroundColor: PatientColors.homeHeader,
     paddingHorizontal: 25,
@@ -180,7 +184,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
-  // ── Cartão de resumo ─────────────────────────────────────────────────────────
+  // Cartão de resumo
   scrollContent: {
     padding: 25,
     gap: 37,
@@ -220,7 +224,7 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 
-  // ── Grade de botões ──────────────────────────────────────────────────────────
+  // Grade de botões
   buttonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -258,9 +262,12 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.bold,
   },
 
-  // ── Botão Aurélia ────────────────────────────────────────────────────────────
+  // Botão Aurélia
   aureliaButton: {
     width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: 16,
     gap: 15,
     borderRadius: 10,

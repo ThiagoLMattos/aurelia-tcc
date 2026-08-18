@@ -18,7 +18,7 @@ export default function SosElderScreen() {
   const [contactToRemove, setContactToRemove] = useState(null);
   const [showRemoveList, setShowRemoveList] = useState(false);
 
-  // ── Carrega contatos de emergência salvos ─────────────────────────────────
+  // Carrega contatos de emergência salvos
   const loadEmergencyContacts = async () => {
     try {
       const raw = await AsyncStorage.getItem('emergency_contacts');
@@ -29,14 +29,14 @@ export default function SosElderScreen() {
     }
   };
 
-  // ── Recarrega toda vez que a tela abre ────────────────────────────────────
+  // Recarrega toda vez que a tela abre
   useFocusEffect(
     useCallback(() => {
       loadEmergencyContacts();
     }, [])
   );
 
-  // ── Toque no contato — abre aba de ligar ──────────────────────────────────
+  // Toque no contato — abre aba de ligar
   const handleContactPress = (contact) => {
     setSelectedContact(contact);
     setShowConfirmSheet(true);
@@ -55,14 +55,14 @@ export default function SosElderScreen() {
     setSelectedContact(null);
   };
 
-  // ── Footer — abre lista para escolher quem remover ────────────────────────
+  // Footer — abre lista para escolher quem remover
   const handleRemovePress = (contact) => {
     setContactToRemove(contact);
     setShowRemoveList(false);
     setShowRemoveSheet(true);
   };
 
-  // ── Confirma remoção ──────────────────────────────────────────────────────
+  // Confirma remoção
   const handleRemove = async () => {
     try {
       const raw = await AsyncStorage.getItem('emergency_contacts');
@@ -88,7 +88,7 @@ export default function SosElderScreen() {
       <StatusBar style="light" backgroundColor={PatientColors.sosMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>SOS</Text>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.8}>
@@ -96,12 +96,12 @@ export default function SosElderScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Label ── */}
+      {/* Label */}
       <View style={styles.labelRow}>
         <Text style={styles.label}>LIGAR PARA:</Text>
       </View>
 
-      {/* ── Lista vazia ── */}
+      {/* Lista vazia */}
       {contacts.length === 0 && (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
@@ -111,7 +111,7 @@ export default function SosElderScreen() {
         </View>
       )}
 
-      {/* ── Lista de contatos de emergência ── */}
+      {/* Lista de contatos de emergência */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {contacts.map((contact) => (
           <TouchableOpacity
@@ -134,7 +134,7 @@ export default function SosElderScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* ── Footer — só aparece se tiver contatos ── */}
+      {/* Footer — só aparece se tiver contatos */}
       {contacts.length > 0 && (
         <View style={styles.footer}>
           <TouchableOpacity
@@ -147,7 +147,7 @@ export default function SosElderScreen() {
         </View>
       )}
 
-      {/* ── Modal: Lista de contatos para remover ── */}
+      {/* Modal: Lista de contatos para remover */}
       <Modal visible={showRemoveList} transparent animationType="slide" onRequestClose={() => setShowRemoveList(false)}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -171,7 +171,7 @@ export default function SosElderScreen() {
         </View>
       </Modal>
 
-      {/* ── Modal: Confirmação de remoção ── */}
+      {/* Modal: Confirmação de remoção */}
       <Modal visible={showRemoveSheet} transparent animationType="slide" onRequestClose={handleCancelRemove}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -189,7 +189,7 @@ export default function SosElderScreen() {
         </View>
       </Modal>
 
-      {/* ── Modal: Confirmação de ligação ── */}
+      {/* Modal: Confirmação de ligação */}
       <Modal visible={showConfirmSheet} transparent animationType="slide" onRequestClose={handleCancel}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -211,11 +211,11 @@ export default function SosElderScreen() {
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// Estilos
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PatientColors.sosBg },
 
-  // ── Header ──────────────────────────────────────────────────────────────────
+  // Header
   header: {
     backgroundColor: PatientColors.sosMain,
     flexDirection: 'row',
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.regular,
   },
 
-  // ── Label ───────────────────────────────────────────────────────────────────
+  // Label
   labelRow: {
     backgroundColor: PatientColors.sosBg,
     paddingHorizontal: 16,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // ── Lista vazia ──────────────────────────────────────────────────────────────
+  // Lista vazia
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   emptyText: {
     fontSize: PatientTypography.size.common,
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     lineHeight: 24 * 1.7,
   },
 
-  // ── Lista ────────────────────────────────────────────────────────────────────
+  // Lista
   scrollContent: { paddingHorizontal: 0 },
   contactCard: {
     backgroundColor: PatientColors.sosBg,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     color: PatientColors.sosText,
   },
 
-  // ── Footer ───────────────────────────────────────────────────────────────────
+  // Footer
   footer: {
     backgroundColor: PatientColors.sosMain,
     padding: 16,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.bold,
   },
 
-  // ── Modais ───────────────────────────────────────────────────────────────────
+  // Modais
   sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
   sheet: {
     backgroundColor: PatientColors.sosBg,

@@ -7,7 +7,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-// ─── Dados dos jogos — adicionar rotas quando as telas estiverem prontas ─────
+// Dados dos jogos — adicionar rotas quando as telas estiverem prontas
 const GAMES = [
   {
     id: '1',
@@ -35,7 +35,7 @@ const GAMES = [
   },
 ];
 
-// ─── Componente principal ────────────────────────────────────────────────────
+// Componente principal
 export default function JogosIdosoScreen() {
   const router = useRouter();
 
@@ -44,7 +44,7 @@ export default function JogosIdosoScreen() {
       <StatusBar style="light" backgroundColor={PatientColors.gamesMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>JOGOS</Text>
         <TouchableOpacity
@@ -56,7 +56,7 @@ export default function JogosIdosoScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Lista de jogos ── */}
+      {/* Lista de jogos */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -66,13 +66,13 @@ export default function JogosIdosoScreen() {
 
             {/* Ícone + nome */}
             <View style={styles.gameInfo}>
-                <Image source={game.image} style={styles.gameIcon} resizeMode="contain" />
-                    <Text style={[
-                        styles.gameName,
-                        game.id === '4' && styles.gameNameSmall,
-                    ]}>
-                        {game.name}
-                    </Text>
+              <Image source={game.image} style={styles.gameIcon} resizeMode="contain" />
+              <Text style={[
+                styles.gameName,
+                game.id === '4' && styles.gameNameSmall,
+              ]}>
+                {game.name}
+              </Text>
             </View>
 
             {/* Botão jogar */}
@@ -93,14 +93,14 @@ export default function JogosIdosoScreen() {
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
 
-  // ── Header ──────────────────────────────────────────────────────────────────
+  // Header
   header: {
     backgroundColor: PatientColors.gamesMain,
     flexDirection: 'row',
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.regular,
   },
 
-  // ── Lista ────────────────────────────────────────────────────────────────────
+  // Lista
   scrollContent: {
     paddingHorizontal: 0,
   },
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     fontSize: 21,
   },
 
-  // ── Botão jogar ──────────────────────────────────────────────────────────────
+  // Botão jogar
   playButton: {
     backgroundColor: PatientColors.gamesMain,
     borderRadius: 10,

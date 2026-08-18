@@ -1,4 +1,5 @@
 // @ts-nocheck
+
 import { PatientColors, PatientTypography } from '@/constants/theme-elder';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
@@ -14,12 +15,12 @@ export default function GamesElderEmBreve() {
       <StatusBar style="light" backgroundColor={PatientColors.gamesMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Fundo com texto em diagonal ── */}
+      {/* Fundo com texto em diagonal*/}
       <View style={styles.backgroundContainer} pointerEvents="none">
         <Text style={styles.backgroundText}>EM BREVE</Text>
       </View>
 
-      {/* ── Botão Voltar no rodapé ── */}
+      {/* Botão Voltar no rodapé */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.backButton}
@@ -33,7 +34,7 @@ export default function GamesElderEmBreve() {
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -41,7 +42,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end', // Empurra o conteúdo para o fundo da tela
   },
 
-  // ── Texto Diagonal no Fundo ────────────────────────────────────────────────
+  // Texto Diagonal no Fundo
   backgroundContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  // ── Rodapé / Botão Voltar ──────────────────────────────────────────────────
+  // Rodapé / Botão Voltar
   footer: {
     paddingHorizontal: 25,
     alignItems: 'center',

@@ -7,7 +7,7 @@ import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-// ─── Dados falsos — substituir pela API do cuidador depois ───────────────────
+// Dados falsos — substituir pela API do cuidador depois
 const MOCK_TASKS = [
   {
     id: '1',
@@ -60,7 +60,7 @@ const MOCK_TASKS = [
   },
 ];
 
-// ─── Componente principal ────────────────────────────────────────────────────
+// Componente principal
 export default function TarefasIdosoScreen() {
   const router = useRouter();
 
@@ -93,7 +93,7 @@ export default function TarefasIdosoScreen() {
       <StatusBar style="light" backgroundColor={PatientColors.tasksMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>TAREFAS</Text>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
@@ -101,7 +101,7 @@ export default function TarefasIdosoScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Lista de tarefas ── */}
+      {/* Lista de tarefas */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -142,7 +142,7 @@ export default function TarefasIdosoScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* ── Aba de confirmação (Modal) ── */}
+      {/* Aba de confirmação (Modal) */}
       <Modal
         visible={showConfirmSheet}
         transparent
@@ -183,14 +183,14 @@ export default function TarefasIdosoScreen() {
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
 
-  // ── Header ──────────────────────────────────────────────────────────────────
+  // Header
   header: {
     backgroundColor: PatientColors.tasksMain,
     flexDirection: 'row',
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.regular,
   },
 
-  // ── Lista ────────────────────────────────────────────────────────────────────
+  // Lista
   scrollContent: {
     paddingHorizontal: 0,
   },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.bold,
   },
 
-  // ── Aba de confirmação ───────────────────────────────────────────────────────
+  // Aba de confirmação
   sheetOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

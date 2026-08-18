@@ -2,20 +2,19 @@
 import { Layout, PatientColors, PatientTypography, Shadow } from '@/constants/theme-elder';
 import { Stack, useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useState, useCallback } from 'react';
-import {
-  ActivityIndicator, Alert, FlatList, Image,
-  Linking, Modal, StyleSheet, Text, TouchableOpacity, View
-} from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Contacts from 'expo-contacts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Futuramente: adicionar uma forma do usuário adicionar uma foto para os contatos, para ajudá-los a reconhecer.
+
 export default function PhoneElderScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // ── Modo de seleção — ativado quando vem de add-contact-elder ────────────
+  // Modo de seleção — ativado quando vem de add-contact-elder
   const isSelectMode = params.mode === 'select';
 
   const [contacts, setContacts] = useState([]);
@@ -23,7 +22,7 @@ export default function PhoneElderScreen() {
   const [selectedContact, setSelectedContact] = useState(null);
   const [showConfirmSheet, setShowConfirmSheet] = useState(false);
 
-  // ── Carrega contatos do dispositivo e parentescos salvos ──────────────────
+  // Carrega contatos do dispositivo e parentescos salvos
   const loadDeviceContacts = async () => {
     try {
       setLoading(true);
@@ -65,30 +64,30 @@ export default function PhoneElderScreen() {
     }
   };
 
-  // ── Recarrega ao voltar para a tela ──────────────────────────────────────
+  // Recarrega ao voltar para a tela
   useFocusEffect(
     useCallback(() => {
       loadDeviceContacts();
     }, [])
   );
 
-  // ── Toque no contato — comportamento diferente por modo ───────────────────
-    const handleContactPress = (contact) => {
-      if (isSelectMode) {
-        // Substitui a tela atual passando os dados como params
-        router.replace({
-          pathname: '/add-contact-elder',
-          params: {
-            selectedId: contact.id,
-            selectedName: contact.name,
-            selectedPhone: contact.phone,
-          },
-        } as any);
-        return;
-      }
-      setSelectedContact(contact);
-      setShowConfirmSheet(true);
-    };
+  // Toque no contato — comportamento diferente por modo
+  const handleContactPress = (contact) => {
+    if (isSelectMode) {
+      // Substitui a tela atual passando os dados como params
+      router.replace({
+        pathname: '/add-contact-elder',
+        params: {
+          selectedId: contact.id,
+          selectedName: contact.name,
+          selectedPhone: contact.phone,
+        },
+      } as any);
+      return;
+    }
+    setSelectedContact(contact);
+    setShowConfirmSheet(true);
+  };
 
   const handleCall = () => {
     if (!selectedContact) return;
@@ -103,7 +102,7 @@ export default function PhoneElderScreen() {
     setSelectedContact(null);
   };
 
-  // ── Renderização do item da lista ─────────────────────────────────────────
+  // Renderização do item da lista
   const renderContactItem = ({ item: contact }) => (
     <TouchableOpacity
       style={styles.contactCard}
@@ -131,7 +130,7 @@ export default function PhoneElderScreen() {
       <StatusBar style="light" backgroundColor={PatientColors.phoneMain} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Header — título muda conforme o modo ── */}
+      {/* Header — título muda conforme o modo */}
       <View style={styles.header}>
         <Text style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit>
           {isSelectMode ? 'SELECIONAR CONTATO' : 'TELEFONE'}
@@ -141,7 +140,7 @@ export default function PhoneElderScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Lista de contatos ── */}
+      {/* Lista de contatos */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={PatientColors.phoneMain} />
@@ -162,7 +161,7 @@ export default function PhoneElderScreen() {
         />
       )}
 
-      {/* ── Footer — só aparece no modo normal ── */}
+      {/* Footer — só aparece no modo normal */}
       {!isSelectMode && (
         <View style={styles.footer}>
           <TouchableOpacity
@@ -175,7 +174,7 @@ export default function PhoneElderScreen() {
         </View>
       )}
 
-      {/* ── Aba de confirmação de ligação — só no modo normal ── */}
+      {/* Aba de confirmação de ligação — só no modo normal */}
       <Modal visible={showConfirmSheet} transparent animationType="slide" onRequestClose={handleCancel}>
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -196,11 +195,11 @@ export default function PhoneElderScreen() {
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// Estilos
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PatientColors.phoneMain },
 
-  // ── Header ──────────────────────────────────────────────────────────────────
+  // Header
   header: {
     backgroundColor: PatientColors.phoneMain,
     flexDirection: 'row',
@@ -231,13 +230,13 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.regular,
   },
 
-  // ── Carregamento e vazio ─────────────────────────────────────────────────────
+  // Carregamento e vazio
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadingText: { fontSize: PatientTypography.size.common, color: '#2C2C2C' },
   emptyContainer: { padding: 32, alignItems: 'center' },
   emptyText: { fontSize: PatientTypography.size.common, color: '#FFFFFF' },
 
-  // ── Lista ────────────────────────────────────────────────────────────────────
+  // Lista
   scrollContent: { paddingHorizontal: 0, paddingBottom: 16 },
   contactCard: {
     borderWidth: 0.5,
@@ -264,7 +263,7 @@ const styles = StyleSheet.create({
     color: '#2C2C2C',
   },
 
-  // ── Footer ───────────────────────────────────────────────────────────────────
+  // Footer
   footer: {
     backgroundColor: PatientColors.phoneMain,
     padding: 16,
@@ -285,7 +284,7 @@ const styles = StyleSheet.create({
     fontWeight: PatientTypography.weight.bold,
   },
 
-  // ── Aba de confirmação ───────────────────────────────────────────────────────
+  // Aba de confirmação
   sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
   sheet: {
     backgroundColor: '#F1EFE8',

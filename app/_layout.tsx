@@ -32,11 +32,13 @@ export default function RootLayout() {
           name="games-elder"
           options={{ headerShown: false }}
         />
+
         {/* Improviso */}
         <Stack.Screen
           name="games-elder-embreve"
           options={{ headerShown: false }}
         />
+        
         <Stack.Screen
           name="sos-elder"
           options={{ headerShown: false }}
@@ -45,9 +47,9 @@ export default function RootLayout() {
           name="phone-elder"
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="add-contact-elder" 
-          options={{ headerShown: false }} 
+        <Stack.Screen
+          name="add-contact-elder"
+          options={{ headerShown: false }}
         />
       </Stack>
     </ThemeProvider>
