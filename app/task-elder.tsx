@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   taskNameDone: {
     textDecorationLine: 'line-through',
-    color: '#2C2C2C',
+    color: '#888780',
   },
   taskDescription: {
     fontSize: PatientTypography.size.minimum,
