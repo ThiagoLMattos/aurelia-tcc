@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSContactsUsageDescription": "Precisamos acessar seus contatos para exibi-los na tela de telefone."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +22,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "READ_CONTACTS",
+        "WRITE_CONTACTS"
+      ]
     },
     "web": {
       "output": "static",
@@ -37,6 +44,12 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Este aplicativo precisa de acesso aos seus contatos para realizar ligações de emergência."
         }
       ]
     ],
