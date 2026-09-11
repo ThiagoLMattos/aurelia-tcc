@@ -1,50 +1,115 @@
-# Welcome to your Expo app 👋
+<div align="center">
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+  # Aurélia
 
-## Get started
+  **Sistema assistivo para idosos com Alzheimer em estágio inicial e seus cuidadores**
 
-1. Install dependencies
+  🔗 [Landing page publicada](https://aureliatcc1.github.io/)
+</div>
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the app
+## Sobre o projeto
 
-   ```bash
-   npx expo start
-   ```
+O **Aurélia** é um sistema integrado que conecta, em tempo real, idosos em estágio inicial de
+Alzheimer e seus cuidadores. Ele é formado por um aplicativo mobile com duas interfaces
+(uma simplificada para o idoso e um painel de acompanhamento para o cuidador) e um módulo de
+hardware com GPS para geofencing.
 
-In the output, you'll find options to open the app in a
+Trabalho de Conclusão de Curso (TCC) desenvolvido na ETEC Bento Quirino.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Estado atual do repositório
 
-## Get a fresh project
+> **As duas interfaces do app ainda estão em desenvolvimento em branches separadas.**
+> Siga as instruções abaixo para rodar cada uma delas corretamente.
 
-When you're ready, run:
+| Interface | Branch | Responsável |
+| --- | --- | --- |
+| Perfil do cuidador | `caregiver` | Thiago Mattos |
+| Perfil do idoso | `idoso_app` | Pyetro Fabrício |
+
+A integração entre as duas branches (login único com redirecionamento por perfil) está prevista para uma etapa futura do projeto.
+
+---
+
+## Como rodar o projeto
+
+### Pré-requisitos
+
+- [Node.js](https://nodejs.org/) instalado
+- [Expo CLI](https://docs.expo.dev/get-started/installation/) instalado
+- Expo Go no celular ou emulador configurado
+
+### Perfil do cuidador
 
 ```bash
-npm run reset-project
+git clone https://github.com/ThiagoLMattos/aurelia-tcc.git
+cd aurelia-tcc
+git checkout caregiver
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Perfil do idoso
 
-## Learn more
+```bash
+git clone https://github.com/ThiagoLMattos/aurelia-tcc.git
+cd aurelia-tcc
+git checkout idoso_app
+npm install
+npx expo start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Problema
 
-## Join the community
+Pessoas em estágio inicial de Alzheimer esquecem tarefas simples do dia a dia, como tomar
+remédios ou lembrar em que dia da semana estão, e podem sair de casa sem avisar ninguém.
+Seus cuidadores, por sua vez, vivem em estado constante de alerta, sem visibilidade real
+sobre a rotina e a localização de quem cuidam, o que gera desgaste físico e emocional para
+os dois lados.
 
-Join our community of developers creating universal apps.
+## Solução
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+O Aurélia une as duas pontas dessa rotina em um único sistema:
+
+- **App do idoso**: interface simplificada, com lembretes de medicação e rotina guiados por
+  uma assistente de IA que conversa por voz.
+- **Painel do cuidador**: histórico de atividades, alertas em tempo real e gestão de contatos
+  de emergência.
+- **Módulo de geolocalização**: hardware com ESP32 e GPS que cria uma "zona segura" ao redor
+  de casa e dispara um alerta imediato ao cuidador caso ela seja rompida.
+
+## Público-alvo
+
+- Idosos em estágio inicial de Alzheimer, que ainda têm autonomia mas precisam de apoio leve
+  no dia a dia.
+- Cuidadores e familiares responsáveis por essa rotina de cuidado.
+
+## Tecnologias utilizadas
+
+| Camada | Tecnologias |
+| --- | --- |
+| App mobile | React Native (Expo) |
+| Backend | Node.js, Firebase |
+| Inteligência artificial | Groq API |
+| Hardware / geofencing | ESP32, GPS NEO-6M |
+| Landing page | HTML5, CSS3, JavaScript |
+
+## Equipe
+
+| Nome | Responsabilidade |
+| --- | --- |
+| Pedro Isaías | Desenvolvedor do Aurélia |
+| Pyetro Fabrício | Desenvolvedor do Aurélia |
+| Thiago Mattos | Desenvolvedor do Aurélia |
+| Simone Lacerda | Orientadora |
+| Tiago Jesus | Coorientador |
+
+## Landing page
+
+A landing page está publicada via GitHub Pages em:
+**[https://aureliatcc1.github.io/](https://aureliatcc1.github.io/)**
