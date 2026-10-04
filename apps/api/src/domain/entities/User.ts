@@ -29,6 +29,6 @@ export interface User {
     cuidadorProfile?: {
         profissao: string;
         isPremium: boolean;
-        pacieentesVinculados: string[];
+        pacientesVinculados: string[];
     }
 }

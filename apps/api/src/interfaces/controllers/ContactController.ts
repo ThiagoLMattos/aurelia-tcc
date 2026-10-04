@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { CreateContact } from '../../domain/use-cases/CreateContact.ts';
+import { CreateContact } from '../../domain/use-cases/CreateContact';
 
 export class ContactController {
     constructor(private createContact: CreateContact) {}

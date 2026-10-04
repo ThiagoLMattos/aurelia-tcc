@@ -23,7 +23,7 @@ export class UserController {
   async getById(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
-      const user = await this.getUserUSeCase.execute(userId);
+      const user = await this.getUserUSeCase.execute(userId as string);
       res.status(200).json(user);
     } catch (error: any) {
       const status = error.message === "Usuário não encontrado." ? 404 : 400;
@@ -40,7 +40,7 @@ export class UserController {
       const updated = await this.updateUserUSeCase.execute(
         requesterId,
         requesterRole,
-        userId,
+        userId as string,
         req.body,
       );
 
