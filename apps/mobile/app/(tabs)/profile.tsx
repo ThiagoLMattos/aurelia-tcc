@@ -40,8 +40,8 @@ const RADIUS_STEPS = [50, 100, 150, 200, 300, 400, 500] as const;
 
 function SafeZoneMap({ radius }: { radius: number }) {
   // Visual scale: smallest radius → smallest circle
-  const minR = RADIUS_STEPS[0];
-  const maxR = RADIUS_STEPS[RADIUS_STEPS.length - 1];
+  const minR = RADIUS_STEPS[0]!;
+  const maxR = RADIUS_STEPS[RADIUS_STEPS.length - 1]!;
   const circlePct = 0.30 + 0.55 * ((radius - minR) / (maxR - minR)); // 30%–85% of container
   const MAP_SIZE = 200;
   const circleSize = MAP_SIZE * circlePct;

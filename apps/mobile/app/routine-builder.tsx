@@ -206,11 +206,11 @@ export default function RoutineBuilderScreen() {
   const [note, setNote] = useState(existingTask?.description ?? '');
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
   const [hour, setHour] = useState(() => {
-    if (existingTask?.time) return parseInt(existingTask.time.split(':')[0], 10);
+    if (existingTask?.time) return parseInt(existingTask.time.split(':')[0]!, 10);
     return 8;
   });
   const [minute, setMinute] = useState(() => {
-    if (existingTask?.time) return parseInt(existingTask.time.split(':')[1], 10);
+    if (existingTask?.time) return parseInt(existingTask.time.split(':')[1]!, 10);
     return 0;
   });
   // isOnce: true when "Sem repetição" is selected — repeatDays stays [] and day pills are hidden

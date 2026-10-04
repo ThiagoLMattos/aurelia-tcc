@@ -108,7 +108,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [caregiver,       setCaregiver]       = useState<Caregiver>(INITIAL_CAREGIVER);
 
   // Current week is always the last element in the weeks array
-  const weekHistory: DayHistory[] = weeks.length > 0 ? weeks[weeks.length - 1] : [];
+  const weekHistory: DayHistory[] = weeks.length > 0 ? weeks[weeks.length - 1]! : [];
 
   // ── Initial data load ──────────────────────────────────────────────────────
   // Each service call is independent so a failure in one doesn't block others.

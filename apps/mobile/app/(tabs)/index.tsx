@@ -40,7 +40,7 @@ type ActiveTab = 'hoje' | 'relatorios';
 
 /** Returns minutes until a 'HH:MM' time string from now. Negative = overdue. */
 function minutesUntil(timeStr: string): number {
-  const [h, m] = timeStr.split(':').map(Number);
+  const [h = 0, m = 0] = timeStr.split(':').map(Number);
   const now = new Date();
   const target = new Date();
   target.setHours(h, m, 0, 0);
@@ -396,8 +396,10 @@ function isMedicationEvent(title: string): boolean {
 function weekLabel(week: DayHistory[] | undefined): string {
   if (!week || !week.length) return '';
   const MONTHS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const last = new Date(week[week.length - 1].date);
-  return `${week[0].dayNum}–${week[week.length - 1].dayNum} ${MONTHS[last.getMonth()]}`;
+  const first = week[0]!;
+  const lastDay = week[week.length - 1]!;
+  const last = new Date(lastDay.date);
+  return `${first.dayNum}–${lastDay.dayNum} ${MONTHS[last.getMonth()]}`;
 }
 
 type WeekMetrics = {
@@ -428,9 +430,9 @@ function computeMetrics(week: DayHistory[] | undefined): WeekMetrics {
 
   const medByName: Record<string, { done: number; total: number }> = {};
   for (const e of medEvents) {
-    if (!medByName[e.title]) medByName[e.title] = { done: 0, total: 0 };
-    medByName[e.title].total++;
-    if (e.type === 'done') medByName[e.title].done++;
+    const stats = (medByName[e.title] ??= { done: 0, total: 0 });
+    stats.total++;
+    if (e.type === 'done') stats.done++;
   }
 
   return {
