@@ -1,0 +1,52 @@
+# Arquivos de configuração sensíveis e credenciais
+.env
+*.env
+*.local
+*.secret
+credentials.json
+src/config/firebase-credentials.json
+secrets.*
+*.key
+*.pem
+*.p12
+*.pfx
+config/
+
+# Dependências de bibliotecas
+node_modules/
+jspm_packages/
+bower_components/
+
+
+# Arquivos compilados e gerados
+dist/
+build/
+coverage/
+.tmp/
+tmp/
+temp/
+*.js.map
+*.tsbuildinfo
+*.cache/
+
+# Arquivos de sistema e editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs e bancos de dados
+*.log
+logs/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
