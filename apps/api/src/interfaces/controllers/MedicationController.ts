@@ -28,7 +28,7 @@ export class MedicationController {
     async getByPatient(req: Request, res: Response): Promise<void> {
         try {
             const { patientId } = req.params;
-            const medications = await this.getMedicationUseCase.execute(patientId);
+            const medications = await this.getMedicationUseCase.execute(patientId as string);
             res.status(200).json(medications);
         }
         catch (error: any) {
@@ -39,7 +39,7 @@ export class MedicationController {
     async update(req: Request, res: Response): Promise<void> {
         try {
             const { medicationId } = req.params;
-            const updated = await this.updateMedicationUseCase.execute(medicationId, req.body);
+            const updated = await this.updateMedicationUseCase.execute(medicationId as string, req.body);
             res.status(200).json(updated);
         } catch ( error: any) {
             res.status(400).json({ error: error.message });

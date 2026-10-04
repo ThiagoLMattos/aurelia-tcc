@@ -4,7 +4,7 @@ import { UserRepository } from '../repositories/UserRepository';
 export class CreateUser {
     constructor(private UserRepository: UserRepository) {}
     
-    async execute(uid: string, data: Omit<User, 'uid' | 'registeredAt' | acessedAt>): Promise<User> {
+    async execute(uid: string, data: Omit<User, 'uid' | 'registeredAt' | 'acessedAt'>): Promise<User> {
         if(!data.name || !data.email || !data.cpf || !data.role) {
             throw new Error('Nome, e-mail, CPF e perfil são obrigatórios.');
         }

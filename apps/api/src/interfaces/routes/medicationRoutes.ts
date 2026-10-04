@@ -23,7 +23,7 @@ router.post('/patients/:patientId/medications', AuthMiddleware.isRole(['caregive
 router.get('/patients/:patientId/medications', AuthMiddleware.isRole(['patient', 'caregiver']), (req, res) => 
     medicationController.getByPatient(req, res),
 );
-router.patch('/patients/:patientId/medicationId', AuthMiddleware.isRole(['caregiver']), (req, res) => 
+router.patch('/patients/:patientId/medications/:medicationId', AuthMiddleware.isRole(['caregiver']), (req, res) => 
     medicationController.update(req, res),
 );
 

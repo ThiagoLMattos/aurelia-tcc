@@ -20,47 +20,36 @@ Trabalho de Conclusão de Curso (TCC) desenvolvido na ETEC Bento Quirino.
 
 ---
 
-## Estado atual do repositório
+## Estrutura do monorepo
 
-> **As duas interfaces do app ainda estão em desenvolvimento em branches separadas.**
-> Siga as instruções abaixo para rodar cada uma delas corretamente.
-
-| Interface | Branch | Responsável |
-| --- | --- | --- |
-| Perfil do cuidador | `caregiver` | Thiago Mattos |
-| Perfil do idoso | `idoso_app` | Pyetro Fabrício |
-
-A integração entre as duas branches (login único com redirecionamento por perfil) está prevista para uma etapa futura do projeto.
-
----
+| Pasta | Conteúdo |
+| --- | --- |
+| `apps/mobile` | App Expo (SDK 54) com as áreas do cuidador e do idoso |
+| `apps/api` | API Node.js (Express + Firebase Admin) |
+| `packages/shared` | Contrato compartilhado (schemas zod, tipos e helpers) |
+| `firebase/` | Regras do Firestore e configuração dos emuladores |
 
 ## Como rodar o projeto
 
 ### Pré-requisitos
 
-- [Node.js](https://nodejs.org/) instalado
-- [Expo CLI](https://docs.expo.dev/get-started/installation/) instalado
+- [Node.js](https://nodejs.org/) 22 ou superior
 - Expo Go no celular ou emulador configurado
 
-### Perfil do cuidador
+### Passo a passo
 
 ```bash
 git clone https://github.com/ThiagoLMattos/aurelia-tcc.git
 cd aurelia-tcc
-git checkout caregiver
-npm install
-npx expo start
+npm install          # uma única vez, na raiz
+npm run dev:mobile   # app (Expo)
+npm run dev:api      # API
+npm run emulators    # emuladores do Firebase (Auth + Firestore)
 ```
 
-### Perfil do idoso
+Copie `.env.example` para `.env` e preencha os valores para rodar a API e o app.
 
-```bash
-git clone https://github.com/ThiagoLMattos/aurelia-tcc.git
-cd aurelia-tcc
-git checkout idoso_app
-npm install
-npx expo start
-```
+Outros comandos na raiz: `npm run typecheck`, `npm run lint`, `npm test`.
 
 ---
 

@@ -22,7 +22,7 @@ export class DeviceController {
     async getByPatient(req: Request, res: Response): Promise<void> {
         try {
             const { patientId } = req.params;
-            const devices = await this.getDevicesUseCase.execute(patientId);
+            const devices = await this.getDevicesUseCase.execute(patientId as string);
             res.status(200).json(devices);
         } catch (error: any) {
             res.status(400).json({ error: error.message });
@@ -32,7 +32,7 @@ export class DeviceController {
     async update(req: Request, res: Response): Promise<void> {
         try {
             const { deviceId } = req.params;
-            const updated = await this.updateDeviceUseCase.execute(deviceId, req.body);
+            const updated = await this.updateDeviceUseCase.execute(deviceId as string, req.body);
             res.status(200).json(updated);
         } catch (error: any) {
             res.status(400).json({ error: error.message });
