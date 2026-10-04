@@ -1,0 +1,23 @@
+{
+  "name": "aurelia",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w @aurelia/api",
+    "dev:mobile": "npm run start -w @aurelia/mobile",
+    "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-aurelia",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "firebase-tools": "^14.0.0"
+  }
+}

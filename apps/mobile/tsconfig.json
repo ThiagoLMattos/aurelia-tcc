@@ -6,7 +6,8 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "noUncheckedIndexedAccess": true
   },
   "include": [
     "**/*.ts",
