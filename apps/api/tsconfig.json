@@ -2,14 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "lib": ["esnext"],
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "lib": ["es2023"],
+    "types": ["node"],
+    "noEmit": true,
     "exactOptionalPropertyTypes": true
   },
-  "include": ["src/**/*"]
+  "include": ["src", "test", "vitest.config.ts"]
 }
