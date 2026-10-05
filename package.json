@@ -13,10 +13,12 @@
     "dev:api": "npm run dev -w @aurelia/api",
     "dev:mobile": "npm run start -w @aurelia/mobile",
     "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-aurelia",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspace=@aurelia/shared --workspace=@aurelia/mobile --if-present",
-    "test:api": "firebase emulators:exec --config firebase/firebase.json --project demo-aurelia \"npm test -w @aurelia/api\""
+    "test": "npm run test --workspace=@aurelia/shared --workspace=@aurelia/mobile --if-present && npm run test:scripts",
+    "test:api": "firebase emulators:exec --config firebase/firebase.json --project demo-aurelia \"npm test -w @aurelia/api\"",
+    "simulate:device": "tsx scripts/simulate-device.ts",
+    "test:scripts": "vitest run --root scripts"
   },
   "devDependencies": {
     "firebase-tools": "^14.0.0"

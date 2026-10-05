@@ -49,7 +49,7 @@ npm run emulators    # emuladores do Firebase (Auth + Firestore)
 
 Copie `.env.example` para `.env` e preencha os valores para rodar a API e o app.
 
-Outros comandos na raiz: `npm run typecheck`, `npm run lint`, `npm test` (pacote shared) e `npm run test:api` (API, sobe os emuladores; precisa de Java 11+). Detalhes em `apps/api/README.md` e `apps/mobile/README.md` (modo demonstração sem backend, rodar no celular, push).
+Outros comandos na raiz: `npm run typecheck`, `npm run lint`, `npm test` (pacotes shared e mobile, e os cenários do simulador) e `npm run test:api` (API, sobe os emuladores; precisa de Java 11+). Para simular o rastreador sem hardware: `npm run simulate:device -- --help` (protocolo em `docs/device-protocol.md`). Detalhes em `apps/api/README.md` e `apps/mobile/README.md` (modo demonstração sem backend, rodar no celular, push).
 
 ---
 
