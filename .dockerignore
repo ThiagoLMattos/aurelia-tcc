@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+.git
+.github
+.claude
+.vscode
+docs
+firebase
+scripts
+apps/mobile
+.env
+.env.*
+!.env.example
+**/*service-account*.json
+**/*.log
+**/.DS_Store

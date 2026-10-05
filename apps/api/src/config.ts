@@ -25,6 +25,11 @@ const EnvSchema = z
     LLM_MODEL: z.string().min(1).optional(),
     /** Enables POST /internal/jobs/run (for deployments where the in-process scheduler cannot run). */
     JOBS_TOKEN: z.string().min(16, 'must be at least 16 characters').optional(),
+    /**
+     * Reverse proxies in front of the API whose X-Forwarded-For is trusted (Cloud Run: 1). Without it every
+     * client shares the proxy's address and the per-IP rate limits throttle everyone together.
+     */
+    TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
     /** Set to false to run the API without the in-process scheduler (e.g. an external trigger calls the jobs). */
     SCHEDULER_ENABLED: booleanString.default(true),
   })

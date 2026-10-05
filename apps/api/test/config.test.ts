@@ -27,4 +27,11 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, LLM_PROVIDER: 'fake', JOBS_TOKEN: 'short' })).toThrow(/JOBS_TOKEN/);
     expect(loadConfig({ ...base, LLM_PROVIDER: 'fake' }).JOBS_TOKEN).toBeUndefined();
   });
+
+  it('trusts no proxy unless told how many sit in front of the API', () => {
+    const base = { FIREBASE_PROJECT_ID: 'p', LLM_PROVIDER: 'fake' };
+    expect(loadConfig(base).TRUST_PROXY).toBe(0);
+    expect(loadConfig({ ...base, TRUST_PROXY: '1' }).TRUST_PROXY).toBe(1);
+    expect(() => loadConfig({ ...base, TRUST_PROXY: 'true' })).toThrow(/TRUST_PROXY/);
+  });
 });

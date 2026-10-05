@@ -65,6 +65,7 @@ export function createApp({ config, firebase, logger, now, limits, services: giv
   const app = express();
 
   app.disable('x-powered-by');
+  if (config.TRUST_PROXY > 0) app.set('trust proxy', config.TRUST_PROXY);
   app.use(pinoHttp({ logger }));
   app.use(helmet());
   app.use(cors({ origin: config.CORS_ORIGINS.length > 0 ? config.CORS_ORIGINS : false }));

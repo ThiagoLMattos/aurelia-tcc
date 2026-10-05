@@ -6,11 +6,19 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "android": { "buildType": "apk" }
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
+      "env": { "EXPO_PUBLIC_API_MODE": "api" },
       "android": { "buildType": "apk" }
+    },
+    "production": {
+      "environment": "production",
+      "env": { "EXPO_PUBLIC_API_MODE": "api" },
+      "android": { "buildType": "app-bundle" }
     }
   }
 }
