@@ -29,12 +29,12 @@ flowchart LR
     E["App do idoso<br/>(Expo)"]
   end
   T["Rastreador<br/>ESP32 + GPS"]
-  API["API<br/>Express, Cloud Run"]
+  API["API<br/>Express (Render)"]
   FB[("Firebase<br/>Auth + Firestore")]
   LLM["Groq<br/>(assistente)"]
   PUSH["Expo Push"]
   SMS["Twilio<br/>(SMS)"]
-  SCH["Cloud Scheduler"]
+  SCH["cron-job.org"]
 
   C -- "HTTPS + token" --> API
   E -- "HTTPS + token" --> API
@@ -45,7 +45,7 @@ flowchart LR
   PUSH --> C
   PUSH --> E
   API -- "sem resposta: contatos de emergência" --> SMS
-  SCH -- "a cada 5 min" --> API
+  SCH -- "a cada 1 e 5 min" --> API
 ```
 
 Os apps falam **só com a API**; apenas ela lê e escreve no Firestore (as regras do Firestore negam todo
@@ -64,7 +64,7 @@ contatos de emergência. O contrato entre as partes (schemas zod) está em
 | `packages/shared` | Contrato compartilhado (schemas zod, tipos e helpers) |
 | `firebase/` | Regras e índices do Firestore, configuração dos emuladores |
 | `scripts/` | Simulador do rastreador (`npm run simulate:device`) |
-| `deploy/` | Definição do serviço no Cloud Run |
+| `render.yaml`, `deploy/` | Serviço da API no Render (plano gratuito) ou no Cloud Run |
 | `docs/` | Referência da API e protocolo do rastreador |
 
 ## Como rodar o projeto
@@ -116,7 +116,7 @@ computador na rede local.
 ### Referências
 
 - Referência da API: [`docs/api.md`](docs/api.md) · Protocolo do rastreador: [`docs/device-protocol.md`](docs/device-protocol.md)
-- API em produção: `Dockerfile` e `deploy/cloud-run.yaml` (variáveis em `.env.example`)
+- API em produção: `Dockerfile` com `render.yaml` (Render, plano gratuito) ou `deploy/cloud-run.yaml` (Cloud Run, exige faturamento); variáveis em `.env.example`
 - Build do app: perfis em `apps/mobile/eas.json`
 
 Mais detalhes em `apps/api/README.md` e `apps/mobile/README.md`.

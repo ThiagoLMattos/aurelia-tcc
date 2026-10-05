@@ -36,6 +36,25 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...base, SMS_PROVIDER: 'twilio', ...twilio }).SMS_PROVIDER).toBe('twilio');
   });
 
+  it('accepts the Firebase service account key as JSON, without ever printing it', () => {
+    const base = { FIREBASE_PROJECT_ID: 'p', LLM_PROVIDER: 'fake' };
+    const key = JSON.stringify({ type: 'service_account', project_id: 'p', client_email: 'sa@p.iam.gserviceaccount.com', private_key: 'SECRET-KEY' });
+    expect(loadConfig({ ...base, FIREBASE_SERVICE_ACCOUNT: key }).FIREBASE_SERVICE_ACCOUNT).toBe(key);
+    expect(loadConfig(base).FIREBASE_SERVICE_ACCOUNT).toBeUndefined();
+
+    const failure = (value: string) => {
+      try {
+        loadConfig({ ...base, FIREBASE_SERVICE_ACCOUNT: value });
+      } catch (error) {
+        return (error as Error).message;
+      }
+      return '';
+    };
+    expect(failure('{"private_key":"SECRET-KEY"}')).toMatch(/FIREBASE_SERVICE_ACCOUNT: must be the service account key JSON/);
+    expect(failure(key.replace('"project_id":"p"', '"project_id":"other"'))).toMatch(/another project/);
+    expect(failure('not json SECRET-KEY')).not.toContain('SECRET-KEY');
+  });
+
   it('trusts no proxy unless told how many sit in front of the API', () => {
     const base = { FIREBASE_PROJECT_ID: 'p', LLM_PROVIDER: 'fake' };
     expect(loadConfig(base).TRUST_PROXY).toBe(0);
