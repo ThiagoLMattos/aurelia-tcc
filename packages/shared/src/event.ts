@@ -23,7 +23,12 @@ const taskPayload = {
   scheduledTime: LocalTimeSchema,
 };
 
-export const TaskDonePayloadSchema = z.object({ ...taskPayload, doneBy: DoneBySchema });
+export const TaskDonePayloadSchema = z.object({
+  ...taskPayload,
+  doneBy: DoneBySchema,
+  /** Set when a caregiver undid the confirmation; the event stays in the timeline as a record. */
+  undoneAt: IsoDateTimeSchema.nullable().default(null),
+});
 export const TaskMissedPayloadSchema = z.object(taskPayload);
 export const SosPayloadSchema = z.object({ lat: LatSchema.nullable(), lng: LngSchema.nullable() });
 export const GeofenceExitPayloadSchema = z.object({
@@ -69,7 +74,9 @@ export const EventsPageSchema = z.object({
 });
 export type EventsPage = z.infer<typeof EventsPageSchema>;
 
-export const SosBodySchema = z.strictObject({ lat: LatSchema.optional(), lng: LngSchema.optional() });
+export const SosBodySchema = z
+  .strictObject({ lat: LatSchema.optional(), lng: LngSchema.optional() })
+  .refine((body) => (body.lat === undefined) === (body.lng === undefined), 'Envie latitude e longitude juntas.');
 export type SosBody = z.infer<typeof SosBodySchema>;
 
 export const SosResponseSchema = z.object({ eventId: IdSchema });

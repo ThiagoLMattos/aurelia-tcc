@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { IdSchema, IsoDateTimeSchema, PhoneE164Schema, ShortTextSchema } from './primitives';
+import { IdSchema, IsoDateTimeSchema, PhoneE164Schema, PhoneInputSchema, ShortTextSchema } from './primitives';
 
 export const ContactSchema = z.object({
   id: IdSchema,
@@ -18,7 +18,7 @@ export type ContactsResponse = z.infer<typeof ContactsResponseSchema>;
 
 export const CreateContactBodySchema = z.strictObject({
   name: ShortTextSchema,
-  phone: PhoneE164Schema,
+  phone: PhoneInputSchema,
   relation: ShortTextSchema,
   isEmergency: z.boolean().default(false),
   priority: z.number().int().min(0).max(1000).default(100),
@@ -28,7 +28,7 @@ export type CreateContactBody = z.infer<typeof CreateContactBodySchema>;
 export const PatchContactBodySchema = z
   .strictObject({
     name: ShortTextSchema,
-    phone: PhoneE164Schema,
+    phone: PhoneInputSchema,
     relation: ShortTextSchema,
     isEmergency: z.boolean(),
     priority: z.number().int().min(0).max(1000),

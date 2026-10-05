@@ -1,4 +1,4 @@
-import { type HealthResponse } from '@aurelia/shared';
+import { ElderParamsSchema, type HealthResponse } from '@aurelia/shared';
 import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
@@ -6,25 +6,36 @@ import { pinoHttp } from 'pino-http';
 import type { Logger } from 'pino';
 
 import { authenticate } from './auth/authenticate';
+import { requireElderAccess } from './auth/requireElderAccess';
+import type { Clock } from './clock';
 import type { Config } from './config';
 import type { Firebase } from './firebase';
 import { errorHandler, notFoundHandler } from './http/errorHandler';
+import { validate } from './http/validate';
+import { agendaRoutes } from './modules/agenda/routes';
 import { authRoutes } from './modules/auth/routes';
-import { createAuthService } from './modules/auth/service';
+import { contactsRoutes } from './modules/contacts/routes';
+import { elderRoutes, eldersRoutes } from './modules/elders/routes';
+import { eventsRoutes } from './modules/events/routes';
 import { meRoutes } from './modules/me/routes';
-import { createMeService } from './modules/me/service';
-import { createRepos } from './repos';
+import { pairRoutes, pairingManagementRoutes } from './modules/pairing/routes';
+import { reportsRoutes } from './modules/reports/routes';
+import { routinesRoutes } from './modules/routines/routes';
+import { sosRoutes } from './modules/sos/routes';
+import { createServices } from './services';
 
 export interface AppDeps {
   config: Config;
   firebase: Firebase;
   logger: Logger;
-  limits?: { signupPerHour?: number };
+  /** Defaults to the system clock; tests pass a fixed one. */
+  now?: Clock;
+  limits?: { signupPerHour?: number; pairPer15Min?: number };
 }
 
 /** Builds the Express app without listening, so tests can drive it with supertest. */
-export function createApp({ config, firebase, logger, limits }: AppDeps): Express {
-  const repos = createRepos(firebase.db);
+export function createApp({ config, firebase, logger, now, limits }: AppDeps): Express {
+  const services = createServices({ firebase, logger, ...(now ? { now } : {}) });
   const app = express();
 
   app.disable('x-powered-by');
@@ -41,14 +52,28 @@ export function createApp({ config, firebase, logger, limits }: AppDeps): Expres
     res.json(body);
   });
 
+  api.use('/auth', authRoutes({ service: services.auth, signupPerHour: limits?.signupPerHour ?? 10 }));
+  api.use('/auth', pairRoutes(services.pairing, limits?.pairPer15Min ?? 10));
+  api.use('/me', requireAuth, meRoutes(services.me));
+  api.use('/elders', requireAuth, eldersRoutes(services.elders));
+
+  // Everything under /elders/:elderId passes the access rule of spec §5 first.
+  const elderScope = express.Router({ mergeParams: true });
+  elderScope.use('/', elderRoutes(services.elders));
+  elderScope.use('/', pairingManagementRoutes(services.pairing));
+  elderScope.use('/routines', routinesRoutes(services.routines));
+  elderScope.use('/agenda', agendaRoutes(services.agenda));
+  elderScope.use('/contacts', contactsRoutes(services.contacts));
+  elderScope.use('/events', eventsRoutes(services.events));
+  elderScope.use('/reports', reportsRoutes(services.reports));
+  elderScope.use('/sos', sosRoutes(services.sos));
   api.use(
-    '/auth',
-    authRoutes({
-      service: createAuthService({ auth: firebase.auth, users: repos.users, logger }),
-      signupPerHour: limits?.signupPerHour ?? 10,
-    }),
+    '/elders/:elderId',
+    requireAuth,
+    validate({ params: ElderParamsSchema }),
+    requireElderAccess(services.repos.elders),
+    elderScope,
   );
-  api.use('/me', requireAuth, meRoutes(createMeService(repos)));
 
   app.use('/api/v1', api);
   app.use(notFoundHandler);

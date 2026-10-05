@@ -2,7 +2,12 @@ import { z } from 'zod';
 
 import { isValidTimezone } from './time';
 
-export const IdSchema = z.string().min(1).max(128);
+/** Rejects what Firestore refuses as a document id (`.`, `..`, `__x__`), so those never reach it. */
+export const IdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^(?!\.{1,2}$)(?!__.*__$)[^/]+$/, 'Identificador inválido.');
 export type Id = z.infer<typeof IdSchema>;
 
 export const IsoDateTimeSchema = z.iso.datetime({ offset: true });
@@ -29,6 +34,26 @@ export type Weekday = z.infer<typeof WeekdaySchema>;
 
 export const PhoneE164Schema = z.string().regex(/^\+[1-9]\d{7,14}$/, 'Use o formato internacional (+5511999999999).');
 export type PhoneE164 = z.infer<typeof PhoneE164Schema>;
+
+/**
+ * Turns what people type ("(11) 99999-9999", "11999999999", "5511999999999", "0055…") into E.164.
+ * Numbers without a country code are taken as Brazilian; anything else is left to fail validation.
+ */
+export function normalizePhone(raw: string): string {
+  const compact = raw.replace(/[\s().-]/g, '');
+  if (compact.startsWith('+')) return compact;
+  if (compact.startsWith('00')) return `+${compact.slice(2)}`;
+  if (/^\d{10,11}$/.test(compact)) return `+55${compact}`;
+  if (/^55\d{10,11}$/.test(compact)) return `+${compact}`;
+  return compact;
+}
+
+/** Request-body phone: accepts common formats and outputs E.164. */
+export const PhoneInputSchema = z
+  .string()
+  .trim()
+  .transform(normalizePhone)
+  .pipe(PhoneE164Schema);
 
 export const LatSchema = z.number().min(-90).max(90);
 export const LngSchema = z.number().min(-180).max(180);

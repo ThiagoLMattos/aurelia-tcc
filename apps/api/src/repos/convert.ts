@@ -7,3 +7,8 @@ export const toDateOrNull = (value: Timestamp | null | undefined): Date | null =
 export function isNotFoundError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 5;
 }
+
+/** gRPC status 6: create() on a document that already exists. */
+export function isAlreadyExistsError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 6;
+}

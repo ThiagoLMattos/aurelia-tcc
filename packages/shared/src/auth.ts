@@ -13,7 +13,14 @@ export const SignupResponseSchema = z.object({ id: IdSchema });
 export type SignupResponse = z.infer<typeof SignupResponseSchema>;
 
 export const PAIRING_CODE_LENGTH = 6;
-export const PairingCodeSchema = z.string().regex(/^\d{6}$/, 'O código tem 6 dígitos.');
+/** No 0/O/1/I/L, so a code read aloud or copied from a screen is hard to get wrong. */
+export const PAIRING_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+/** Input is trimmed and upper-cased, so the elder can type the code in any case. */
+export const PairingCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(new RegExp(`^[${PAIRING_CODE_ALPHABET}]{${PAIRING_CODE_LENGTH}}$`), 'Código inválido.');
 
 export const PairBodySchema = z.strictObject({ code: PairingCodeSchema });
 export type PairBody = z.infer<typeof PairBodySchema>;

@@ -22,7 +22,7 @@ export function toElderResponse(doc: ElderDoc): Elder {
       consecutiveOutside: state.consecutiveOutside,
       consecutiveInside: state.consecutiveInside,
     },
-    phonePaired: doc.pushTokens.length > 0,
+    phonePaired: doc.phonePairedAt !== null,
     createdAt: doc.createdAt.toISOString(),
   };
 }

@@ -3,8 +3,32 @@
 Express 5 + firebase-admin. Implements `/api/v1` from the spec; request and response shapes come
 from `@aurelia/shared`.
 
-Currently implemented: `GET /health`, `POST /auth/signup`, `GET|PATCH /me`,
-`POST /me/push-tokens`, `DELETE /me/push-tokens/:token`.
+Implemented: health, signup, `/me` and push tokens, elders, pairing, routines, agenda, contacts,
+events (history), weekly report and SOS. Not yet: push sending, the assistant, devices, location and
+geofence endpoints, and the scheduler that runs the missed-task job.
+
+Spec §5 lists the endpoints. Where the implementation fills a gap the spec leaves open:
+
+- `POST /auth/pair` answers an unknown, expired or used code with the same `404 NOT_FOUND`, so a
+  guess learns nothing. It is limited to 10 requests per 15 minutes per IP.
+- Marking a task done returns the updated agenda item (200). A task that already has an occurrence,
+  whether done or missed, answers `409`.
+- Undoing a confirmation deletes the occurrence and keeps the original `taskDone` event, flagged with
+  `payload.undoneAt`; it appends nothing.
+- `GET /elders/:elderId` returns `devices` from `elders/{id}/devices`; registering trackers comes later.
+- An elder document carries `phonePairedAt` (set on pairing, cleared on unpairing). Pairing a new
+  phone also clears the previous phone's push tokens.
+
+## Missed-task job
+
+`createServices(...).missedTasks.run(now)` marks overdue `alertIfMissed` tasks as missed, once each,
+and returns what it created so the caller can notify caregivers. It looks at today and yesterday in
+the elder's timezone, and skips a routine created after its time that day. Nothing schedules it yet.
+
+## Not carried over from the old API
+
+Diary, games and communication logs are out of scope for v1. If they come back they should be
+designed against the current data model rather than ported.
 
 ## Layout
 
@@ -16,7 +40,10 @@ src/
   firebase.ts      initializes firebase-admin once (emulators or Application Default Credentials)
   http/            AppError, error handler, validate() middleware, rate-limit helper
   auth/            authenticate (ID token + custom claims), requireRole, requireElderAccess
-  modules/         routes + service per feature (auth, me, ...)
+  services.ts      wires repos into services; routes, tests and jobs share this graph
+  clock.ts         injectable `now`, so time-dependent logic is testable
+  modules/         routes + service per feature (auth, me, elders, pairing, routines, agenda,
+                   contacts, events, reports, sos, jobs)
   repos/           the only code that touches Firestore; converters live here
 test/              vitest + supertest against the Firebase emulators
 ```
