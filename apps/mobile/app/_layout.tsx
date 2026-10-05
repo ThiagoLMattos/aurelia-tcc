@@ -1,10 +1,20 @@
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { AppProvider } from '@/context/AppContext';
-import { Colors } from '@/constants/theme';
+import { SessionProvider, useSession } from '@/auth/SessionProvider';
+import { queryClient, setupFocusManager } from '@/lib/query';
+import { configureNotificationHandler } from '@/push/registerPush';
+import { useNotificationRouting } from '@/push/useNotificationRouting';
+import { usePushRegistration } from '@/push/usePushRegistration';
+import { Colors } from '@/theme';
+
+void SplashScreen.preventAutoHideAsync();
+configureNotificationHandler();
 
 // Force light theme — Aurélia is light-mode only for v1 (dark mode out of scope)
 const AureliaTheme = {
@@ -16,49 +26,44 @@ const AureliaTheme = {
   },
 };
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+/** The navigator: each role only ever sees its own group, and signed-out users only `(auth)`. */
+function RootNavigator() {
+  const { status, role } = useSession();
+  usePushRegistration();
+  useNotificationRouting();
+
+  // Keep the native splash up until we know whether someone is signed in, so there is no flash of the wrong screen.
+  useEffect(() => {
+    if (status !== 'loading') void SplashScreen.hideAsync();
+  }, [status]);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Protected guard={status === 'signedOut'}>
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+      <Stack.Protected guard={status === 'signedIn' && role === 'caregiver'}>
+        <Stack.Screen name="(caregiver)" />
+      </Stack.Protected>
+      <Stack.Protected guard={status === 'signedIn' && role === 'elder'}>
+        <Stack.Screen name="(elder)" />
+      </Stack.Protected>
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
+  useEffect(() => setupFocusManager(), []);
+
   return (
-    <AppProvider>
-      <ThemeProvider value={AureliaTheme}>
-        <Stack>
-          {/* Main tab navigator */}
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
-          {/* Routine builder — slides up from bottom */}
-          <Stack.Screen
-            name="routine-builder"
-            options={{
-              presentation: 'modal',
-              headerShown: false,
-              gestureEnabled: true,
-            }}
-          />
-
-          {/* Geo-fence breach — full-screen, NOT gesture-dismissable */}
-          <Stack.Screen
-            name="geo-fence-breach"
-            options={{
-              presentation: 'fullScreenModal',
-              headerShown: false,
-              gestureEnabled: false, // deliberate safety pattern — see design spec
-            }}
-          />
-
-          {/* Settings — pushed from Profile tab */}
-          <Stack.Screen
-            name="settings"
-            options={{
-              headerShown: false,
-              presentation: 'card',
-            }}
-          />
-        </Stack>
-        <StatusBar style="light" backgroundColor={Colors.primary} />
-      </ThemeProvider>
-    </AppProvider>
+    <QueryClientProvider client={queryClient}>
+      <SessionProvider>
+        <ThemeProvider value={AureliaTheme}>
+          <RootNavigator />
+          <StatusBar style="dark" />
+        </ThemeProvider>
+      </SessionProvider>
+    </QueryClientProvider>
   );
 }

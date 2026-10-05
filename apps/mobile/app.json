@@ -51,6 +51,13 @@
         {
           "contactsPermission": "Este aplicativo precisa de acesso aos seus contatos para realizar ligações de emergência."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#0F8080"
+        }
       ]
     ],
     "experiments": {

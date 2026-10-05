@@ -24,7 +24,7 @@ Every `/elders/:elderId/**` route first checks access: a caregiver must be in th
 | Endpoint | Who | Notes |
 |---|---|---|
 | `GET /health` | public | |
-| `POST /auth/signup` | public, 10/hour/IP | `SignupBody` → `201 { uid }` |
+| `POST /auth/signup` | public, 10/hour/IP | `SignupBody` → `201 { id }` |
 | `POST /auth/pair` | public, 10/15 min/IP | `PairBody` → `PairResponse`; a bad, expired or used code is `404` |
 | `GET /me` | any | `MeResponse` |
 | `PATCH /me` | caregiver | `PatchMeBody` |
