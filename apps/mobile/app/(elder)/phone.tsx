@@ -1,247 +1,188 @@
-// @ts-nocheck
-import { Layout, PatientColors, PatientTypography, Shadow } from '@/theme';
-import { Stack, useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useState, useCallback } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
+import type { Contact } from '@aurelia/shared';
 import * as Contacts from 'expo-contacts';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Linking, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Futuramente: adicionar uma forma do usuário adicionar uma foto para os contatos, para ajudá-los a reconhecer.
+import { BigButton, ElderHeader, MIN_TOUCH, Sheet, SheetText, type Section } from '@/elder/ui';
+import { dialable, phoneKey } from '@/elder/phones';
+import { formatPhone } from '@/lib/format';
+import { useContacts, useElderSelf } from '@/queries';
+import { PatientColors, PatientTypography } from '@/theme';
+
+const SECTION: Section = {
+  main: PatientColors.phoneMain,
+  headerButton: PatientColors.phoneHeaderButton,
+  border: PatientColors.phoneHeaderBorder,
+  text: PatientColors.phoneHeaderText,
+};
+
+/** A row of the list: someone the caregiver registered (pinned on top) or a contact of this phone. */
+interface Entry {
+  id: string;
+  name: string;
+  phone: string;
+  relation: string;
+}
+
+type LoadState = 'loading' | 'ready' | 'denied' | 'error';
 
 export default function PhoneElderScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const selecting = mode === 'select';
+  const elder = useElderSelf();
+  const api = useContacts(elder.id);
 
-  // Modo de seleção — ativado quando vem de add-contact-elder
-  const isSelectMode = params.mode === 'select';
+  const [device, setDevice] = useState<Entry[]>([]);
+  const [state, setState] = useState<LoadState>('loading');
+  const [selected, setSelected] = useState<Entry | null>(null);
 
-  const [contacts, setContacts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedContact, setSelectedContact] = useState(null);
-  const [showConfirmSheet, setShowConfirmSheet] = useState(false);
-
-  // Carrega contatos do dispositivo e parentescos salvos
-  const loadDeviceContacts = async () => {
+  const loadDeviceContacts = useCallback(async () => {
     try {
-      setLoading(true);
       const { status } = await Contacts.requestPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert('Permissão Negada', 'Precisamos de acesso aos seus contatos.');
-        setLoading(false);
-        return;
-      }
-
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.PhoneNumbers],
-      });
-
-      if (data && data.length > 0) {
-        const formattedContacts = await Promise.all(
-          data
-            .filter((item) => item.phoneNumbers && item.phoneNumbers.length > 0)
-            .map(async (item) => {
-              const relation = await AsyncStorage.getItem(`relation_${item.id}`) || '';
-              return {
-                id: item.id,
-                name: item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'Contato Sem Nome',
-                phone: item.phoneNumbers[0].number,
-                relation,
-              };
-            })
-        );
-        setContacts(formattedContacts);
-      } else {
-        Alert.alert('Nenhum contato', 'Nenhum contato encontrado no seu dispositivo.');
-      }
+      if (status !== 'granted') return setState('denied');
+      const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
+      setDevice(
+        data.flatMap((item) => {
+          const number = item.phoneNumbers?.[0]?.number;
+          if (!item.id || !number) return [];
+          const name = item.name || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || 'Contato sem nome';
+          return [{ id: item.id, name, phone: number, relation: '' }];
+        }),
+      );
+      setState('ready');
     } catch (error) {
-      console.error('Erro ao carregar contatos:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao carregar os contatos.');
-    } finally {
-      setLoading(false);
+      console.warn('[phone] não foi possível ler os contatos', error);
+      setState('error');
     }
-  };
+  }, []);
 
-  // Recarrega ao voltar para a tela
   useFocusEffect(
     useCallback(() => {
-      loadDeviceContacts();
-    }, [])
+      void loadDeviceContacts();
+    }, [loadDeviceContacts]),
   );
 
-  // Toque no contato — comportamento diferente por modo
-  const handleContactPress = (contact) => {
-    if (isSelectMode) {
-      // Substitui a tela atual passando os dados como params
-      router.replace({
+  const registered = useMemo<Entry[]>(
+    () => (api.data?.items ?? []).map((c: Contact) => ({ id: c.id, name: c.name, phone: c.phone, relation: c.relation })),
+    [api.data],
+  );
+
+  // A phone contact that the caregiver (or the elder) registered shows its relation too.
+  const sections = useMemo(() => {
+    const relationByPhone = new Map(registered.map((c) => [phoneKey(c.phone), c.relation]));
+    const phoneBook = device
+      .map((c) => ({ ...c, relation: relationByPhone.get(phoneKey(c.phone)) ?? '' }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    return [
+      ...(!selecting && registered.length > 0 ? [{ title: 'MEUS CONTATOS', data: registered }] : []),
+      { title: selecting ? '' : 'CONTATOS DO TELEFONE', data: phoneBook },
+    ];
+  }, [registered, device, selecting]);
+
+  function pick(entry: Entry) {
+    if (selecting) {
+      router.dismissTo({
         pathname: '/(elder)/add-contact',
-        params: {
-          selectedId: contact.id,
-          selectedName: contact.name,
-          selectedPhone: contact.phone,
-        },
-      } as any);
+        params: { selectedId: entry.id, selectedName: entry.name, selectedPhone: entry.phone },
+      });
       return;
     }
-    setSelectedContact(contact);
-    setShowConfirmSheet(true);
-  };
+    setSelected(entry);
+  }
 
-  const handleCall = () => {
-    if (!selectedContact) return;
-    const cleanPhone = selectedContact.phone.replace(/[^0-9+]/g, '');
-    Linking.openURL(`tel:${cleanPhone}`);
-    setShowConfirmSheet(false);
-    setSelectedContact(null);
-  };
+  function call() {
+    if (!selected) return;
+    void Linking.openURL(`tel:${dialable(selected.phone)}`);
+    setSelected(null);
+  }
 
-  const handleCancel = () => {
-    setShowConfirmSheet(false);
-    setSelectedContact(null);
-  };
-
-  // Renderização do item da lista
-  const renderContactItem = ({ item: contact }) => (
-    <TouchableOpacity
-      style={styles.contactCard}
-      onPress={() => handleContactPress(contact)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.avatar}>
-        <Image
-          source={require('../../assets/images/ContatoTelefone.png')}
-          style={styles.avatarImage}
-          resizeMode="cover"
-        />
-      </View>
-      <View style={styles.contactInfo}>
-        <Text style={styles.contactName}>
-          {contact.name}{contact.relation ? ` — ${contact.relation}` : ''}
-        </Text>
-        <Text style={styles.contactPhone}>{contact.phone}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const emptyMessage =
+    state === 'denied'
+      ? 'Sem acesso aos contatos do telefone. Libere nas configurações do aparelho.'
+      : state === 'error'
+        ? 'Não foi possível ler os contatos do telefone.'
+        : 'Nenhum contato disponível.';
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" backgroundColor={PatientColors.phoneMain} />
-      <Stack.Screen options={{ headerShown: false }} />
+      <ElderHeader title={selecting ? 'SELECIONAR CONTATO' : 'TELEFONE'} section={SECTION} onBack={() => router.back()} />
 
-      {/* Header — título muda conforme o modo */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit>
-          {isSelectMode ? 'SELECIONAR CONTATO' : 'TELEFONE'}
-        </Text>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.8}>
-          <Text style={styles.headerButtonText}>VOLTAR</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Lista de contatos */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
+      {state === 'loading' && registered.length === 0 ? (
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={PatientColors.phoneMain} />
-          <Text style={styles.loadingText}>Carregando contatos...</Text>
+          <Text style={styles.loadingText}>Carregando contatos…</Text>
         </View>
       ) : (
-        <FlatList
-          data={contacts}
-          keyExtractor={(item) => item.id}
-          renderItem={renderContactItem}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Nenhum contato disponível.</Text>
-            </View>
+        <SectionList
+          sections={sections}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => (section.title ? <Text style={styles.sectionTitle}>{section.title}</Text> : null)}
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.contactCard}
+              onPress={() => pick(item)}
+              accessibilityRole="button"
+              accessibilityLabel={selecting ? `Escolher ${item.name}` : `Ligar para ${item.name}${item.relation ? `, ${item.relation}` : ''}`}
+            >
+              <Image source={require('../../assets/images/ContatoTelefone.png')} style={styles.avatar} resizeMode="cover" />
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactName}>{item.name}{item.relation ? ` — ${item.relation}` : ''}</Text>
+                <Text style={styles.contactPhone}>{formatPhone(item.phone)}</Text>
+              </View>
+            </Pressable>
+          )}
+          ListFooterComponent={
+            state === 'denied' || state === 'error' || (state === 'ready' && sections.every((s) => s.data.length === 0)) ? <Text style={styles.empty}>{emptyMessage}</Text> : null
           }
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.list}
         />
       )}
 
-      {/* Footer — só aparece no modo normal */}
-      {!isSelectMode && (
+      {!selecting && (
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.footerButton}
+          <BigButton
+            label="+ ADICIONAR CONTATO"
             onPress={() => router.push('/(elder)/add-contact')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.footerButtonText}>+ ADICIONAR PARENTESCO</Text>
-          </TouchableOpacity>
+            color={PatientColors.phoneHeaderButton}
+            textColor={PatientColors.phoneHeaderText}
+            style={styles.footerButton}
+          />
         </View>
       )}
 
-      {/* Aba de confirmação de ligação — só no modo normal */}
-      <Modal visible={showConfirmSheet} transparent animationType="slide" onRequestClose={handleCancel}>
-        <View style={styles.sheetOverlay}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetQuestion}>Certeza que deseja ligar para:</Text>
-            <Text style={styles.sheetContactName}>
-              {selectedContact?.name}{selectedContact?.relation ? ` — ${selectedContact?.relation}` : ''}
-            </Text>
-            <TouchableOpacity style={styles.sheetButtonCall} onPress={handleCall} activeOpacity={0.85}>
-              <Text style={styles.sheetButtonCallText}>LIGAR</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.sheetButtonCancel} onPress={handleCancel} activeOpacity={0.85}>
-              <Text style={styles.sheetButtonCancelText}>VOLTAR</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <Sheet visible={selected !== null} onClose={() => setSelected(null)} accent={PatientColors.phoneMain}>
+        <SheetText>Certeza que deseja ligar para:</SheetText>
+        <SheetText strong>{selected?.name}{selected?.relation ? ` — ${selected.relation}` : ''}</SheetText>
+        <BigButton label="LIGAR" onPress={call} color={PatientColors.phoneMain} textColor={PatientColors.phoneHeaderText} />
+        <BigButton label="VOLTAR" onPress={() => setSelected(null)} color={PatientColors.phoneHeaderButton} textColor={PatientColors.phoneHeaderText} />
+      </Sheet>
     </SafeAreaView>
   );
 }
 
-// Estilos
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PatientColors.phoneMain },
-
-  // Header
-  header: {
-    backgroundColor: PatientColors.phoneMain,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 25,
-    height: Layout.headerHeight,
-  },
-  headerTitle: {
-    color: PatientColors.phoneHeaderText,
-    fontSize: PatientTypography.size.header,
-    fontWeight: PatientTypography.weight.regular,
-    marginRight: 15,
-    flexShrink: 1,
-  },
-  headerButton: {
-    backgroundColor: PatientColors.phoneHeaderButton,
-    borderWidth: 1.5,
-    borderColor: PatientColors.phoneHeaderBorder,
-    borderRadius: 10,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    flexShrink: 0,
-  },
-  headerButtonText: {
-    color: PatientColors.phoneHeaderText,
-    fontSize: PatientTypography.size.backButton,
-    fontWeight: PatientTypography.weight.regular,
-  },
-
-  // Carregamento e vazio
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: '#FFFFFF' },
   loadingText: { fontSize: PatientTypography.size.common, color: '#2C2C2C' },
-  emptyContainer: { padding: 32, alignItems: 'center' },
-  emptyText: { fontSize: PatientTypography.size.common, color: '#FFFFFF' },
-
-  // Lista
-  scrollContent: { paddingHorizontal: 0, paddingBottom: 16 },
+  list: { paddingBottom: 16, backgroundColor: '#FFFFFF', flexGrow: 1 },
+  sectionTitle: {
+    fontSize: PatientTypography.size.reduced,
+    fontWeight: PatientTypography.weight.bold,
+    color: PatientColors.phoneHeaderText,
+    backgroundColor: PatientColors.phoneHeaderButton,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
   contactCard: {
+    minHeight: MIN_TOUCH,
     borderWidth: 0.5,
     borderColor: PatientColors.phoneFieldBorder,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#FFFFFF',
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -249,83 +190,10 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   avatar: { width: 100, height: 100 },
-  avatarImage: { width: '100%', height: '100%' },
   contactInfo: { flex: 1 },
-  contactName: {
-    fontSize: PatientTypography.size.common,
-    fontWeight: PatientTypography.weight.bold,
-    color: '#2C2C2C',
-    marginBottom: 4,
-  },
-  contactPhone: {
-    fontSize: PatientTypography.size.reduced,
-    fontWeight: PatientTypography.weight.bold,
-    color: '#2C2C2C',
-  },
-
-  // Footer
-  footer: {
-    backgroundColor: PatientColors.phoneMain,
-    padding: 16,
-    borderTopWidth: 0.5,
-    borderTopColor: '#D3D1C7',
-  },
-  footerButton: {
-    backgroundColor: PatientColors.phoneHeaderButton,
-    borderColor: PatientColors.phoneHeaderBorder,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  footerButtonText: {
-    color: PatientColors.phoneHeaderText,
-    fontSize: PatientTypography.size.reduced,
-    fontWeight: PatientTypography.weight.bold,
-  },
-
-  // Aba de confirmação
-  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
-  sheet: {
-    backgroundColor: '#F1EFE8',
-    borderTopWidth: 7,
-    borderTopColor: PatientColors.phoneMain,
-    padding: 24,
-    gap: 16,
-    ...Shadow.sheet,
-  },
-  sheetQuestion: {
-    fontSize: PatientTypography.size.reduced,
-    fontWeight: PatientTypography.weight.regular,
-    color: '#2C2C2C',
-    textAlign: 'center',
-  },
-  sheetContactName: {
-    fontSize: PatientTypography.size.sheet,
-    fontWeight: PatientTypography.weight.bold,
-    color: '#2C2C2C',
-    textAlign: 'center',
-  },
-  sheetButtonCall: {
-    backgroundColor: PatientColors.phoneMain,
-    borderRadius: 12,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  sheetButtonCallText: {
-    color: PatientColors.phoneHeaderText,
-    fontSize: PatientTypography.size.sheet,
-    fontWeight: PatientTypography.weight.bold,
-  },
-  sheetButtonCancel: {
-    backgroundColor: PatientColors.phoneHeaderButton,
-    borderRadius: 12,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  sheetButtonCancelText: {
-    color: PatientColors.phoneHeaderText,
-    fontSize: PatientTypography.size.sheet,
-    fontWeight: PatientTypography.weight.bold,
-  },
+  contactName: { fontSize: PatientTypography.size.common, fontWeight: PatientTypography.weight.bold, color: '#2C2C2C', marginBottom: 4 },
+  contactPhone: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: '#2C2C2C' },
+  empty: { fontSize: PatientTypography.size.common, color: '#2C2C2C', textAlign: 'center', padding: 32 },
+  footer: { backgroundColor: PatientColors.phoneMain, padding: 16, borderTopWidth: 0.5, borderTopColor: '#D3D1C7' },
+  footerButton: { borderColor: PatientColors.phoneHeaderBorder, borderWidth: 1 },
 });

@@ -80,6 +80,7 @@ src/
   lib/query.ts           TanStack Query client and query keys
   queries/               one hook per read and write the caregiver screens use
   auth/                  SessionProvider (role from token claims), useMe
+  elder/                 elder-only logic: local reminders, SOS sender with retry, shared big-button UI
   push/                  permission, Android channels, token registration, tap routing
   theme/                 colour, type and spacing tokens, `caregiver` and `elder` palettes
   components/            Screen, Button, Card, TextField, loading / empty / error states
