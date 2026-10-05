@@ -233,8 +233,18 @@ function AlertBanner({
   );
 }
 
-/** The chip on the "Agora" card that says where the elder is. */
-function LocationChip({ location, exitResolved, onSetup }: { location: LocationResponse | undefined; exitResolved: boolean; onSetup: () => void }) {
+/** The chip on the "Agora" card that says where the elder is; once a zone exists it opens the map. */
+function LocationChip({
+  location,
+  exitResolved,
+  onSetup,
+  onOpen,
+}: {
+  location: LocationResponse | undefined;
+  exitResolved: boolean;
+  onSetup: () => void;
+  onOpen: () => void;
+}) {
   if (!location) return null;
   if (!location.safeZone) {
     return (
@@ -243,26 +253,30 @@ function LocationChip({ location, exitResolved, onSetup }: { location: LocationR
       </TouchableOpacity>
     );
   }
+  const open = { onPress: onOpen, accessibilityRole: 'button' as const, accessibilityHint: 'Abre o mapa' };
   if (location.status === 'inside') {
     return (
-      <View style={styles.chipGeoOk}>
+      <TouchableOpacity style={styles.chipGeoOk} {...open}>
         <IconSymbol name="location.fill" size={10} color={Colors.successText} />
         <Text style={styles.chipGeoOkText}>Dentro da zona segura</Text>
-      </View>
+        <IconSymbol name="chevron.right" size={10} color={Colors.successText} />
+      </TouchableOpacity>
     );
   }
   if (location.status === 'outside') {
     return (
-      <View style={[styles.chipGeoOk, extra.chipWarn]}>
+      <TouchableOpacity style={[styles.chipGeoOk, extra.chipWarn]} {...open}>
         <IconSymbol name="location.slash.fill" size={10} color={Colors.warningText} />
         <Text style={[styles.chipGeoOkText, extra.chipWarnText]}>{exitResolved ? 'Fora · confirmado seguro' : 'Fora da zona segura'}</Text>
-      </View>
+        <IconSymbol name="chevron.right" size={10} color={Colors.warningText} />
+      </TouchableOpacity>
     );
   }
   return (
-    <View style={[styles.chipGeoOk, extra.chipNeutral]}>
+    <TouchableOpacity style={[styles.chipGeoOk, extra.chipNeutral]} {...open}>
       <Text style={[styles.chipGeoOkText, extra.chipNeutralText]}>Sem sinal do rastreador</Text>
-    </View>
+      <IconSymbol name="chevron.right" size={10} color={Colors.textSecondary} />
+    </TouchableOpacity>
   );
 }
 
@@ -278,6 +292,7 @@ function RightNowCard({
   onMarkDone,
   onBreachPress,
   onSetupZone,
+  onOpenLocation,
 }: {
   item: AgendaItem | null;
   items: AgendaItem[];
@@ -289,6 +304,7 @@ function RightNowCard({
   onMarkDone: (routineId: string) => void;
   onBreachPress: () => void;
   onSetupZone: () => void;
+  onOpenLocation: () => void;
 }) {
   const now = useNow(30_000);
   const counts = countItems(items);
@@ -336,7 +352,7 @@ function RightNowCard({
         ) : null}
         <View style={styles.geoRow}>
           <Text style={styles.geoLabel}>Localização</Text>
-          <LocationChip location={location} exitResolved={exitResolved} onSetup={onSetupZone} />
+          <LocationChip location={location} exitResolved={exitResolved} onSetup={onSetupZone} onOpen={onOpenLocation} />
         </View>
       </View>
     );
@@ -372,7 +388,7 @@ function RightNowCard({
 
       <View style={styles.geoRow}>
         <Text style={styles.geoLabel}>Localização</Text>
-        <LocationChip location={location} exitResolved={exitResolved} onSetup={onSetupZone} />
+        <LocationChip location={location} exitResolved={exitResolved} onSetup={onSetupZone} onOpen={onOpenLocation} />
       </View>
 
       {item.status !== 'upcoming' && (
@@ -810,6 +826,10 @@ export default function HomeScreen() {
     router.push('/(caregiver)/safe-zone');
   }, [router]);
 
+  const handleOpenLocation = useCallback(() => {
+    router.push('/(caregiver)/location');
+  }, [router]);
+
   const handleMarkDone = useCallback(
     (routineId: string) => {
       const task = items.find((i) => i.routineId === routineId);
@@ -887,6 +907,7 @@ export default function HomeScreen() {
             onMarkDone={handleMarkDone}
             onBreachPress={handleBreachPress}
             onSetupZone={handleSetupZone}
+            onOpenLocation={handleOpenLocation}
           />
         </View>
 

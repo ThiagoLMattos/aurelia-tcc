@@ -63,6 +63,13 @@ iOS push works in Expo Go. Push never works on simulators; use a real phone. To 
 the token the app registered (`users/{uid}.pushTokens` or `elders/{id}.pushTokens`) and send it from
 https://expo.dev/notifications with the data `{"type":"sos","elderId":"<id>"}`: tapping it opens the SOS alert.
 
+### Maps
+
+The caregiver's location, safe-zone and breach screens show a real map (`react-native-maps`): Apple Maps
+on iOS, Google Maps on Android. Expo Go works with no setup. An Android **build** needs a Google Maps SDK
+for Android key in `GOOGLE_MAPS_API_KEY` (an EAS environment variable, read by `app.config.ts`);
+without it the map is blank. In the browser preview the map is replaced by the coordinates.
+
 ## Layout
 
 ```

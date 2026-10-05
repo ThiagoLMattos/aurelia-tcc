@@ -10,7 +10,7 @@
  * who to call (the elder's contacts, emergency ones first).
  */
 
-import { haversineMeters, type Contact } from '@aurelia/shared';
+import { haversineMeters, type Contact, type SafeZone } from '@aurelia/shared';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
@@ -27,6 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ErrorState, FormError, LoadingState } from '@/components';
+import { SafeZoneMap } from '@/components/SafeZoneMap';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
 import { ApiError } from '@/lib/api/client';
@@ -35,28 +36,24 @@ import { clockTime, firstName, formatElapsed, formatPhone, formatStopwatch, maps
 import { useContacts, useCurrentElder, useLatestExit, useLocation, useNow, useResolveGeofence } from '@/queries';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
 
-// ─── Map placeholder ──────────────────────────────────────────────────────────
-// Schematic representation (no map SDK in v1); "Abrir no mapa" opens the phone's maps app.
+// ─── Map ──────────────────────────────────────────────────────────────────────
+// The real map (safe-zone circle + last position, refreshed with the location query every 30 s);
+// "Abrir no mapa" still hands the point to the phone's maps app for directions.
 
-function MapPlaceholder({ elderName, onOpen }: { elderName: string; onOpen: (() => void) | null }) {
+function BreachMap({
+  zone,
+  position,
+  elderName,
+  onOpen,
+}: {
+  zone: SafeZone | null;
+  position: { lat: number; lng: number } | null;
+  elderName: string;
+  onOpen: (() => void) | null;
+}) {
   return (
     <View style={styles.mapContainer}>
-      {/* Safe-zone circle */}
-      <View style={styles.safeZoneCircle} />
-
-      {/* Home pin (teal) */}
-      <View style={styles.homePin}>
-        <View style={styles.homePinDot} />
-        <Text style={styles.homePinLabel}>Casa</Text>
-      </View>
-
-      {/* Elder pin — outside safe zone (red) */}
-      <View style={styles.elderPin}>
-        <View style={styles.elderPinDot} />
-        <Text style={styles.elderPinLabel}>{elderName}</Text>
-      </View>
-
-      {/* Open map affordance */}
+      <SafeZoneMap zone={zone} position={position} status="outside" elderName={elderName} height={220} />
       {onOpen ? (
         <TouchableOpacity style={styles.mapOpenBtn} activeOpacity={0.8} onPress={onOpen} accessibilityRole="link">
           <IconSymbol name="map.fill" size={11} color={Colors.primary} />
@@ -239,7 +236,7 @@ export default function GeoFenceBreachScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Map */}
-        <MapPlaceholder elderName={name} onOpen={position ? handleOpenMap : null} />
+        <BreachMap zone={zone} position={position} elderName={name} onOpen={position ? handleOpenMap : null} />
 
         {/* Info card */}
         <View style={styles.card}>
@@ -425,66 +422,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
 
-  // ── Map placeholder ─────────────────────────────────────────────────────────
+  // ── Map ─────────────────────────────────────────────────────────────────────
   mapContainer: {
     width: '100%',
-    height: 160,
-    backgroundColor: '#D8E8F4',
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
     position: 'relative',
-  },
-  safeZoneCircle: {
-    position: 'absolute',
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: Colors.successBorder,
-    backgroundColor: 'rgba(225,245,238,0.5)',
-    top: 30,
-    left: 28,
-  },
-  homePin: {
-    position: 'absolute',
-    top: 62,
-    left: 60,
-    alignItems: 'center',
-  },
-  homePinDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: Colors.primary,
-    borderWidth: 2,
-    borderColor: Colors.white,
-  },
-  homePinLabel: {
-    fontSize: 8,
-    color: Colors.primary,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  elderPin: {
-    position: 'absolute',
-    top: 90,
-    left: 195,
-    alignItems: 'center',
-  },
-  elderPinDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: Colors.dangerDot,
-    borderWidth: 2,
-    borderColor: Colors.white,
-  },
-  elderPinLabel: {
-    fontSize: 8,
-    color: Colors.dangerText,
-    fontWeight: '700',
-    marginTop: 2,
   },
   mapOpenBtn: {
     position: 'absolute',

@@ -444,6 +444,8 @@ export default function PerfilScreen() {
         {/* ── Safe zone & tracker ── */}
         <SectionTitle title="Localização" />
         <SectionCard>
+          <NavRow title="Ver no mapa" value="Ao vivo" onPress={() => router.push('/(caregiver)/location')} />
+          <View style={styles.contactDivider} />
           <NavRow
             title="Zona segura"
             value={elder.safeZone ? `Raio de ${elder.safeZone.radiusM} m` : 'Não definida'}
