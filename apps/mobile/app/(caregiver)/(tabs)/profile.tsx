@@ -3,15 +3,24 @@
  *
  * Sections:
  *  1. Header (title + settings gear → /settings)
- *  2. Elder profile card (avatar, name, age, diagnosis stage, device status)
+ *  2. Elder card (avatar, name, age, stage, tracker status) with inline edit
  *  3. Personal details card
- *  4. Safe-zone card (schematic map + radius step-selector)
- *  5. Emergency contacts (escalation toggle, call, delete, add)
- *  6. Share with family (lavender CTA — stub for v1)
- *  7. Danger zone — remove elder
+ *  4. Elder's phone (pair / unpair)
+ *  5. Safe zone and tracker rows (open their own screens)
+ *  6. Contacts (emergency switch, call, delete, add)
  */
 
-import React, { useCallback, useState } from 'react';
+import {
+  CreateContactBodySchema,
+  DiagnosisStageSchema,
+  LABELS_PT,
+  PatchElderBodySchema,
+  type Contact,
+  type DiagnosisStage,
+  type Elder,
+  type ElderDetailResponse,
+} from '@aurelia/shared';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -20,106 +29,88 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { useApp } from '@/context/AppContext';
-import { Contact } from '@/data/mock';
-import { Colors, Radius, Spacing, Typography } from '@/theme';
+import { Button, ErrorState, FormError, LoadingState, TextField } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { confirm } from '@/lib/confirm';
+import { friendlyError } from '@/lib/errors';
+import { ageOf, firstName, formatElapsed, formatPhone, initials } from '@/lib/format';
+import { brDateToIso, maskBrDate, validateForm } from '@/lib/forms';
+import {
+  useContacts,
+  useCreateContact,
+  useCurrentElder,
+  useDeleteContact,
+  useElderDetail,
+  useNow,
+  usePatchContact,
+  usePatchElder,
+  useRoutines,
+  useUnpairElderPhone,
+} from '@/queries';
+import { Colors, Radius, Spacing, Typography } from '@/theme';
 
-// ─── Radius presets ───────────────────────────────────────────────────────────
+/** A tracker that has not reported for this long is shown as having no signal (matches the API's offline check). */
+const DEVICE_OFFLINE_AFTER_MS = 15 * 60_000;
 
-const RADIUS_STEPS = [50, 100, 150, 200, 300, 400, 500] as const;
+const isoToBr = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 
-// ─── Safe-zone map schematic ──────────────────────────────────────────────────
+// ─── Tracker status ───────────────────────────────────────────────────────────
 
-function SafeZoneMap({ radius }: { radius: number }) {
-  // Visual scale: smallest radius → smallest circle
-  const minR = RADIUS_STEPS[0]!;
-  const maxR = RADIUS_STEPS[RADIUS_STEPS.length - 1]!;
-  const circlePct = 0.30 + 0.55 * ((radius - minR) / (maxR - minR)); // 30%–85% of container
-  const MAP_SIZE = 200;
-  const circleSize = MAP_SIZE * circlePct;
-
-  return (
-    <View style={[styles.mapContainer, { width: MAP_SIZE, height: MAP_SIZE }]}>
-      {/* Background */}
-      <View style={styles.mapBg} />
-      {/* Safe zone dashed circle */}
-      <View
-        style={[
-          styles.safeCircle,
-          { width: circleSize, height: circleSize, borderRadius: circleSize / 2 },
-        ]}
-      />
-      {/* Home pin */}
-      <View style={styles.homePin}>
-        <View style={styles.homePinDot} />
-      </View>
-      {/* Elder pin (inside zone for profile view) */}
-      <View style={[styles.elderPin, { bottom: MAP_SIZE * 0.22, left: MAP_SIZE * 0.52 }]}>
-        <View style={styles.elderPinDot} />
-      </View>
-      {/* Radius label */}
-      <View style={styles.radiusLabel}>
-        <Text style={styles.radiusLabelText}>{radius}m</Text>
-      </View>
-    </View>
-  );
+function trackerStatus(detail: ElderDetailResponse | undefined, now: number): { label: string; ok: boolean } {
+  if (!detail) return { label: 'Verificando rastreador…', ok: false };
+  if (detail.devices.length === 0) return { label: 'Nenhum rastreador cadastrado', ok: false };
+  const seen = detail.devices
+    .map((d) => (d.lastSeenAt ? Date.parse(d.lastSeenAt) : 0))
+    .reduce((latest, at) => Math.max(latest, at), 0);
+  if (seen === 0) return { label: 'Rastreador ainda sem sinal', ok: false };
+  const age = now - seen;
+  return age <= DEVICE_OFFLINE_AFTER_MS
+    ? { label: 'Rastreador conectado', ok: true }
+    : { label: `Rastreador sem sinal há ${formatElapsed(age)}`, ok: false };
 }
 
 // ─── Contact row ──────────────────────────────────────────────────────────────
 
 function ContactRow({
   contact,
-  onToggleEscalation,
+  busy,
+  onToggleEmergency,
   onCall,
   onDelete,
 }: {
   contact: Contact;
-  onToggleEscalation: (id: string, val: boolean) => void;
+  busy: boolean;
+  onToggleEmergency: (contact: Contact, value: boolean) => void;
   onCall: (phone: string) => void;
-  onDelete: (id: string) => void;
+  onDelete: (contact: Contact) => void;
 }) {
-  const handleDelete = useCallback(() => {
-    Alert.alert(
-      'Remover contato',
-      `Remover ${contact.name} da lista de contatos de emergência?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Remover',
-          style: 'destructive',
-          onPress: () => onDelete(contact.id),
-        },
-      ],
-    );
-  }, [contact, onDelete]);
-
   return (
     <View style={styles.contactRow}>
       {/* Avatar */}
       <View style={styles.contactAvatar}>
-        <Text style={styles.contactAvatarText}>{contact.initials}</Text>
+        <Text style={styles.contactAvatarText}>{initials(contact.name)}</Text>
       </View>
 
       {/* Info */}
       <View style={styles.contactInfo}>
         <Text style={styles.contactName}>{contact.name}</Text>
-        <Text style={styles.contactRole}>{contact.role} · {contact.phone}</Text>
+        <Text style={styles.contactRole}>{contact.relation} · {formatPhone(contact.phone)}</Text>
         <View style={styles.contactEscRow}>
-          <Text style={styles.escLabel}>Escalonar alertas</Text>
+          <Text style={styles.escLabel}>Contato de emergência</Text>
           <Switch
-            value={contact.escalation}
-            onValueChange={(v) => onToggleEscalation(contact.id, v)}
+            value={contact.isEmergency}
+            disabled={busy}
+            onValueChange={(v) => onToggleEmergency(contact, v)}
             trackColor={{ false: Colors.borderLight, true: Colors.aureliaBg }}
-            thumbColor={contact.escalation ? Colors.aureliaText : Colors.tabInactive}
+            thumbColor={contact.isEmergency ? Colors.aureliaText : Colors.tabInactive}
             ios_backgroundColor={Colors.borderLight}
+            accessibilityLabel={`${contact.name} é contato de emergência`}
           />
         </View>
       </View>
@@ -130,13 +121,15 @@ function ContactRow({
           style={styles.callBtn}
           onPress={() => onCall(contact.phone)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={`Ligar para ${contact.name}`}
         >
           <IconSymbol name="phone.fill" size={14} color={Colors.white} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.removeContactBtn}
-          onPress={handleDelete}
+          onPress={() => onDelete(contact)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={`Remover ${contact.name}`}
         >
           <IconSymbol name="trash" size={14} color={Colors.dangerText} />
         </TouchableOpacity>
@@ -147,52 +140,120 @@ function ContactRow({
 
 // ─── Add contact inline form ──────────────────────────────────────────────────
 
-type NewContact = { name: string; role: string; phone: string };
-
-function AddContactForm({ onSave, onCancel }: { onSave: (c: NewContact) => void; onCancel: () => void }) {
-  const [form, setForm] = useState<NewContact>({ name: '', role: '', phone: '' });
+function AddContactForm({ elderId, nextPriority, onDone }: { elderId: string; nextPriority: number; onDone: () => void }) {
+  const create = useCreateContact(elderId);
+  const [name, setName] = useState('');
+  const [relation, setRelation] = useState('');
+  const [phone, setPhone] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleSave = useCallback(() => {
-    if (!form.name.trim() || !form.phone.trim()) {
-      Alert.alert('Campos obrigatórios', 'Nome e telefone são necessários.');
+    const result = validateForm(
+      CreateContactBodySchema,
+      { name, relation, phone, isEmergency: true, priority: nextPriority },
+      {
+        name: 'Informe o nome do contato.',
+        relation: 'Informe o parentesco ou a função (ex: Filha, Médico).',
+        phone: 'Use um telefone com DDD (ex: (11) 99999-0000).',
+      },
+    );
+    if (!result.ok) {
+      setErrors(result.errors);
       return;
     }
-    onSave(form);
-  }, [form, onSave]);
+    setErrors({});
+    setSubmitError(null);
+    create.mutate(result.data, { onSuccess: onDone, onError: (error) => setSubmitError(friendlyError(error)) });
+  }, [name, relation, phone, nextPriority, create, onDone]);
 
   return (
     <View style={styles.addForm}>
       <Text style={styles.addFormTitle}>Novo contato</Text>
-      <TextInput
-        style={styles.addInput}
-        placeholder="Nome completo"
-        placeholderTextColor={Colors.textSecondary}
-        value={form.name}
-        onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
-        autoFocus
+      <TextField label="Nome completo" value={name} onChangeText={setName} error={errors.name} autoFocus autoCapitalize="words" />
+      <TextField
+        label="Parentesco ou função"
+        placeholder="ex: Filha, Médico"
+        value={relation}
+        onChangeText={setRelation}
+        error={errors.relation}
+        autoCapitalize="sentences"
       />
-      <TextInput
-        style={styles.addInput}
-        placeholder="Parentesco ou função (ex: Filha, Médico)"
-        placeholderTextColor={Colors.textSecondary}
-        value={form.role}
-        onChangeText={(v) => setForm((p) => ({ ...p, role: v }))}
-      />
-      <TextInput
-        style={styles.addInput}
-        placeholder="Telefone (ex: +55 19 99999-0000)"
-        placeholderTextColor={Colors.textSecondary}
-        value={form.phone}
-        onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))}
+      <TextField
+        label="Telefone"
+        placeholder="(11) 99999-0000"
+        value={phone}
+        onChangeText={setPhone}
+        error={errors.phone}
         keyboardType="phone-pad"
       />
+      <FormError message={submitError} />
       <View style={styles.addFormActions}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+        <TouchableOpacity style={styles.cancelBtn} onPress={onDone}>
           <Text style={styles.cancelBtnText}>Cancelar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.saveContactBtn} onPress={handleSave}>
-          <Text style={styles.saveContactBtnText}>Salvar contato</Text>
+        <TouchableOpacity style={styles.saveContactBtn} onPress={handleSave} disabled={create.isPending} accessibilityRole="button">
+          <Text style={styles.saveContactBtnText}>{create.isPending ? 'Salvando…' : 'Salvar contato'}</Text>
         </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ─── Elder edit form ──────────────────────────────────────────────────────────
+
+function EditElderForm({ elder, onDone }: { elder: Elder; onDone: () => void }) {
+  const patch = usePatchElder(elder.id);
+  const [name, setName] = useState(elder.name);
+  const [birth, setBirth] = useState(isoToBr(elder.birthDate));
+  const [stage, setStage] = useState<DiagnosisStage>(elder.diagnosisStage);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleSave = useCallback(() => {
+    const result = validateForm(
+      PatchElderBodySchema,
+      { name, birthDate: brDateToIso(birth), diagnosisStage: stage },
+      { name: 'Informe o nome.', birthDate: 'Informe uma data válida (DD/MM/AAAA).' },
+    );
+    if (!result.ok) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors({});
+    setSubmitError(null);
+    patch.mutate(result.data, { onSuccess: onDone, onError: (error) => setSubmitError(friendlyError(error)) });
+  }, [name, birth, stage, patch, onDone]);
+
+  return (
+    <View style={extra.editForm}>
+      <TextField label="Nome" value={name} onChangeText={setName} error={errors.name} autoCapitalize="words" />
+      <TextField
+        label="Data de nascimento"
+        placeholder="DD/MM/AAAA"
+        value={birth}
+        onChangeText={(v) => setBirth(maskBrDate(v))}
+        error={errors.birthDate}
+        keyboardType="number-pad"
+      />
+      <Text style={extra.chipsLabel}>Estágio do diagnóstico</Text>
+      <View style={extra.chips}>
+        {DiagnosisStageSchema.options.map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={[extra.chip, stage === option && extra.chipActive]}
+            onPress={() => setStage(option)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: stage === option }}
+          >
+            <Text style={[extra.chipText, stage === option && extra.chipTextActive]}>{LABELS_PT.diagnosisStage[option]}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <FormError message={submitError} />
+      <View style={styles.addFormActions}>
+        <Button title="Cancelar" variant="ghost" onPress={onDone} style={{ flex: 1 }} />
+        <Button title="Salvar" onPress={handleSave} loading={patch.isPending} style={{ flex: 1 }} />
       </View>
     </View>
   );
@@ -227,62 +288,73 @@ function DetailRow({
   );
 }
 
+/** A tappable row that opens another screen. */
+function NavRow({ title, value, onPress }: { title: string; value: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={extra.navRow} onPress={onPress} activeOpacity={0.7} accessibilityRole="button">
+      <View style={{ flex: 1 }}>
+        <Text style={extra.navTitle}>{title}</Text>
+        <Text style={extra.navValue}>{value}</Text>
+      </View>
+      <IconSymbol name="chevron.right" size={14} color={Colors.tabInactive} />
+    </TouchableOpacity>
+  );
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function PerfilScreen() {
-  const { elder, contacts, updateElder, updateContact, addContact, removeContact } = useApp();
+  const elder = useCurrentElder();
   const router = useRouter();
+  const detail = useElderDetail(elder.id);
+  const contacts = useContacts(elder.id);
+  const routines = useRoutines(elder.id);
+  const patchContact = usePatchContact(elder.id);
+  const removeContact = useDeleteContact(elder.id);
+  const unpair = useUnpairElderPhone(elder.id);
+  const [editing, setEditing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
+  const name = firstName(elder.name);
+  const items = useMemo(() => contacts.data?.items ?? [], [contacts.data]);
+  const nextPriority = Math.min(1000, items.reduce((max, c) => Math.max(max, c.priority), 0) + 1);
+  const activeMeds = routines.data?.items.filter((r) => r.type === 'medication').length;
+  const now = useNow();
+  const tracker = trackerStatus(detail.data, now.getTime());
+
   const handleCall = useCallback((phone: string) => {
-    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
+    void Linking.openURL(`tel:${phone}`);
   }, []);
 
-  const handleToggleEscalation = useCallback(
-    (id: string, val: boolean) => {
-      updateContact(id, { escalation: val });
+  const handleToggleEmergency = useCallback(
+    (contact: Contact, value: boolean) => {
+      patchContact.mutate(
+        { contactId: contact.id, body: { isEmergency: value } },
+        { onError: (error) => Alert.alert('Não foi possível alterar', friendlyError(error)) },
+      );
     },
-    [updateContact],
-  );
-
-  const handleSaveContact = useCallback(
-    (c: NewContact) => {
-      const initials = c.name
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase();
-      addContact({ ...c, initials, escalation: false });
-      setShowAddForm(false);
-    },
-    [addContact],
+    [patchContact],
   );
 
   const handleRemoveContact = useCallback(
-    (id: string) => {
-      removeContact(id);
+    async (contact: Contact) => {
+      const ok = await confirm('Remover contato', `Remover ${contact.name} da lista de contatos?`, 'Remover', true);
+      if (!ok) return;
+      removeContact.mutate(contact.id, { onError: (error) => Alert.alert('Não foi possível remover', friendlyError(error)) });
     },
     [removeContact],
   );
 
-  const handleRemoveElder = useCallback(() => {
-    Alert.alert(
-      'Remover perfil do idoso',
-      'Esta ação não pode ser desfeita. Todos os dados de Maria Gorete serão apagados.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Remover perfil',
-          style: 'destructive',
-          onPress: () => Alert.alert('Funcionalidade', 'Disponível após integração com o backend.'),
-        },
-      ],
+  const handleUnpair = useCallback(async () => {
+    const ok = await confirm(
+      'Desparear celular',
+      `O celular de ${name} será desconectado e vai precisar de um novo código para entrar de novo.`,
+      'Desparear',
+      true,
     );
-  }, []);
-
-  const currentRadius = elder.safeZoneRadius;
+    if (!ok) return;
+    unpair.mutate(undefined, { onError: (error) => Alert.alert('Não foi possível desparear', friendlyError(error)) });
+  }, [name, unpair]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -295,6 +367,7 @@ export default function PerfilScreen() {
           style={styles.settingsBtn}
           onPress={() => router.push('/(caregiver)/settings')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Configurações"
         >
           <IconSymbol name="gear" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -304,150 +377,133 @@ export default function PerfilScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* ── Elder profile card ── */}
         <SectionCard>
           <View style={styles.elderCardContent}>
             <View style={styles.elderAvatar}>
-              <Text style={styles.elderAvatarText}>{elder.initials}</Text>
+              <Text style={styles.elderAvatarText}>{initials(elder.name)}</Text>
             </View>
             <View style={styles.elderInfo}>
               <Text style={styles.elderName}>{elder.name}</Text>
-              <Text style={styles.elderAge}>{elder.age} anos · {elder.diagnosisStage}</Text>
+              <Text style={styles.elderAge}>{ageOf(elder.birthDate)} anos · {LABELS_PT.diagnosisStage[elder.diagnosisStage]}</Text>
               <View style={styles.deviceRow}>
                 <View
                   style={[
                     styles.deviceDot,
-                    { backgroundColor: elder.deviceConnected ? Colors.successText : Colors.dangerText },
+                    { backgroundColor: tracker.ok ? Colors.successText : Colors.dangerText },
                   ]}
                 />
-                <Text style={styles.deviceLabel}>
-                  {elder.deviceConnected ? 'Dispositivo conectado' : 'Dispositivo desconectado'}
-                </Text>
+                <Text style={styles.deviceLabel}>{tracker.label}</Text>
               </View>
             </View>
+            {!editing && (
+              <TouchableOpacity
+                onPress={() => setEditing(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Editar dados do idoso"
+              >
+                <IconSymbol name="pencil" size={16} color={Colors.primary} />
+              </TouchableOpacity>
+            )}
           </View>
+          {editing ? <EditElderForm elder={elder} onDone={() => setEditing(false)} /> : null}
         </SectionCard>
 
         {/* ── Personal details ── */}
         <SectionTitle title="Informações pessoais" />
         <SectionCard>
-          <DetailRow label="Data de nascimento" value={elder.dateOfBirth} />
-          <DetailRow label="Estágio do diagnóstico" value={elder.diagnosisStage} />
-          <DetailRow label="Medicações ativas" value={`${elder.activeMedCount} medicações`} />
+          <DetailRow label="Data de nascimento" value={isoToBr(elder.birthDate)} />
+          <DetailRow label="Estágio do diagnóstico" value={LABELS_PT.diagnosisStage[elder.diagnosisStage]} />
           <DetailRow
-            label="Status do dispositivo"
-            value={elder.deviceConnected ? 'Conectado' : 'Desconectado'}
+            label="Medicações cadastradas"
+            value={activeMeds === undefined ? '—' : `${activeMeds} ${activeMeds === 1 ? 'medicação' : 'medicações'}`}
             last
-            danger={!elder.deviceConnected}
           />
         </SectionCard>
 
-        {/* ── Safe zone ── */}
-        <SectionTitle title="Zona segura" />
+        {/* ── Elder's phone ── */}
+        <SectionTitle title="Celular do idoso" />
         <SectionCard>
-          <Text style={styles.safeZoneSub}>
-            Maria é monitorada dentro de um raio de <Text style={styles.safeZoneHighlight}>{currentRadius}m</Text> em torno do endereço cadastrado.
+          <Text style={extra.explain}>
+            {elder.phonePaired
+              ? `O celular de ${name} está pareado e recebe os lembretes das rotinas.`
+              : `Instale o app no celular de ${name} e entre com um código gerado aqui.`}
           </Text>
-
-          {/* Schematic map */}
-          <View style={styles.mapWrap}>
-            <SafeZoneMap radius={currentRadius} />
-          </View>
-
-          {/* Radius step selector */}
-          <Text style={styles.radiusSelectorLabel}>Raio da zona segura</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.radiusRow}
-          >
-            {RADIUS_STEPS.map((r) => (
-              <TouchableOpacity
-                key={r}
-                style={[styles.radiusStep, currentRadius === r && styles.radiusStepActive]}
-                onPress={() => updateElder({ safeZoneRadius: r })}
-              >
-                <Text style={[styles.radiusStepText, currentRadius === r && styles.radiusStepTextActive]}>
-                  {r}m
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <Text style={styles.radiusHint}>
-            Valores menores aumentam a sensibilidade — útil em ambientes residenciais. Valores maiores reduzem falsos alertas.
-          </Text>
-        </SectionCard>
-
-        {/* ── Emergency contacts ── */}
-        <SectionTitle title="Contatos de emergência" />
-        <SectionCard>
-          {contacts.map((c, i) => (
-            <React.Fragment key={c.id}>
-              <ContactRow
-                contact={c}
-                onToggleEscalation={handleToggleEscalation}
-                onCall={handleCall}
-                onDelete={handleRemoveContact}
-              />
-              {i < contacts.length - 1 && <View style={styles.contactDivider} />}
-            </React.Fragment>
-          ))}
-
-          {/* Inline add form */}
-          {showAddForm ? (
-            <AddContactForm
-              onSave={handleSaveContact}
-              onCancel={() => setShowAddForm(false)}
-            />
+          {elder.phonePaired ? (
+            <View style={extra.buttonRow}>
+              <Button title="Desparear" variant="secondary" onPress={() => void handleUnpair()} loading={unpair.isPending} style={{ flex: 1 }} />
+              <Button title="Novo código" onPress={() => router.push('/(caregiver)/pair-elder')} style={{ flex: 1 }} />
+            </View>
           ) : (
-            <TouchableOpacity
-              style={styles.addContactBtn}
-              onPress={() => setShowAddForm(true)}
-              activeOpacity={0.8}
-            >
-              <IconSymbol name="plus.circle.fill" size={18} color={Colors.primary} />
-              <Text style={styles.addContactBtnText}>Adicionar contato de emergência</Text>
-            </TouchableOpacity>
+            <Button title="Parear celular" onPress={() => router.push('/(caregiver)/pair-elder')} />
           )}
         </SectionCard>
 
-        {/* ── Share with family ── */}
-        <SectionTitle title="Compartilhar acesso" />
+        {/* ── Safe zone & tracker ── */}
+        <SectionTitle title="Localização" />
         <SectionCard>
-          <View style={styles.shareCard}>
-            <View style={styles.aureliaAvatar}>
-              <Text style={styles.aureliaAvatarText}>A</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.shareTitle}>Convidar familiar</Text>
-              <Text style={styles.shareSub}>
-                Permita que um familiar acompanhe o dia de Maria com acesso de leitura. Disponível em breve.
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.shareBtn}
-            onPress={() => Alert.alert('Em breve', 'O compartilhamento de acesso estará disponível na próxima versão.')}
-            activeOpacity={0.85}
-          >
-            <IconSymbol name="person.badge.plus" size={16} color={Colors.aureliaText} />
-            <Text style={styles.shareBtnText}>Enviar convite</Text>
-          </TouchableOpacity>
+          <NavRow
+            title="Zona segura"
+            value={elder.safeZone ? `Raio de ${elder.safeZone.radiusM} m` : 'Não definida'}
+            onPress={() => router.push('/(caregiver)/safe-zone')}
+          />
+          <View style={styles.contactDivider} />
+          <NavRow
+            title="Rastreador"
+            value={
+              detail.data
+                ? detail.data.devices.length === 0
+                  ? 'Nenhum cadastrado'
+                  : `${detail.data.devices.length} cadastrado${detail.data.devices.length > 1 ? 's' : ''}`
+                : '…'
+            }
+            onPress={() => router.push('/(caregiver)/tracker')}
+          />
         </SectionCard>
 
-        {/* ── Danger zone ── */}
-        <SectionTitle title="Zona de perigo" />
+        {/* ── Contacts ── */}
+        <SectionTitle title="Contatos" />
         <SectionCard>
-          <TouchableOpacity
-            style={styles.dangerRow}
-            onPress={handleRemoveElder}
-            activeOpacity={0.8}
-          >
-            <IconSymbol name="trash" size={16} color={Colors.dangerText} />
-            <Text style={styles.dangerRowText}>Remover perfil do idoso</Text>
-          </TouchableOpacity>
+          {contacts.isPending ? (
+            <LoadingState />
+          ) : contacts.isError ? (
+            <ErrorState message={friendlyError(contacts.error)} onRetry={() => void contacts.refetch()} />
+          ) : (
+            <>
+              {items.length === 0 && !showAddForm ? (
+                <Text style={extra.explain}>Nenhum contato ainda. Adicione quem deve ser chamado numa emergência.</Text>
+              ) : null}
+              {items.map((c, i) => (
+                <React.Fragment key={c.id}>
+                  <ContactRow
+                    contact={c}
+                    busy={patchContact.isPending}
+                    onToggleEmergency={handleToggleEmergency}
+                    onCall={handleCall}
+                    onDelete={(contact) => void handleRemoveContact(contact)}
+                  />
+                  {i < items.length - 1 && <View style={styles.contactDivider} />}
+                </React.Fragment>
+              ))}
+
+              {/* Inline add form */}
+              {showAddForm ? (
+                <AddContactForm elderId={elder.id} nextPriority={nextPriority} onDone={() => setShowAddForm(false)} />
+              ) : (
+                <TouchableOpacity
+                  style={styles.addContactBtn}
+                  onPress={() => setShowAddForm(true)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                >
+                  <IconSymbol name="plus.circle.fill" size={18} color={Colors.primary} />
+                  <Text style={styles.addContactBtnText}>Adicionar contato</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
         </SectionCard>
 
         <View style={{ height: 32 }} />
@@ -455,6 +511,29 @@ export default function PerfilScreen() {
     </SafeAreaView>
   );
 }
+
+const extra = StyleSheet.create({
+  editForm: { gap: Spacing.md, marginTop: Spacing.md },
+  chipsLabel: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.textPrimary },
+  chips: { flexDirection: 'row', gap: Spacing.sm },
+  chip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderMid,
+    backgroundColor: Colors.white,
+  },
+  chipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  chipText: { fontSize: Typography.size.sm, color: Colors.textSecondary },
+  chipTextActive: { color: Colors.primaryText, fontWeight: Typography.weight.semibold },
+  explain: { fontSize: Typography.size.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.sm },
+  buttonRow: { flexDirection: 'row', gap: Spacing.sm },
+  navRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
+  navTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.textPrimary },
+  navValue: { fontSize: Typography.size.sm, color: Colors.textSecondary, marginTop: 2 },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

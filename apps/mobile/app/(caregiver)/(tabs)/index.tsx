@@ -3,18 +3,30 @@
  * Primary daily-use screen for the caregiver.
  * Answers "está tudo bem agora?" in under 3 seconds.
  *
- * Three states driven entirely by AppContext:
- *   1. Normal       — tudo certo, geo-fence OK
+ * Three states, derived from the server (today's agenda and the elder's location):
+ *   1. Normal       — tudo certo, dentro da zona segura
  *   2. Alerta       — tarefa perdida (amber)
- *   3. Saída zona   — geo-fence breach (red)
+ *   3. Saída zona   — saída da zona segura não resolvida (red)
  */
 
+import {
+  addDays,
+  haversineMeters,
+  localTimeOf,
+  minutesOfDay,
+  weekStartOf,
+  type AgendaItem,
+  type AgendaStatus,
+  type LocalDate,
+  type LocationResponse,
+  type RoutineType,
+  type WeeklyReport,
+} from '@aurelia/shared';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Animated,
-  Platform,
-  Pressable,
+  RefreshControl,
+  type RefreshControlProps,
   ScrollView,
   Share,
   StatusBar,
@@ -24,12 +36,25 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 
-import { countTasksByStatus, getCurrentTask, useApp } from '@/context/AppContext';
-import { DayHistory, Task } from '@/data/mock';
-import { Colors, Radius, Spacing, Typography } from '@/theme';
+import { ErrorState, LoadingState } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { friendlyError } from '@/lib/errors';
+import { countdownLabel, firstName, weekRange } from '@/lib/format';
+import { mockControls } from '@/lib/backend';
+import {
+  useAgenda,
+  useCurrentElder,
+  useLatestExit,
+  useLocation,
+  useMarkDone,
+  useNow,
+  useToday,
+  useUndoDone,
+  useWeeklyReport,
+} from '@/queries';
+import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,28 +63,46 @@ type ActiveTab = 'hoje' | 'relatorios';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Returns minutes until a 'HH:MM' time string from now. Negative = overdue. */
-function minutesUntil(timeStr: string): number {
-  const [h = 0, m = 0] = timeStr.split(':').map(Number);
-  const now = new Date();
-  const target = new Date();
-  target.setHours(h, m, 0, 0);
-  return Math.round((target.getTime() - now.getTime()) / 60000);
+/** Minutes from now until a scheduled 'HH:mm' (in the elder's timezone). Negative = overdue. */
+function minutesUntil(time: string, now: Date, timezone: string): number {
+  return minutesOfDay(time) - minutesOfDay(localTimeOf(now, timezone));
 }
 
-function formatCountdown(minutes: number): string {
-  if (minutes > 0) return `Em ${minutes} min`;
-  if (minutes === 0) return 'Agora';
-  return `${Math.abs(minutes)} min atrás`;
-}
-
-function taskTypeIcon(type: Task['type']): 'pills.fill' | 'fork.knife' | 'figure.walk' | 'star.fill' {
+function taskTypeIcon(type: RoutineType): 'pills.fill' | 'fork.knife' | 'figure.walk' | 'star.fill' {
   switch (type) {
     case 'medication': return 'pills.fill';
     case 'meal': return 'fork.knife';
     case 'activity': return 'figure.walk';
     default: return 'star.fill';
   }
+}
+
+const OPEN_STATUSES: AgendaStatus[] = ['now', 'pending', 'upcoming'];
+
+/** What the "Agora" card is about: what is due, else what is overdue, else what comes next. */
+function currentItem(items: AgendaItem[]): AgendaItem | null {
+  return (
+    items.find((i) => i.status === 'now') ??
+    items.find((i) => i.status === 'pending') ??
+    items.find((i) => i.status === 'upcoming') ??
+    null
+  );
+}
+
+function countItems(items: AgendaItem[]) {
+  return {
+    done: items.filter((i) => i.status === 'done').length,
+    missed: items.filter((i) => i.status === 'missed').length,
+    open: items.filter((i) => OPEN_STATUSES.includes(i.status)).length,
+    total: items.length,
+  };
+}
+
+/** How far outside the safe radius the last known position is, in metres (0 when inside or unknown). */
+function metersOutside(location: LocationResponse | undefined): number | null {
+  if (!location?.safeZone || location.lat === null || location.lng === null) return null;
+  const distance = haversineMeters({ lat: location.lat, lng: location.lng }, location.safeZone);
+  return Math.max(0, Math.round(distance - location.safeZone.radiusM));
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -132,6 +175,8 @@ function TabPills({
           key={t.key}
           onPress={() => onChange(t.key)}
           style={[styles.tabPill, active === t.key && styles.tabPillActive]}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: active === t.key }}
         >
           <Text style={[styles.tabPillText, active === t.key && styles.tabPillTextActive]}>
             {t.label}
@@ -145,11 +190,13 @@ function TabPills({
 // Alert banner (conditional — amber or red)
 function AlertBanner({
   screenState,
+  elderName,
   missedTaskName,
   missedTaskTime,
   onBreachPress,
 }: {
   screenState: ScreenState;
+  elderName: string;
   missedTaskName?: string;
   missedTaskTime?: string;
   onBreachPress: () => void;
@@ -171,12 +218,12 @@ function AlertBanner({
   }
 
   return (
-    <TouchableOpacity onPress={onBreachPress} activeOpacity={0.85}>
+    <TouchableOpacity onPress={onBreachPress} activeOpacity={0.85} accessibilityRole="button">
       <View style={styles.alertBannerRed}>
         <View style={styles.alertBannerRow}>
           <IconSymbol name="location.slash.fill" size={14} color={Colors.dangerText} />
           <Text style={styles.alertBannerText}>
-            <Text style={styles.alertBannerBold}>Maria saiu da zona segura.</Text>
+            <Text style={styles.alertBannerBold}>{elderName} saiu da zona segura.</Text>
             {' '}Toque para ver detalhes.
           </Text>
           <IconSymbol name="chevron.right" size={14} color={Colors.dangerText} />
@@ -186,35 +233,70 @@ function AlertBanner({
   );
 }
 
+/** The chip on the "Agora" card that says where the elder is. */
+function LocationChip({ location, exitResolved, onSetup }: { location: LocationResponse | undefined; exitResolved: boolean; onSetup: () => void }) {
+  if (!location) return null;
+  if (!location.safeZone) {
+    return (
+      <TouchableOpacity style={[styles.chipGeoOk, extra.chipNeutral]} onPress={onSetup} accessibilityRole="button">
+        <Text style={[styles.chipGeoOkText, extra.chipNeutralText]}>Definir zona segura</Text>
+      </TouchableOpacity>
+    );
+  }
+  if (location.status === 'inside') {
+    return (
+      <View style={styles.chipGeoOk}>
+        <IconSymbol name="location.fill" size={10} color={Colors.successText} />
+        <Text style={styles.chipGeoOkText}>Dentro da zona segura</Text>
+      </View>
+    );
+  }
+  if (location.status === 'outside') {
+    return (
+      <View style={[styles.chipGeoOk, extra.chipWarn]}>
+        <IconSymbol name="location.slash.fill" size={10} color={Colors.warningText} />
+        <Text style={[styles.chipGeoOkText, extra.chipWarnText]}>{exitResolved ? 'Fora · confirmado seguro' : 'Fora da zona segura'}</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.chipGeoOk, extra.chipNeutral]}>
+      <Text style={[styles.chipGeoOkText, extra.chipNeutralText]}>Sem sinal do rastreador</Text>
+    </View>
+  );
+}
+
 // "Agora" card
 function RightNowCard({
-  task,
+  item,
+  items,
   screenState,
-  counts,
+  location,
+  exitResolved,
+  timezone,
+  marking,
   onMarkDone,
   onBreachPress,
+  onSetupZone,
 }: {
-  task: Task | null;
+  item: AgendaItem | null;
+  items: AgendaItem[];
   screenState: ScreenState;
-  counts: ReturnType<typeof countTasksByStatus>;
-  onMarkDone: (id: string) => void;
+  location: LocationResponse | undefined;
+  exitResolved: boolean;
+  timezone: string;
+  marking: boolean;
+  onMarkDone: (routineId: string) => void;
   onBreachPress: () => void;
+  onSetupZone: () => void;
 }) {
-  const [countdown, setCountdown] = useState(task ? minutesUntil(task.time) : 0);
-
-  useEffect(() => {
-    if (!task || screenState === 'breach') return;
-    const timer = setInterval(() => {
-      setCountdown(minutesUntil(task.time));
-    }, 30000); // refresh every 30s
-    setCountdown(minutesUntil(task.time));
-    return () => clearInterval(timer);
-  }, [task, screenState]);
-
+  const now = useNow(30_000);
+  const counts = countItems(items);
   const progress = counts.total > 0 ? counts.done / counts.total : 0;
 
   // Breach state — repurpose card to show breach info
   if (screenState === 'breach') {
+    const outside = metersOutside(location);
     return (
       <View style={[styles.card, styles.cardBreach]}>
         <View style={styles.taskCardHeader}>
@@ -226,9 +308,9 @@ function RightNowCard({
           </View>
         </View>
         <Text style={styles.taskDesc}>
-          Última localização: ~80m fora do raio seguro.
+          {outside !== null ? `Última localização: ~${outside} m fora do raio seguro.` : 'Sem localização recente do rastreador.'}
         </Text>
-        <TouchableOpacity onPress={onBreachPress} style={styles.btnBreachDetail}>
+        <TouchableOpacity onPress={onBreachPress} style={styles.btnBreachDetail} accessibilityRole="button">
           <IconSymbol name="map.fill" size={14} color={Colors.white} />
           <Text style={styles.btnBreachDetailText}>Ver alerta completo</Text>
         </TouchableOpacity>
@@ -236,60 +318,70 @@ function RightNowCard({
     );
   }
 
-  // No pending task
-  if (!task) {
+  // Nothing left to do today
+  if (!item) {
     return (
       <View style={styles.card}>
-        <Text style={styles.taskTitle}>Todas as tarefas concluídas</Text>
-        <Text style={styles.taskDesc}>Ótimo dia para Maria!</Text>
-        <View style={styles.progressRow}>
-          <View style={styles.progressBg}>
-            <View style={[styles.progressFill, { width: '100%' }]} />
+        <Text style={styles.taskTitle}>{counts.total === 0 ? 'Nenhuma tarefa para hoje' : 'Todas as tarefas resolvidas'}</Text>
+        <Text style={styles.taskDesc}>
+          {counts.total === 0 ? 'Crie rotinas na aba Rotinas para acompanhar o dia.' : `${counts.done} de ${counts.total} confirmadas hoje.`}
+        </Text>
+        {counts.total > 0 ? (
+          <View style={styles.progressRow}>
+            <View style={styles.progressBg}>
+              <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+            </View>
+            <Text style={styles.progressLabel}>{counts.done} de {counts.total} feitas</Text>
           </View>
-          <Text style={styles.progressLabel}>{counts.done} de {counts.total} feitas</Text>
+        ) : null}
+        <View style={styles.geoRow}>
+          <Text style={styles.geoLabel}>Localização</Text>
+          <LocationChip location={location} exitResolved={exitResolved} onSetup={onSetupZone} />
         </View>
       </View>
     );
   }
 
-  const countdownLabel = formatCountdown(countdown);
-  const chipStyle = countdown < 0 ? styles.chipOverdue : styles.chipPending;
-  const chipTextStyle = countdown < 0 ? styles.chipOverdueText : styles.chipPendingText;
+  const countdown = minutesUntil(item.time, now, timezone);
+  const overdue = countdown < 0;
+  const chipStyle = overdue ? styles.chipOverdue : styles.chipPending;
+  const chipTextStyle = overdue ? styles.chipOverdueText : styles.chipPendingText;
 
   return (
     <View style={styles.card}>
       <View style={styles.taskCardHeader}>
         <View style={styles.taskTitleRow}>
-          <IconSymbol name={taskTypeIcon(task.type)} size={14} color={Colors.primary} />
-          <Text style={styles.taskTitle}>{task.name}</Text>
+          <IconSymbol name={taskTypeIcon(item.type)} size={14} color={Colors.primary} />
+          <Text style={styles.taskTitle}>{item.name}</Text>
         </View>
         <View style={[styles.chip, chipStyle]}>
-          <Text style={[styles.chipText, chipTextStyle]}>{countdownLabel}</Text>
+          <Text style={[styles.chipText, chipTextStyle]}>{countdownLabel(countdown)}</Text>
         </View>
       </View>
 
-      <Text style={styles.taskDesc}>{task.description}</Text>
+      <Text style={styles.taskDesc}>
+        {item.medication ? `${item.medication.dosage} · ${item.medication.form}` : item.description || `Às ${item.time}`}
+      </Text>
 
       <View style={styles.progressRow}>
         <View style={styles.progressBg}>
-          <Animated.View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+          <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
         </View>
         <Text style={styles.progressLabel}>{counts.done} de {counts.total} feitas</Text>
       </View>
 
       <View style={styles.geoRow}>
         <Text style={styles.geoLabel}>Localização</Text>
-        <View style={styles.chipGeoOk}>
-          <IconSymbol name="location.fill" size={10} color={Colors.successText} />
-          <Text style={styles.chipGeoOkText}>Dentro da zona segura</Text>
-        </View>
+        <LocationChip location={location} exitResolved={exitResolved} onSetup={onSetupZone} />
       </View>
 
-      {task.status !== 'done' && (
+      {item.status !== 'upcoming' && (
         <TouchableOpacity
-          style={styles.btnMarkDone}
-          onPress={() => onMarkDone(task.id)}
+          style={[styles.btnMarkDone, marking && { opacity: 0.6 }]}
+          onPress={() => onMarkDone(item.routineId)}
+          disabled={marking}
           activeOpacity={0.8}
+          accessibilityRole="button"
         >
           <IconSymbol name="checkmark" size={14} color={Colors.white} />
           <Text style={styles.btnMarkDoneText}>Confirmar manualmente</Text>
@@ -300,28 +392,31 @@ function RightNowCard({
 }
 
 // Timeline scroll — simple display, no interactive undo here
-function TimelineScroll({ tasks }: { tasks: Task[] }) {
-  const dotConfig: Record<Task['status'], { bg: string; color: string; icon: string }> = {
-    done:    { bg: Colors.successBg,  color: Colors.successText,   icon: '✓' },
-    pending: { bg: Colors.progressBg, color: Colors.textSecondary, icon: '–' },
-    missed:  { bg: Colors.warningBg,  color: Colors.warningText,   icon: '✕' },
-    now:     { bg: Colors.primary,    color: Colors.primaryLight,   icon: '●' },
+function TimelineScroll({ items }: { items: AgendaItem[] }) {
+  const dotConfig: Record<AgendaStatus, { bg: string; color: string; icon: string }> = {
+    done:     { bg: Colors.successBg,  color: Colors.successText,   icon: '✓' },
+    upcoming: { bg: Colors.progressBg, color: Colors.textSecondary, icon: '–' },
+    pending:  { bg: Colors.warningBg,  color: Colors.warningText,   icon: '!' },
+    missed:   { bg: Colors.warningBg,  color: Colors.warningText,   icon: '✕' },
+    now:      { bg: Colors.primary,    color: Colors.primaryLight,  icon: '●' },
   };
+
+  if (items.length === 0) return null;
 
   return (
     <View>
       <Text style={styles.sectionLabel}>Linha do tempo</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.timelineRow}>
-          {tasks.map((task) => {
-            const cfg = dotConfig[task.status];
+          {items.map((item) => {
+            const cfg = dotConfig[item.status];
             return (
-              <View key={task.id} style={styles.timelineItem}>
-                <Text style={styles.tlTime}>{task.time}</Text>
+              <View key={item.routineId} style={styles.timelineItem}>
+                <Text style={styles.tlTime}>{item.time}</Text>
                 <View style={[styles.tlDot, { backgroundColor: cfg.bg }]}>
                   <Text style={[styles.tlDotText, { color: cfg.color }]}>{cfg.icon}</Text>
                 </View>
-                <Text style={styles.tlLabel} numberOfLines={2}>{task.name.split(' ').slice(0, 2).join(' ')}</Text>
+                <Text style={styles.tlLabel} numberOfLines={2}>{item.name.split(' ').slice(0, 2).join(' ')}</Text>
               </View>
             );
           })}
@@ -332,22 +427,34 @@ function TimelineScroll({ tasks }: { tasks: Task[] }) {
 }
 
 // Aurélia insight card — tappable, navigates to Aurélia chat tab
-function AureliaCard({ screenState, missedCount }: { screenState: ScreenState; missedCount: number }) {
+function AureliaCard({
+  screenState,
+  elderName,
+  firstMissed,
+  weekMissed,
+  counts,
+}: {
+  screenState: ScreenState;
+  elderName: string;
+  firstMissed: AgendaItem | undefined;
+  weekMissed: number;
+  counts: ReturnType<typeof countItems>;
+}) {
   const router = useRouter();
   const insightText =
     screenState === 'breach'
-      ? 'Maria saiu da zona segura. Estou tentando alertá-la pelo dispositivo. Recomendo ligar agora.'
-      : screenState === 'missed'
-      ? missedCount > 1
-        ? `A medicação das 14h não foi confirmada. É a ${missedCount}ª vez esta semana — vale verificar.`
-        : 'A medicação das 14h não foi confirmada. Pode ter sido esquecida. Tudo mais está dentro do esperado.'
-      : 'Tudo tranquilo hoje. Maria confirmou as tarefas da manhã dentro do horário. Boa tarde!';
+      ? `${elderName} saiu da zona segura. Recomendo ligar agora.`
+      : screenState === 'missed' && firstMissed
+      ? `${firstMissed.name} das ${firstMissed.time} não foi confirmada.${weekMissed > 1 ? ` É a ${weekMissed}ª perdida esta semana — vale verificar.` : ' Pode ter sido esquecida.'}`
+      : counts.total === 0
+      ? `Ainda não há rotinas para hoje. Cadastre as de ${elderName} na aba Rotinas.`
+      : `Tudo tranquilo. ${counts.done} de ${counts.total} tarefas de hoje já foram confirmadas.`;
 
   const flagText =
     screenState === 'breach'
       ? 'Ação urgente necessária'
-      : screenState === 'missed' && missedCount > 1
-      ? `${missedCount}ª ocorrência esta semana`
+      : screenState === 'missed' && weekMissed > 1
+      ? `${weekMissed}ª ocorrência esta semana`
       : null;
 
   return (
@@ -355,6 +462,8 @@ function AureliaCard({ screenState, missedCount }: { screenState: ScreenState; m
       style={styles.aureliaCard}
       onPress={() => router.push('/(caregiver)/(tabs)/assistant')}
       activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel="Conversar com a Aurélia"
     >
       <View style={styles.aureliaAvatar}>
         <Text style={styles.aureliaAvatarText}>A</Text>
@@ -387,102 +496,49 @@ function AureliaCard({ screenState, missedCount }: { screenState: ScreenState; m
 
 // ─── Relatórios view ─────────────────────────────────────────────────────────
 
-/** Infer task type from event title (avoids adding taskType to every HistoryEvent). */
-function isMedicationEvent(title: string): boolean {
-  return title.toLowerCase().includes('medicação') || title.toLowerCase().includes('remédio');
-}
-
-/** Human-readable week range: "17–23 jun" */
-function weekLabel(week: DayHistory[] | undefined): string {
-  if (!week || !week.length) return '';
-  const MONTHS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const first = week[0]!;
-  const lastDay = week[week.length - 1]!;
-  const last = new Date(lastDay.date);
-  return `${first.dayNum}–${lastDay.dayNum} ${MONTHS[last.getMonth()]}`;
-}
-
-type WeekMetrics = {
-  medAdherence: number;   // 0–1
-  taskAdherence: number;  // 0–1 (all non-med, non-breach tasks)
-  breachCount: number;
-  medDone: number;
-  medTotal: number;
-  taskDone: number;
-  taskTotal: number;
-  medByName: Record<string, { done: number; total: number }>;
-};
-
-const EMPTY_METRICS: WeekMetrics = {
-  medAdherence: 1, taskAdherence: 1, breachCount: 0,
-  medDone: 0, medTotal: 0, taskDone: 0, taskTotal: 0, medByName: {},
-};
-
-function computeMetrics(week: DayHistory[] | undefined): WeekMetrics {
-  if (!week || week.length === 0) return EMPTY_METRICS;
-  const allEvents = week.flatMap((d) => d.events);
-  const nonBreachEvents = allEvents.filter((e) => e.type !== 'breach');
-  const medEvents    = nonBreachEvents.filter((e) => isMedicationEvent(e.title));
-  const nonMedEvents = nonBreachEvents.filter((e) => !isMedicationEvent(e.title));
-
-  const medDone  = medEvents.filter((e) => e.type === 'done').length;
-  const taskDone = nonMedEvents.filter((e) => e.type === 'done').length;
-
-  const medByName: Record<string, { done: number; total: number }> = {};
-  for (const e of medEvents) {
-    const stats = (medByName[e.title] ??= { done: 0, total: 0 });
-    stats.total++;
-    if (e.type === 'done') stats.done++;
+/** The sentence under "Análise semanal", built from the report's numbers. */
+function generateInsight(name: string, current: WeeklyReport, previous: WeeklyReport | undefined): string {
+  const med = current.adherence.medication.pct;
+  if (med === null) {
+    let text = `Nenhum medicamento estava previsto esta semana para ${name}.`;
+    if (current.geofenceExits > 0) text += ` Houve ${current.geofenceExits} saída${current.geofenceExits > 1 ? 's' : ''} da zona segura.`;
+    return text;
   }
 
-  return {
-    medAdherence:  medEvents.length  > 0 ? medDone  / medEvents.length  : 1,
-    taskAdherence: nonMedEvents.length > 0 ? taskDone / nonMedEvents.length : 1,
-    breachCount:   allEvents.filter((e) => e.type === 'breach').length,
-    medDone, medTotal: medEvents.length,
-    taskDone, taskTotal: nonMedEvents.length,
-    medByName,
-  };
-}
+  let text =
+    med >= 90
+      ? `Boa semana para a medicação — ${med}% de aderência`
+      : med >= 75
+      ? `Semana razoável — ${med}% de aderência a medicamentos`
+      : `Semana preocupante — apenas ${med}% de aderência a medicamentos`;
 
-function generateInsight(cur: WeekMetrics, prev?: WeekMetrics): string {
-  const medPct  = Math.round(cur.medAdherence * 100);
-  const delta   = prev != null ? medPct - Math.round(prev.medAdherence * 100) : null;
-
-  // Opening sentence
-  let text = medPct >= 90
-    ? `Boa semana para a medicação — ${medPct}% de aderência`
-    : medPct >= 75
-    ? `Semana razoável — ${medPct}% de aderência a medicamentos`
-    : `Semana preocupante — apenas ${medPct}% de aderência a medicamentos`;
-
-  if (delta !== null && delta !== 0) {
+  const before = previous?.adherence.medication.pct;
+  if (before !== null && before !== undefined && before !== med) {
+    const delta = med - before;
     text += delta > 0
       ? `, melhora de ${delta} p.p. em relação à semana anterior`
       : `, queda de ${Math.abs(delta)} p.p. em relação à semana anterior`;
   }
   text += '.';
 
-  // Highlight weakest medication
-  const worst = Object.entries(cur.medByName)
-    .map(([name, { done, total }]) => ({ name, pct: total > 0 ? done / total : 1 }))
-    .sort((a, b) => a.pct - b.pct)[0];
-  if (worst && worst.pct < 1) {
-    const worstPct = Math.round(worst.pct * 100);
-    text += ` O ponto mais fraco foi "${worst.name}" (${worstPct}%) — vale confirmar o horário com Maria.`;
+  if (current.missedCount > 0) {
+    text += ` ${current.missedCount} tarefa${current.missedCount > 1 ? 's' : ''} não ${current.missedCount > 1 ? 'foram confirmadas' : 'foi confirmada'} — vale conversar com ${name} sobre os horários.`;
   }
-
-  if (cur.breachCount > 0) {
-    text += ` Houve ${cur.breachCount} evento${cur.breachCount > 1 ? 's' : ''} de saída da zona segura.`;
+  if (current.geofenceExits > 0) {
+    text += ` Houve ${current.geofenceExits} evento${current.geofenceExits > 1 ? 's' : ''} de saída da zona segura.`;
   }
-
+  if (current.sosCount > 0) {
+    text += ` O botão SOS foi acionado ${current.sosCount} vez${current.sosCount > 1 ? 'es' : ''}.`;
+  }
   return text;
 }
 
-/** Delta badge: +10 pp ↑ in green / −5 pp ↓ in red / – when no prev data */
-function DeltaBadge({ current, previous }: { current: number; previous?: number }) {
-  if (previous == null) return null;
-  const diff = Math.round((current - previous) * 100);
+const pctLabel = (pct: number | null) => (pct === null ? '—' : `${pct}%`);
+
+/** Delta badge: +10 pp ↑ in green / −5 pp ↓ in red / nothing when either week has no data */
+function DeltaBadge({ current, previous }: { current: number | null; previous: number | null | undefined }) {
+  if (current === null || previous === null || previous === undefined) return null;
+  const diff = current - previous;
   if (diff === 0) return <Text style={styles.rDeltaFlat}>= estável</Text>;
   const up = diff > 0;
   return (
@@ -492,71 +548,87 @@ function DeltaBadge({ current, previous }: { current: number; previous?: number 
   );
 }
 
-function RelatoriosView({ weeks }: { weeks: DayHistory[][] }) {
-  const safeIdx  = Math.max(0, weeks.length - 1);
-  const [weekIdx, setWeekIdx] = useState(safeIdx);
-  const curWeek  = weeks[weekIdx] ?? [];
-  const prevWeek = weekIdx > 0 ? weeks[weekIdx - 1] : undefined;
+const WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-  const cur  = useMemo(() => computeMetrics(curWeek),  [curWeek]);
-  const prev = useMemo(() => prevWeek ? computeMetrics(prevWeek) : undefined, [prevWeek]);
+function RelatoriosView({ elderId, elderName, today, refreshControl }: { elderId: string; elderName: string; today: LocalDate; refreshControl: React.ReactElement<RefreshControlProps> }) {
+  const router = useRouter();
+  const thisWeek = weekStartOf(today);
+  const [weekStart, setWeekStart] = useState<LocalDate>(thisWeek);
+  const report = useWeeklyReport(elderId, weekStart);
+  const previous = useWeeklyReport(elderId, addDays(weekStart, -7));
+  const isCurrent = weekStart >= thisWeek;
 
-  const insight = useMemo(() => generateInsight(cur, prev), [cur, prev]);
+  const insight = useMemo(
+    () => (report.data ? generateInsight(elderName, report.data, previous.data) : ''),
+    [report.data, previous.data, elderName],
+  );
 
   const handleExport = useCallback(async () => {
-    const label = weekLabel(curWeek);
-    const medPct  = Math.round(cur.medAdherence * 100);
-    const taskPct = Math.round(cur.taskAdherence * 100);
+    if (!report.data) return;
+    const label = weekRange(report.data.weekStart, report.data.weekEnd);
     const msg =
       `Relatório Aurélia — ${label}\n` +
-      `Aderência a medicamentos: ${medPct}%\n` +
-      `Aderência geral: ${taskPct}%\n` +
-      `Eventos de saída: ${cur.breachCount}\n\n` +
+      `Aderência a medicamentos: ${pctLabel(report.data.adherence.medication.pct)}\n` +
+      `Aderência geral: ${pctLabel(report.data.adherence.all.pct)}\n` +
+      `Saídas da zona segura: ${report.data.geofenceExits}\n` +
+      `SOS acionados: ${report.data.sosCount}\n\n` +
       `${insight}`;
     try {
       await Share.share({ message: msg, title: `Relatório Aurélia ${label}` });
     } catch {
       Alert.alert('Exportar', 'Não foi possível compartilhar o relatório.');
     }
-  }, [curWeek, cur, insight]);
+  }, [report.data, insight]);
+
+  if (report.isPending) return <LoadingState />;
+  if (report.isError) return <ErrorState message={friendlyError(report.error)} onRetry={() => void report.refetch()} />;
+
+  const data = report.data;
+  const prev = previous.data;
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.rScrollContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.rScrollContent}
+      showsVerticalScrollIndicator={false}
+      refreshControl={refreshControl}
+    >
 
       {/* ── Week selector ── */}
       <View style={styles.rWeekRow}>
         <TouchableOpacity
-          onPress={() => setWeekIdx((i) => i - 1)}
-          disabled={weekIdx === 0}
-          style={[styles.rWeekArrow, weekIdx === 0 && styles.rWeekArrowDisabled]}
+          onPress={() => setWeekStart((w) => addDays(w, -7))}
+          style={styles.rWeekArrow}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel="Semana anterior"
         >
-          <IconSymbol name="chevron.left" size={18} color={weekIdx === 0 ? Colors.tabInactive : Colors.textPrimary} />
+          <IconSymbol name="chevron.left" size={18} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.rWeekLabel}>{weekLabel(curWeek)}</Text>
+        <Text style={styles.rWeekLabel}>{weekRange(data.weekStart, data.weekEnd)}</Text>
         <TouchableOpacity
-          onPress={() => setWeekIdx((i) => i + 1)}
-          disabled={weekIdx === weeks.length - 1}
-          style={[styles.rWeekArrow, weekIdx === weeks.length - 1 && styles.rWeekArrowDisabled]}
+          onPress={() => setWeekStart((w) => addDays(w, 7))}
+          disabled={isCurrent}
+          style={[styles.rWeekArrow, isCurrent && styles.rWeekArrowDisabled]}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel="Próxima semana"
         >
-          <IconSymbol name="chevron.right" size={18} color={weekIdx === weeks.length - 1 ? Colors.tabInactive : Colors.textPrimary} />
+          <IconSymbol name="chevron.right" size={18} color={isCurrent ? Colors.tabInactive : Colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
       {/* ── Aurélia insight card ── */}
       <View style={styles.rAureliaCard}>
-          <TouchableOpacity onPress={() => router.push('/(caregiver)/(tabs)/assistant')}>
-        <View style={styles.rAureliaHeader}>
-          <View style={styles.aureliaAvatar}>
-            <Text style={styles.aureliaAvatarText}>A</Text>
+        <TouchableOpacity onPress={() => router.push('/(caregiver)/(tabs)/assistant')}>
+          <View style={styles.rAureliaHeader}>
+            <View style={styles.aureliaAvatar}>
+              <Text style={styles.aureliaAvatarText}>A</Text>
+            </View>
+            <View>
+              <Text style={styles.rAureliaName}>Aurélia</Text>
+              <Text style={styles.rAureliaSub}>Análise semanal</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.rAureliaName}>Aurélia</Text>
-            <Text style={styles.rAureliaSub}>Análise semanal</Text>
-          </View>
-        </View>
-        <Text style={styles.rAureliaText}>{insight}</Text>
+          <Text style={styles.rAureliaText}>{insight}</Text>
         </TouchableOpacity>
       </View>
 
@@ -564,100 +636,84 @@ function RelatoriosView({ weeks }: { weeks: DayHistory[][] }) {
       <View style={styles.rStatsRow}>
         {/* Medication adherence */}
         <View style={styles.rStatBox}>
-          <Text style={styles.rStatValue}>{Math.round(cur.medAdherence * 100)}%</Text>
+          <Text style={styles.rStatValue}>{pctLabel(data.adherence.medication.pct)}</Text>
           <Text style={styles.rStatLabel}>Medicamentos</Text>
-          <DeltaBadge current={cur.medAdherence} previous={prev?.medAdherence} />
+          <DeltaBadge current={data.adherence.medication.pct} previous={prev?.adherence.medication.pct} />
         </View>
         {/* Task adherence */}
         <View style={[styles.rStatBox, styles.rStatBoxMid]}>
-          <Text style={styles.rStatValue}>{Math.round(cur.taskAdherence * 100)}%</Text>
+          <Text style={styles.rStatValue}>{pctLabel(data.adherence.all.pct)}</Text>
           <Text style={styles.rStatLabel}>Tarefas gerais</Text>
-          <DeltaBadge current={cur.taskAdherence} previous={prev?.taskAdherence} />
+          <DeltaBadge current={data.adherence.all.pct} previous={prev?.adherence.all.pct} />
         </View>
         {/* Geo-fence events */}
         <View style={styles.rStatBox}>
-          <Text style={[styles.rStatValue, cur.breachCount > 0 && styles.rStatValueDanger]}>
-            {cur.breachCount}
+          <Text style={[styles.rStatValue, data.geofenceExits > 0 && styles.rStatValueDanger]}>
+            {data.geofenceExits}
           </Text>
           <Text style={styles.rStatLabel}>Saídas zona</Text>
-          {prev != null && (
+          {prev ? (
             <Text style={styles.rDeltaFlat}>
-              {cur.breachCount === prev.breachCount
+              {data.geofenceExits === prev.geofenceExits
                 ? '= estável'
-                : cur.breachCount < prev.breachCount
-                ? `▲ melhora`
-                : `▼ piora`}
+                : data.geofenceExits < prev.geofenceExits
+                ? '▲ melhora'
+                : '▼ piora'}
             </Text>
-          )}
+          ) : null}
         </View>
       </View>
+
+      {data.minutesOutside > 0 || data.sosCount > 0 ? (
+        <View style={styles.rCard}>
+          <Text style={styles.rCardTitle}>Alertas da semana</Text>
+          {data.minutesOutside > 0 ? <Text style={extra.reportLine}>{data.minutesOutside} min fora da zona segura</Text> : null}
+          {data.sosCount > 0 ? <Text style={extra.reportLine}>{data.sosCount} acionamento{data.sosCount > 1 ? 's' : ''} do SOS</Text> : null}
+        </View>
+      ) : null}
 
       {/* ── Day-by-day chart ── */}
       <View style={styles.rCard}>
         <Text style={styles.rCardTitle}>Dia a dia</Text>
-        {curWeek.map((day) => {
-          const allDayEvents   = day.events.filter((e) => e.type !== 'breach');
-          const doneCount      = allDayEvents.filter((e) => e.type === 'done').length;
-          const missedCount    = allDayEvents.filter((e) => e.type === 'missed').length;
-          const breachCount    = day.events.filter((e) => e.type === 'breach').length;
-          const total          = allDayEvents.length;
-          const pct            = total > 0 ? doneCount / total : 0;
-
+        {data.days.map((day, index) => {
+          const total = day.done + day.missed;
+          const pct = total > 0 ? day.done / total : 0;
           return (
             <View key={day.date} style={styles.rDayRow}>
               <View style={styles.rDayLabelCol}>
-                <Text style={styles.rDayName}>{day.label}</Text>
-                <Text style={styles.rDayNum}>{day.dayNum}</Text>
+                <Text style={styles.rDayName}>{WEEKDAY_SHORT[index]}</Text>
+                <Text style={styles.rDayNum}>{Number(day.date.slice(8, 10))}</Text>
               </View>
               <View style={styles.rBarCol}>
                 <View style={styles.rBarBg}>
                   <View style={[styles.rBarFill, { width: `${pct * 100}%` as `${number}%` }]} />
                 </View>
                 <View style={styles.rDayBadges}>
-                  {missedCount > 0 && (
+                  {day.missed > 0 && (
                     <View style={styles.rBadgeMissed}>
-                      <Text style={styles.rBadgeText}>{missedCount} perdida{missedCount > 1 ? 's' : ''}</Text>
+                      <Text style={styles.rBadgeText}>{day.missed} perdida{day.missed > 1 ? 's' : ''}</Text>
                     </View>
                   )}
-                  {breachCount > 0 && (
+                  {day.geofenceExits > 0 && (
                     <View style={styles.rBadgeBreach}>
                       <Text style={styles.rBadgeText}>saída</Text>
                     </View>
                   )}
+                  {day.sos > 0 && (
+                    <View style={styles.rBadgeBreach}>
+                      <Text style={styles.rBadgeText}>SOS</Text>
+                    </View>
+                  )}
                 </View>
               </View>
-              <Text style={styles.rDayCount}>{doneCount}/{total}</Text>
+              <Text style={styles.rDayCount}>{day.done}/{total}</Text>
             </View>
           );
         })}
       </View>
 
-      {/* ── Medication breakdown ── */}
-      <View style={styles.rCard}>
-        <Text style={styles.rCardTitle}>Aderência por medicamento</Text>
-        {Object.entries(cur.medByName)
-          .sort(([, a], [, b]) => a.done / a.total - b.done / b.total)
-          .map(([name, { done, total }]) => {
-            const pct    = total > 0 ? done / total : 0;
-            const pctInt = Math.round(pct * 100);
-            const barColor =
-              pctInt >= 90 ? Colors.successText :
-              pctInt >= 75 ? Colors.warningText :
-              Colors.dangerText;
-            return (
-              <View key={name} style={styles.rMedRow}>
-                <Text style={styles.rMedName} numberOfLines={1}>{name}</Text>
-                <View style={styles.rMedBarWrap}>
-                  <View style={[styles.rMedBarFill, { width: `${pct * 100}%` as `${number}%`, backgroundColor: barColor }]} />
-                </View>
-                <Text style={[styles.rMedPct, { color: barColor }]}>{pctInt}%</Text>
-              </View>
-            );
-          })}
-      </View>
-
       {/* ── Export / Share ── */}
-      <TouchableOpacity style={styles.rExportBtn} onPress={handleExport} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.rExportBtn} onPress={() => void handleExport()} activeOpacity={0.85} accessibilityRole="button">
         <IconSymbol name="square.and.arrow.up" size={18} color={Colors.white} />
         <Text style={styles.rExportText}>Exportar relatório</Text>
       </TouchableOpacity>
@@ -667,34 +723,33 @@ function RelatoriosView({ weeks }: { weeks: DayHistory[][] }) {
   );
 }
 
-// Dev state switcher — visible only in development, lets professor see all states
-function DevStateSwitcher({
-  current,
-  onChange,
-}: {
-  current: ScreenState;
-  onChange: (s: ScreenState) => void;
-}) {
-  if (process.env.NODE_ENV === 'production') return null;
+// Dev state switcher — dev builds in mock mode only: with no tracker and no scheduler behind the
+// mock, this is how a demo reaches the "missed" and "outside" states.
+function DevStateSwitcher({ onRefresh }: { onRefresh: () => void }) {
+  if (!__DEV__ || !mockControls) return null;
+  const controls = mockControls;
 
-  const states: { key: ScreenState; label: string }[] = [
-    { key: 'normal', label: 'Normal' },
-    { key: 'missed', label: 'Perdida' },
-    { key: 'breach', label: 'Saída' },
+  const run = (action: () => void) => () => {
+    try {
+      action();
+      onRefresh();
+    } catch (error) {
+      Alert.alert('Demo', friendlyError(error));
+    }
+  };
+
+  const buttons: { label: string; onPress: () => void }[] = [
+    { label: 'Perdida', onPress: run(() => controls.simulateMissed()) },
+    { label: 'Saída', onPress: run(() => controls.simulateExit()) },
+    { label: 'Retorno', onPress: run(() => controls.simulateReturn()) },
   ];
 
   return (
     <View style={styles.devSwitcher}>
       <Text style={styles.devSwitcherLabel}>Demo:</Text>
-      {states.map((s) => (
-        <TouchableOpacity
-          key={s.key}
-          onPress={() => onChange(s.key)}
-          style={[styles.devBtn, current === s.key && styles.devBtnActive]}
-        >
-          <Text style={[styles.devBtnText, current === s.key && styles.devBtnTextActive]}>
-            {s.label}
-          </Text>
+      {buttons.map((b) => (
+        <TouchableOpacity key={b.label} onPress={b.onPress} style={styles.devBtn}>
+          <Text style={styles.devBtnText}>{b.label}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -704,67 +759,79 @@ function DevStateSwitcher({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { elder, tasks, geoFenceStatus, triggerBreach, resolveBreach, markTaskDone, undoTaskDone, weeks } = useApp();
+  const elder = useCurrentElder();
+  const name = firstName(elder.name);
+  const today = useToday(elder);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('hoje');
 
-  // Compute screen state from context
-  const counts = countTasksByStatus(tasks);
-  const missedTasks = tasks.filter((t) => t.status === 'missed');
-  const currentTask = getCurrentTask(tasks);
+  const agenda = useAgenda(elder.id, today);
+  const location = useLocation(elder.id);
+  const outside = location.data?.status === 'outside';
+  const latestExit = useLatestExit(elder.id, outside);
+  const week = useWeeklyReport(elder.id, weekStartOf(today));
+  const markDone = useMarkDone(elder.id, today);
+  const undoDone = useUndoDone(elder.id, today);
 
-  // Dev override for demo — defaults to whatever context says
-  const [devOverride, setDevOverride] = useState<ScreenState | null>(null);
+  const items = useMemo(() => agenda.data?.items ?? [], [agenda.data]);
+  const counts = countItems(items);
+  const missedItems = items.filter((i) => i.status === 'missed');
+  const exitResolved = outside && latestExit.data?.payload.resolvedAt != null;
 
   const screenState: ScreenState =
-    devOverride ??
-    (geoFenceStatus === 'outside'
-      ? 'breach'
-      : missedTasks.length > 0
-      ? 'missed'
-      : 'normal');
+    outside && !exitResolved ? 'breach' : missedItems.length > 0 ? 'missed' : 'normal';
 
   // ── Undo snackbar state ──────────────────────────────────────────────────────
   const [snackbar, setSnackbar] = useState<{ id: string; name: string } | null>(null);
   const snackbarTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showSnackbar = useCallback((id: string, name: string) => {
+  useEffect(() => () => {
     if (snackbarTimer.current) clearTimeout(snackbarTimer.current);
-    setSnackbar({ id, name });
+  }, []);
+
+  const showSnackbar = useCallback((id: string, taskName: string) => {
+    if (snackbarTimer.current) clearTimeout(snackbarTimer.current);
+    setSnackbar({ id, name: taskName });
     snackbarTimer.current = setTimeout(() => setSnackbar(null), 5000);
   }, []);
 
   const handleUndoSnackbar = useCallback(() => {
     if (!snackbar) return;
-    undoTaskDone(snackbar.id);
+    undoDone.mutate(snackbar.id, { onError: (error) => Alert.alert('Não foi possível desfazer', friendlyError(error)) });
     if (snackbarTimer.current) clearTimeout(snackbarTimer.current);
     setSnackbar(null);
-  }, [snackbar, undoTaskDone]);
-
-  // Sync dev override to context
-  const handleDevChange = useCallback(
-    (s: ScreenState) => {
-      setDevOverride(s);
-      if (s === 'breach') triggerBreach();
-      else resolveBreach();
-    },
-    [triggerBreach, resolveBreach],
-  );
+  }, [snackbar, undoDone]);
 
   const handleBreachPress = useCallback(() => {
     router.push('/(caregiver)/geo-fence-breach');
   }, [router]);
 
+  const handleSetupZone = useCallback(() => {
+    router.push('/(caregiver)/safe-zone');
+  }, [router]);
+
   const handleMarkDone = useCallback(
-    (id: string) => {
-      const task = tasks.find((t) => t.id === id);
-      markTaskDone(id);
-      if (task) showSnackbar(id, task.name);
+    (routineId: string) => {
+      const task = items.find((i) => i.routineId === routineId);
+      markDone.mutate(routineId, {
+        onSuccess: () => {
+          if (task) showSnackbar(routineId, task.name);
+        },
+        onError: (error) => Alert.alert('Não foi possível confirmar', friendlyError(error)),
+      });
     },
-    [markTaskDone, showSnackbar, tasks],
+    [items, markDone, showSnackbar],
   );
 
-  const firstMissed = missedTasks[0];
+  const refreshing = agenda.isRefetching || location.isRefetching;
+  const refetchAll = useCallback(() => {
+    void agenda.refetch();
+    void location.refetch();
+    void week.refetch();
+  }, [agenda, location, week]);
+  const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={refetchAll} />;
+
+  const firstMissed = missedItems[0];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -775,24 +842,32 @@ export default function HomeScreen() {
         <HeaderBar
           elderName={elder.name}
           screenState={screenState}
-          missedCount={missedTasks.length}
+          missedCount={missedItems.length}
         />
         <TabPills active={activeTab} onChange={setActiveTab} />
       </View>
 
       {/* ── Relatórios view ── */}
-      {activeTab === 'relatorios' && <RelatoriosView weeks={weeks} />}
+      {activeTab === 'relatorios' && (
+        <RelatoriosView elderId={elder.id} elderName={name} today={today} refreshControl={refreshControl} />
+      )}
 
       {/* ── Hoje view ── */}
-      {activeTab === 'hoje' && (
+      {activeTab === 'hoje' && (agenda.isPending ? (
+        <View style={styles.scroll}><LoadingState /></View>
+      ) : agenda.isError ? (
+        <View style={styles.scroll}><ErrorState message={friendlyError(agenda.error)} onRetry={() => void agenda.refetch()} /></View>
+      ) : (
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
       >
         {/* Alert banner */}
         <AlertBanner
           screenState={screenState}
+          elderName={name}
           missedTaskName={firstMissed?.name}
           missedTaskTime={firstMissed?.time}
           onBreachPress={handleBreachPress}
@@ -802,24 +877,35 @@ export default function HomeScreen() {
         <View>
           <Text style={styles.sectionLabel}>Agora</Text>
           <RightNowCard
-            task={currentTask}
+            item={currentItem(items)}
+            items={items}
             screenState={screenState}
-            counts={counts}
+            location={location.data}
+            exitResolved={exitResolved}
+            timezone={elder.timezone}
+            marking={markDone.isPending}
             onMarkDone={handleMarkDone}
             onBreachPress={handleBreachPress}
+            onSetupZone={handleSetupZone}
           />
         </View>
 
         {/* Timeline */}
-        <TimelineScroll tasks={tasks} />
+        <TimelineScroll items={items} />
 
         {/* Aurélia insight */}
-        <AureliaCard screenState={screenState} missedCount={missedTasks.length} />
+        <AureliaCard
+          screenState={screenState}
+          elderName={name}
+          firstMissed={firstMissed}
+          weekMissed={week.data?.missedCount ?? missedItems.length}
+          counts={counts}
+        />
 
         {/* Bottom padding for tab bar */}
         <View style={{ height: 16 }} />
       </ScrollView>
-      )}
+      ))}
 
       {/* ── Undo snackbar (absolutely positioned, visible over both tabs) ── */}
       {snackbar && (
@@ -833,13 +919,19 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Dev state switcher (only on Hoje) */}
-      {activeTab === 'hoje' && (
-        <DevStateSwitcher current={screenState} onChange={handleDevChange} />
-      )}
+      {/* Demo controls (dev builds in mock mode only; only on Hoje) */}
+      {activeTab === 'hoje' && <DevStateSwitcher onRefresh={refetchAll} />}
     </SafeAreaView>
   );
 }
+
+const extra = StyleSheet.create({
+  chipWarn: { backgroundColor: Colors.warningBg },
+  chipWarnText: { color: Colors.warningText },
+  chipNeutral: { backgroundColor: Colors.progressBg },
+  chipNeutralText: { color: Colors.textSecondary },
+  reportLine: { fontSize: Typography.size.sm, color: Colors.textPrimary },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

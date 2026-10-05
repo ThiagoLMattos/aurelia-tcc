@@ -1,11 +1,11 @@
 /**
  * Aurélia — Routine builder
- * Unified form to create any task type (medication, meal, activity, custom).
- * Type selector reveals/hides conditional fields.
- * Live preview card updates as fields change.
- * Time picker: inline stepper (production → native DateTimePicker).
+ * One form for every routine type (medication, meal, activity, custom), validated with the shared
+ * `CreateRoutineBody` schema. The type reveals the medication fields; a live preview updates as
+ * the fields change. Time picker: inline stepper (production → native DateTimePicker).
  */
 
+import { CreateRoutineBodySchema, LABELS_PT, type PatchRoutineBody, type Routine, type RoutineType } from '@aurelia/shared';
 import React, { useCallback, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -21,10 +21,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { useApp } from '@/context/AppContext';
-import { Task, TaskType } from '@/data/mock';
-import { Colors, Radius, Spacing, Typography } from '@/theme';
+import { ErrorState, FormError, LoadingState } from '@/components';
 import { IconSymbol, IconSymbolName } from '@/components/ui/icon-symbol';
+import { friendlyError } from '@/lib/errors';
+import { validateForm } from '@/lib/forms';
+import { firstName } from '@/lib/format';
+import { useCreateRoutine, useCurrentElder, usePatchRoutine, useRoutines } from '@/queries';
+import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,29 +36,35 @@ type MedForm = 'Comprimido' | 'Líquido' | 'Injeção' | 'Outro';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TYPE_OPTIONS: {
-  key: TaskType;
-  label: string;
+  key: RoutineType;
   icon: IconSymbolName;
   defaultName: string;
 }[] = [
-  { key: 'medication', label: 'Medicação',    icon: 'pills.fill',   defaultName: 'Medicação da manhã' },
-  { key: 'meal',       label: 'Refeição',     icon: 'fork.knife',   defaultName: 'Café da manhã' },
-  { key: 'activity',   label: 'Atividade',    icon: 'figure.walk',  defaultName: 'Caminhada leve' },
-  { key: 'custom',     label: 'Personalizada',icon: 'star.fill',    defaultName: 'Tarefa' },
+  { key: 'medication', icon: 'pills.fill',  defaultName: 'Medicação da manhã' },
+  { key: 'meal',       icon: 'fork.knife',  defaultName: 'Café da manhã' },
+  { key: 'activity',   icon: 'figure.walk', defaultName: 'Caminhada leve' },
+  { key: 'custom',     icon: 'star.fill',   defaultName: 'Tarefa' },
 ];
 
 const MED_FORMS: MedForm[] = ['Comprimido', 'Líquido', 'Injeção', 'Outro'];
 
 // Days: Dom Seg Ter Qua Qui Sex Sáb (index 0–6)
 const DAY_PILLS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-const DAY_LABELS_FULL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-const PRESETS: { key: 'once' | 'everyday' | 'weekdays' | 'custom'; label: string; days: number[] }[] = [
-  { key: 'once',     label: 'Sem repetição', days: [] },
+const PRESETS: { key: 'everyday' | 'weekdays' | 'custom'; label: string; days: number[] }[] = [
   { key: 'everyday', label: 'Todos os dias', days: [0, 1, 2, 3, 4, 5, 6] },
   { key: 'weekdays', label: 'Dias úteis',    days: [1, 2, 3, 4, 5] },
   { key: 'custom',   label: 'Personalizado', days: [] },
 ];
+
+/** What each field says when the shared schema rejects it (the schema's own text is not always pt-BR). */
+const FIELD_MESSAGES: Record<string, string> = {
+  name: 'Dê um nome à rotina (até 120 caracteres).',
+  time: 'Escolha um horário válido.',
+  weekdays: 'Escolha ao menos um dia.',
+  medication: 'Informe a dose e a forma do medicamento.',
+  description: 'As observações podem ter até 500 caracteres.',
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,42 +72,52 @@ function padTwo(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
-// Sentinel to distinguish "once" (no repeat, intentional) from "custom with no days yet"
-const ONCE_SENTINEL = '__once__';
-
-function repeatSummary(days: number[], once?: boolean): string {
-  if (once) return 'Sem repetição — apenas hoje';
+function repeatSummary(days: number[]): string {
   if (days.length === 7) return 'Todos os dias';
   const sorted = [...days].sort((a, b) => a - b);
   if (JSON.stringify(sorted) === JSON.stringify([1, 2, 3, 4, 5])) return 'Dias úteis';
   if (days.length === 0) return 'Nenhum dia selecionado';
-  return sorted.map((d) => DAY_LABELS_FULL[d]).join(', ');
+  return sorted.map((d) => LABELS_PT.weekdayShort[d]).join(', ');
 }
 
-function activePreset(days: number[], once: boolean): 'once' | 'everyday' | 'weekdays' | 'custom' {
-  if (once) return 'once';
+function activePreset(days: number[]): 'everyday' | 'weekdays' | 'custom' {
   const s = JSON.stringify([...days].sort((a, b) => a - b));
   if (s === JSON.stringify([0, 1, 2, 3, 4, 5, 6])) return 'everyday';
   if (s === JSON.stringify([1, 2, 3, 4, 5])) return 'weekdays';
   return 'custom';
 }
 
+/** A stored form is one of the four known values, or the free text typed under "Outro". */
+function parseStoredForm(stored?: string): { form: MedForm; customFormDesc: string } {
+  if (!stored) return { form: 'Comprimido', customFormDesc: '' };
+  if (MED_FORMS.includes(stored as MedForm)) return { form: stored as MedForm, customFormDesc: '' };
+  return { form: 'Outro', customFormDesc: stored };
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 // Section wrapper with label
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, error, children }: { title: string; error?: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionLabel}>{title}</Text>
       {children}
+      {error ? <Text style={extra.fieldError}>{error}</Text> : null}
     </View>
   );
 }
 
 // Toggle switch
-function Toggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
+function Toggle({ value, onToggle, label }: { value: boolean; onToggle: () => void; label: string }) {
   return (
-    <TouchableOpacity onPress={onToggle} activeOpacity={0.8} style={[styles.switch, value && styles.switchOn]}>
+    <TouchableOpacity
+      onPress={onToggle}
+      activeOpacity={0.8}
+      style={[styles.switch, value && styles.switchOn]}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: value }}
+    >
       <View style={[styles.switchKnob, value && styles.switchKnobOn]} />
     </TouchableOpacity>
   );
@@ -122,7 +141,7 @@ function ToggleRow({
         <Text style={styles.toggleTitle}>{title}</Text>
         {subtitle ? <Text style={styles.toggleSub}>{subtitle}</Text> : null}
       </View>
-      <Toggle value={value} onToggle={onToggle} />
+      <Toggle value={value} onToggle={onToggle} label={title} />
     </View>
   );
 }
@@ -136,16 +155,14 @@ function PreviewCard({
   hour,
   minute,
   days,
-  isOnce,
 }: {
-  type: TaskType;
+  type: RoutineType;
   name: string;
   dosage: string;
   form: string;
   hour: number;
   minute: number;
   days: number[];
-  isOnce: boolean;
 }) {
   const cfg = TYPE_OPTIONS.find((t) => t.key === type)!;
   const timeStr = `${padTwo(hour)}:${padTwo(minute)}`;
@@ -167,64 +184,42 @@ function PreviewCard({
           <Text style={styles.previewChipText}>{timeStr}</Text>
         </View>
         <View style={styles.previewChip}>
-          <Text style={styles.previewChipText}>{repeatSummary(days, isOnce)}</Text>
+          <Text style={styles.previewChipText}>{repeatSummary(days)}</Text>
         </View>
       </View>
     </View>
   );
 }
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
+// ─── Form ─────────────────────────────────────────────────────────────────────
 
-export default function RoutineBuilderScreen() {
-  const { tasks, addTask, updateTask } = useApp();
+function RoutineForm({ existing }: { existing: Routine | null }) {
+  const elder = useCurrentElder();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const create = useCreateRoutine(elder.id);
+  const patch = usePatchRoutine(elder.id);
+  const isEditing = existing !== null;
+  const saving = create.isPending || patch.isPending;
 
-  // Editing mode — find the existing task
-  const existingTask = id ? tasks.find((t) => t.id === id) ?? null : null;
-  const isEditing = existingTask !== null;
+  const parsedForm = parseStoredForm(existing?.medication?.form);
 
-  // ── Helpers to parse stored form value ────────────────────────────────────
-  // If form is one of the 4 known values, use it directly.
-  // Otherwise it's a custom 'Outro' description — set form='Outro' + populate customFormDesc.
-  const KNOWN_FORMS: MedForm[] = ['Comprimido', 'Líquido', 'Injeção', 'Outro'];
-  function parseStoredForm(stored?: string): { form: MedForm; customFormDesc: string } {
-    if (!stored) return { form: 'Comprimido', customFormDesc: '' };
-    if (KNOWN_FORMS.includes(stored as MedForm)) return { form: stored as MedForm, customFormDesc: '' };
-    return { form: 'Outro', customFormDesc: stored };
-  }
-
-  const parsedForm = parseStoredForm(existingTask?.form);
-
-  // ── Form state — initialised from existing task when editing ───────────────
-  const [type, setType] = useState<TaskType>(existingTask?.type ?? 'medication');
-  const [name, setName] = useState(existingTask?.name ?? '');
-  const [dosage, setDosage] = useState(existingTask?.dosage ?? '');
+  // ── Form state — initialised from the existing routine when editing ────────
+  const [type, setType] = useState<RoutineType>(existing?.type ?? 'medication');
+  const [name, setName] = useState(existing?.name ?? '');
+  const [dosage, setDosage] = useState(existing?.medication?.dosage ?? '');
   const [form, setForm] = useState<MedForm>(parsedForm.form);
   const [customFormDesc, setCustomFormDesc] = useState(parsedForm.customFormDesc);
-  const [note, setNote] = useState(existingTask?.description ?? '');
-  const [requiresConfirmation, setRequiresConfirmation] = useState(false);
-  const [hour, setHour] = useState(() => {
-    if (existingTask?.time) return parseInt(existingTask.time.split(':')[0]!, 10);
-    return 8;
-  });
-  const [minute, setMinute] = useState(() => {
-    if (existingTask?.time) return parseInt(existingTask.time.split(':')[1]!, 10);
-    return 0;
-  });
-  // isOnce: true when "Sem repetição" is selected — repeatDays stays [] and day pills are hidden
-  const [isOnce, setIsOnce] = useState<boolean>(
-    existingTask ? existingTask.repeatDays.length === 0 : false,
-  );
-  const [days, setDays] = useState<number[]>(
-    existingTask ? existingTask.repeatDays : [0, 1, 2, 3, 4, 5, 6],
-  );
-  const [notifyAurelia, setNotifyAurelia] = useState(existingTask?.notifyAurelia ?? true);
-  const [alertIfMissed, setAlertIfMissed] = useState(existingTask?.alertIfMissed ?? true);
+  const [note, setNote] = useState(existing?.description ?? '');
+  const [hour, setHour] = useState(() => (existing ? Number(existing.time.slice(0, 2)) : 8));
+  const [minute, setMinute] = useState(() => (existing ? Number(existing.time.slice(3, 5)) : 0));
+  const [days, setDays] = useState<number[]>(existing?.weekdays ?? [0, 1, 2, 3, 4, 5, 6]);
+  const [remindElder, setRemindElder] = useState(existing?.remindElder ?? true);
+  const [alertIfMissed, setAlertIfMissed] = useState(existing?.alertIfMissed ?? true);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // ── Type selection ─────────────────────────────────────────────────────────
-  const handleTypeSelect = useCallback((t: TaskType) => {
+  const handleTypeSelect = useCallback((t: RoutineType) => {
     setType(t);
     // Pre-fill name with default only if creating new (not editing)
     if (!isEditing) {
@@ -244,18 +239,11 @@ export default function RoutineBuilderScreen() {
 
   // ── Day toggling ────────────────────────────────────────────────────────────
   const handlePreset = useCallback((preset: typeof PRESETS[number]) => {
-    if (preset.key === 'once') {
-      setIsOnce(true);
-      setDays([]);
-      return;
-    }
-    setIsOnce(false);
     if (preset.key === 'custom') return; // let user pick days manually
     setDays(preset.days);
   }, []);
 
   const toggleDay = useCallback((dayIndex: number) => {
-    setIsOnce(false); // switching to custom days exits "once" mode
     setDays((prev) =>
       prev.includes(dayIndex) ? prev.filter((d) => d !== dayIndex) : [...prev, dayIndex],
     );
@@ -270,32 +258,38 @@ export default function RoutineBuilderScreen() {
   // ── Save / Update ──────────────────────────────────────────────────────────
   const handleSave = useCallback(() => {
     const cfg = TYPE_OPTIONS.find((o) => o.key === type)!;
-    const finalName = name.trim() || cfg.defaultName;
-    const timeStr = `${padTwo(hour)}:${padTwo(minute)}`;
-
-    const taskBase: Omit<Task, 'id' | 'status'> = {
+    const values = {
       type,
-      name: finalName,
-      time: timeStr,
-      description:
-        type === 'medication' && dosage
-          ? `${dosage}${resolvedForm ? ` · ${resolvedForm}` : ''}`
-          : note || cfg.label,
-      repeatDays: days,
-      notifyAurelia,
+      name: name.trim() || cfg.defaultName,
+      description: note.trim(),
+      time: `${padTwo(hour)}:${padTwo(minute)}`,
+      weekdays: [...days].sort((a, b) => a - b),
+      ...(type === 'medication' ? { medication: { dosage: dosage.trim(), form: resolvedForm } } : {}),
+      remindElder,
       alertIfMissed,
-      ...(type === 'medication' ? { dosage, form: resolvedForm } : {}),
     };
 
-    if (isEditing && id) {
-      updateTask(id, taskBase);
-    } else {
-      addTask(taskBase);
+    const result = validateForm(CreateRoutineBodySchema, values, FIELD_MESSAGES);
+    if (!result.ok) {
+      setErrors(result.errors);
+      return;
     }
-    router.back();
-  }, [type, name, dosage, resolvedForm, note, hour, minute, days, notifyAurelia, alertIfMissed, isEditing, id, addTask, updateTask, router]);
+    setErrors({});
+    setSubmitError(null);
 
-  const currentPreset = activePreset(days, isOnce);
+    const handlers = {
+      onSuccess: () => router.back(),
+      onError: (error: unknown) => setSubmitError(friendlyError(error)),
+    };
+    if (existing) {
+      const body: PatchRoutineBody = result.data;
+      patch.mutate({ routineId: existing.id, body }, handlers);
+    } else {
+      create.mutate(result.data, handlers);
+    }
+  }, [type, name, note, hour, minute, days, dosage, resolvedForm, remindElder, alertIfMissed, existing, create, patch, router]);
+
+  const currentPreset = activePreset(days);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -303,7 +297,7 @@ export default function RoutineBuilderScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Voltar">
           <IconSymbol name="chevron.left" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEditing ? 'Editar rotina' : 'Nova rotina'}</Text>
@@ -331,6 +325,8 @@ export default function RoutineBuilderScreen() {
                   style={[styles.typeCard, type === opt.key && styles.typeCardSelected]}
                   onPress={() => handleTypeSelect(opt.key)}
                   activeOpacity={0.75}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: type === opt.key }}
                 >
                   <IconSymbol
                     name={opt.icon}
@@ -338,7 +334,7 @@ export default function RoutineBuilderScreen() {
                     color={type === opt.key ? Colors.primary : Colors.textSecondary}
                   />
                   <Text style={[styles.typeCardLabel, type === opt.key && styles.typeCardLabelSelected]}>
-                    {opt.label}
+                    {LABELS_PT.routineType[opt.key]}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -346,7 +342,7 @@ export default function RoutineBuilderScreen() {
           </Section>
 
           {/* ── Name ──────────────────────────────────────────────────────── */}
-          <Section title="Nome">
+          <Section title="Nome" error={errors.name}>
             <TextInput
               style={styles.input}
               value={name}
@@ -354,12 +350,13 @@ export default function RoutineBuilderScreen() {
               placeholder={TYPE_OPTIONS.find((o) => o.key === type)!.defaultName}
               placeholderTextColor={Colors.textMuted}
               returnKeyType="done"
+              accessibilityLabel="Nome da rotina"
             />
           </Section>
 
           {/* ── Medication-only fields ────────────────────────────────────── */}
           {type === 'medication' && (
-            <Section title="Dados do medicamento">
+            <Section title="Dados do medicamento" error={errors.medication}>
               <View style={styles.medBox}>
                 <View style={styles.medRow}>
                   <View style={{ flex: 1 }}>
@@ -371,6 +368,7 @@ export default function RoutineBuilderScreen() {
                       placeholder="ex: 10mg"
                       placeholderTextColor={Colors.textMuted}
                       returnKeyType="done"
+                      accessibilityLabel="Dosagem"
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -398,6 +396,7 @@ export default function RoutineBuilderScreen() {
                         placeholderTextColor={Colors.textMuted}
                         returnKeyType="done"
                         autoFocus
+                        accessibilityLabel="Descrição da forma"
                       />
                     )}
                   </View>
@@ -406,39 +405,32 @@ export default function RoutineBuilderScreen() {
             </Section>
           )}
 
-          {/* ── Custom-task-only fields ───────────────────────────────────── */}
-          {type === 'custom' && (
-            <Section title="Detalhes (opcional)">
-              <TextInput
-                style={[styles.input, styles.inputMultiline]}
-                value={note}
-                onChangeText={setNote}
-                placeholder="Observações sobre a tarefa..."
-                placeholderTextColor={Colors.textMuted}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-              <View style={[styles.toggleRow, { marginTop: Spacing.sm }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.toggleTitle}>Requer confirmação</Text>
-                  <Text style={styles.toggleSub}>Maria deverá confirmar quando concluir</Text>
-                </View>
-                <Toggle value={requiresConfirmation} onToggle={() => setRequiresConfirmation((v) => !v)} />
-              </View>
-            </Section>
-          )}
+          {/* ── Notes ─────────────────────────────────────────────────────── */}
+          <Section title="Observações (opcional)" error={errors.description}>
+            <TextInput
+              style={[styles.input, styles.inputMultiline]}
+              value={note}
+              onChangeText={setNote}
+              placeholder="Algo que ajude a lembrar desta rotina..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              maxLength={500}
+              accessibilityLabel="Observações"
+            />
+          </Section>
 
           {/* ── Time picker (stepper) ─────────────────────────────────────── */}
-          <Section title="Horário">
+          <Section title="Horário" error={errors.time}>
             <View style={styles.timePicker}>
               {/* Hour column */}
               <View style={styles.timeColumn}>
-                <TouchableOpacity onPress={incrementHour} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
+                <TouchableOpacity onPress={incrementHour} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Hora mais uma">
                   <IconSymbol name="chevron.left" size={18} color={Colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
                 <Text style={styles.timeValue}>{padTwo(hour)}</Text>
-                <TouchableOpacity onPress={decrementHour} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
+                <TouchableOpacity onPress={decrementHour} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Hora menos uma">
                   <IconSymbol name="chevron.right" size={18} color={Colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
                 <Text style={styles.timeUnit}>hora</Text>
@@ -448,11 +440,11 @@ export default function RoutineBuilderScreen() {
 
               {/* Minute column */}
               <View style={styles.timeColumn}>
-                <TouchableOpacity onPress={incrementMinute} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
+                <TouchableOpacity onPress={incrementMinute} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Minutos mais cinco">
                   <IconSymbol name="chevron.left" size={18} color={Colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
                 <Text style={styles.timeValue}>{padTwo(minute)}</Text>
-                <TouchableOpacity onPress={decrementMinute} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
+                <TouchableOpacity onPress={decrementMinute} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Minutos menos cinco">
                   <IconSymbol name="chevron.right" size={18} color={Colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
                 <Text style={styles.timeUnit}>min</Text>
@@ -461,7 +453,7 @@ export default function RoutineBuilderScreen() {
           </Section>
 
           {/* ── Repeat ────────────────────────────────────────────────────── */}
-          <Section title="Repetição">
+          <Section title="Repetição" error={errors.weekdays}>
             {/* Preset chips */}
             <View style={styles.presetRow}>
               {PRESETS.map((p) => (
@@ -478,14 +470,15 @@ export default function RoutineBuilderScreen() {
               ))}
             </View>
 
-            {/* Day pill row — hidden when "Sem repetição" is active */}
-            {!isOnce && (
+            {/* Day pills */}
             <View style={styles.dayRow}>
               {DAY_PILLS.map((label, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[styles.dayPill, days.includes(index) && styles.dayPillActive]}
                   onPress={() => toggleDay(index)}
+                  accessibilityLabel={LABELS_PT.weekdayLong[index]}
+                  accessibilityState={{ selected: days.includes(index) }}
                 >
                   <Text style={[styles.dayPillText, days.includes(index) && styles.dayPillTextActive]}>
                     {label}
@@ -493,23 +486,22 @@ export default function RoutineBuilderScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            )}
           </Section>
 
           {/* ── Reminder toggles ──────────────────────────────────────────── */}
           <Section title="Lembretes">
             <View style={styles.toggleCard}>
               <ToggleRow
-                title="Notificar Aurélia"
-                subtitle="Aurélia lembrará Maria proativamente"
-                value={notifyAurelia}
-                onToggle={() => setNotifyAurelia((v) => !v)}
+                title="Lembrar o idoso"
+                subtitle={`${firstName(elder.name)} recebe um lembrete no celular dele(a)`}
+                value={remindElder}
+                onToggle={() => setRemindElder((v) => !v)}
               />
             </View>
             <View style={[styles.toggleCard, { marginTop: Spacing.sm }]}>
               <ToggleRow
                 title="Alertar se perdida"
-                subtitle="Você receberá uma notificação se não confirmada"
+                subtitle="Você recebe uma notificação se não for confirmada"
                 value={alertIfMissed}
                 onToggle={() => setAlertIfMissed((v) => !v)}
               />
@@ -526,9 +518,10 @@ export default function RoutineBuilderScreen() {
               hour={hour}
               minute={minute}
               days={days}
-              isOnce={isOnce}
             />
           </Section>
+
+          <FormError message={submitError} />
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -536,14 +529,40 @@ export default function RoutineBuilderScreen() {
 
       {/* Fixed footer */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.btnSave} onPress={handleSave} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[styles.btnSave, saving && { opacity: 0.6 }]}
+          onPress={handleSave}
+          disabled={saving}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+        >
           <IconSymbol name="checkmark" size={16} color={Colors.white} />
-          <Text style={styles.btnSaveText}>{isEditing ? 'Salvar alterações' : 'Salvar rotina'}</Text>
+          <Text style={styles.btnSaveText}>{saving ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Salvar rotina'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function RoutineBuilderScreen() {
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const elder = useCurrentElder();
+  const routines = useRoutines(elder.id);
+
+  if (!id) return <RoutineForm existing={null} />;
+  if (routines.isPending) return <LoadingState />;
+  if (routines.isError) return <ErrorState message={friendlyError(routines.error)} onRetry={() => void routines.refetch()} />;
+
+  const existing = routines.data.items.find((r) => r.id === id);
+  if (!existing) return <ErrorState message="Não encontramos esta rotina. Ela pode ter sido removida." />;
+  return <RoutineForm key={existing.id} existing={existing} />;
+}
+
+const extra = StyleSheet.create({
+  fieldError: { fontSize: Typography.size.sm, color: Colors.dangerText },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

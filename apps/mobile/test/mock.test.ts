@@ -124,3 +124,45 @@ describe('mock backend: elder actions', () => {
     await expect(elder.api.sendSos(elder.elderId)).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 });
+
+describe('mock backend: trackers and demo controls', () => {
+  async function demo() {
+    const backend = createMockBackend();
+    await backend.auth.signInWithPassword(MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD);
+    const me = await backend.api.getMe();
+    const elderId = me.role === 'caregiver' ? (me.elders[0]?.id ?? '') : '';
+    return { ...backend, elderId };
+  }
+
+  it('registers and removes a tracker, and logs it as an event', async () => {
+    const { api, elderId } = await demo();
+    const { deviceId, secret } = await api.createDevice(elderId, { label: 'Chaveiro' });
+    expect(secret).toBeTruthy();
+    expect((await api.getElder(elderId)).devices).toMatchObject([{ id: deviceId, label: 'Chaveiro' }]);
+    expect((await api.listEvents(elderId, { types: ['devicePaired'] })).items).toHaveLength(1);
+
+    await api.deleteDevice(elderId, deviceId);
+    expect((await api.getElder(elderId)).devices).toEqual([]);
+    await expect(api.deleteDevice(elderId, deviceId)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('simulates an exit that can be resolved once, then a return', async () => {
+    const { api, controls, elderId } = await demo();
+    controls.simulateExit();
+    expect((await api.getLocation(elderId)).status).toBe('outside');
+
+    const resolved = await api.resolveGeofence(elderId, { note: 'ok' });
+    expect(resolved).toMatchObject({ type: 'geofenceExit', payload: { resolvedNote: 'ok' } });
+    await expect(api.resolveGeofence(elderId)).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    controls.simulateReturn();
+    expect((await api.getLocation(elderId)).status).toBe('inside');
+  });
+
+  it('simulates a missed task', async () => {
+    const { api, controls, elderId } = await demo();
+    controls.simulateMissed();
+    const agenda = await api.getAgenda(elderId);
+    expect(agenda.items.some((item) => item.status === 'missed')).toBe(true);
+  });
+});

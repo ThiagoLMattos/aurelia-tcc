@@ -2,14 +2,17 @@
  * Aurélia — Histórico tab
  *
  * Week strip → filter chips → summary bar → entry list with inline expand.
- * Selecting a day filters the entry list. Tapping an entry expands it in-place.
- * No navigation to new screens — everything lives here per spec.
+ * Selecting a day filters the entry list (the API is asked for that day and event types only);
+ * tapping an entry expands it in place. Pull down to refresh.
  */
 
+import { addDays, weekDates, weekStartOf, type Event, type EventType, type LocalDate } from '@aurelia/shared';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   LayoutAnimation,
+  Linking,
   Platform,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -20,10 +23,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useApp } from '@/context/AppContext';
-import { DayHistory, HistoryEvent } from '@/data/mock';
-import { Colors, Radius, Spacing, Typography } from '@/theme';
+import { ErrorState, LoadingState } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { friendlyError } from '@/lib/errors';
+import { clockTime, dayOfMonth, mapsUrl, weekRange } from '@/lib/format';
+import { useCurrentElder, useEvents, useToday, useWeeklyReport } from '@/queries';
+import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -32,54 +37,160 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type FilterKey = 'all' | 'done' | 'missed' | 'breach';
+type FilterKey = 'all' | 'done' | 'missed' | 'zone' | 'sos';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'all',    label: 'Todos' },
-  { key: 'done',   label: 'Concluídas' },
-  { key: 'missed', label: 'Perdidas' },
-  { key: 'breach', label: 'Geo-fence' },
+const FILTERS: { key: FilterKey; label: string; types?: EventType[] }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'done', label: 'Concluídas', types: ['taskDone'] },
+  { key: 'missed', label: 'Perdidas', types: ['taskMissed'] },
+  { key: 'zone', label: 'Zona segura', types: ['geofenceExit', 'geofenceReturn'] },
+  { key: 'sos', label: 'SOS', types: ['sos'] },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const WEEKDAY_INITIALS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-const EVENT_CONFIG = {
-  done: {
-    dotBg:    Colors.successBg,
-    dotColor: Colors.successText,
-    icon:     '✓',
-    label:    'Concluída',
-  },
-  missed: {
-    dotBg:    Colors.warningBg,
-    dotColor: Colors.warningText,
-    icon:     '✕',
-    label:    'Perdida',
-  },
-  breach: {
-    dotBg:    Colors.dangerBg,
-    dotColor: Colors.dangerText,
-    icon:     '!',
-    label:    'Saída detectada',
-  },
-} as const;
+const EMPTY_MESSAGES: Record<FilterKey, string> = {
+  all: 'Nenhum evento registrado neste dia.',
+  done: 'Nenhuma tarefa concluída neste dia.',
+  missed: 'Nenhuma tarefa perdida neste dia.',
+  zone: 'Nenhuma saída da zona segura neste dia.',
+  sos: 'Nenhum SOS neste dia.',
+};
+
+// ─── Event presentation ───────────────────────────────────────────────────────
+
+type Tone = { dotBg: string; dotColor: string; icon: string };
+
+const SUCCESS: Tone = { dotBg: Colors.successBg, dotColor: Colors.successText, icon: '✓' };
+const WARNING: Tone = { dotBg: Colors.warningBg, dotColor: Colors.warningText, icon: '✕' };
+const DANGER: Tone = { dotBg: Colors.dangerBg, dotColor: Colors.dangerText, icon: '!' };
+
+interface Row {
+  label: string;
+  value: string;
+  danger?: boolean;
+}
+
+interface Presentation {
+  tone: Tone;
+  title: string;
+  summary: string;
+  rows: Row[];
+  /** A link row, for events that carry a position. */
+  map?: { lat: number; lng: number };
+  note?: string;
+}
+
+function presentEvent(event: Event, timezone: string): Presentation {
+  const at = clockTime(event.at, timezone);
+  switch (event.type) {
+    case 'taskDone': {
+      const { payload } = event;
+      const who = payload.doneBy === 'elder' ? 'pelo idoso' : 'por você';
+      return {
+        tone: SUCCESS,
+        title: payload.routineName,
+        summary: `Confirmada ${who}`,
+        rows: [
+          { label: 'Horário programado', value: payload.scheduledTime },
+          { label: 'Confirmada às', value: at },
+          { label: 'Confirmada', value: payload.doneBy === 'elder' ? 'Pelo idoso' : 'Por um cuidador' },
+        ],
+        note: payload.undoneAt ? `Confirmação desfeita às ${clockTime(payload.undoneAt, timezone)}.` : undefined,
+      };
+    }
+    case 'taskMissed':
+      return {
+        tone: WARNING,
+        title: event.payload.routineName,
+        summary: 'Não confirmada no prazo',
+        rows: [
+          { label: 'Horário programado', value: event.payload.scheduledTime },
+          { label: 'Marcada como perdida às', value: at, danger: true },
+        ],
+      };
+    case 'sos': {
+      const { lat, lng } = event.payload;
+      const hasPosition = lat !== null && lng !== null;
+      return {
+        tone: DANGER,
+        title: 'SOS acionado',
+        summary: hasPosition ? 'Com localização' : 'Sem localização',
+        rows: [{ label: 'Acionado às', value: at, danger: true }],
+        map: hasPosition ? { lat, lng } : undefined,
+      };
+    }
+    case 'geofenceExit': {
+      const { payload } = event;
+      return {
+        tone: DANGER,
+        title: 'Saiu da zona segura',
+        summary: payload.resolvedAt ? 'Confirmado como seguro' : 'Ainda não resolvido',
+        rows: [
+          { label: 'Saída detectada às', value: at },
+          { label: 'Distância do centro', value: `${Math.round(payload.distanceM)} m` },
+          payload.resolvedAt
+            ? { label: 'Resolvida às', value: clockTime(payload.resolvedAt, timezone) }
+            : { label: 'Resolvida às', value: 'Não resolvida', danger: true },
+        ],
+        map: { lat: payload.lat, lng: payload.lng },
+        note: payload.resolvedNote ?? undefined,
+      };
+    }
+    case 'geofenceReturn':
+      return {
+        tone: SUCCESS,
+        title: 'Voltou à zona segura',
+        summary: 'De volta ao raio seguro',
+        rows: [{ label: 'Retorno detectado às', value: at }],
+        map: { lat: event.payload.lat, lng: event.payload.lng },
+      };
+    case 'deviceOffline':
+      return {
+        tone: WARNING,
+        title: 'Rastreador sem sinal',
+        summary: 'O rastreador parou de enviar a localização',
+        rows: [
+          { label: 'Detectado às', value: at, danger: true },
+          {
+            label: 'Último sinal',
+            value: event.payload.lastSeenAt ? clockTime(event.payload.lastSeenAt, timezone) : 'Nunca',
+          },
+        ],
+      };
+    case 'devicePaired':
+      return {
+        tone: SUCCESS,
+        title: 'Rastreador cadastrado',
+        summary: event.payload.label,
+        rows: [{ label: 'Cadastrado às', value: at }],
+      };
+  }
+}
 
 // ─── Week strip ───────────────────────────────────────────────────────────────
+
+interface DayCell {
+  date: LocalDate;
+  hasDone: boolean;
+  hasMissed: boolean;
+  hasAlert: boolean;
+}
 
 function WeekStrip({
   days,
   selectedDate,
   onSelect,
 }: {
-  days: DayHistory[];
+  days: DayCell[];
   selectedDate: string;
   onSelect: (date: string) => void;
 }) {
   return (
     <View style={styles.weekStrip}>
-      {days.map((day) => {
+      {days.map((day, index) => {
         const isSelected = day.date === selectedDate;
         return (
           <TouchableOpacity
@@ -89,16 +200,16 @@ function WeekStrip({
             activeOpacity={0.75}
           >
             <Text style={[styles.dayName, isSelected && styles.dayCellTextSelected]}>
-              {day.label}
+              {WEEKDAY_INITIALS[index]}
             </Text>
             <Text style={[styles.dayNum, isSelected && styles.dayCellTextSelected]}>
-              {day.dayNum}
+              {dayOfMonth(day.date)}
             </Text>
             {/* Status dots */}
             <View style={styles.dotRow}>
-              {day.hasDone   && <View style={[styles.miniDot, styles.miniDotDone]} />}
+              {day.hasDone && <View style={[styles.miniDot, styles.miniDotDone]} />}
               {day.hasMissed && <View style={[styles.miniDot, styles.miniDotMissed]} />}
-              {day.hasBreach && <View style={[styles.miniDot, styles.miniDotBreach]} />}
+              {day.hasAlert && <View style={[styles.miniDot, styles.miniDotBreach]} />}
             </View>
           </TouchableOpacity>
         );
@@ -109,11 +220,7 @@ function WeekStrip({
 
 // ─── Summary stat bar ─────────────────────────────────────────────────────────
 
-function SummaryBar({ events }: { events: HistoryEvent[] }) {
-  const done   = events.filter((e) => e.type === 'done').length;
-  const missed = events.filter((e) => e.type === 'missed').length;
-  const breach = events.filter((e) => e.type === 'breach').length;
-
+function SummaryBar({ done, missed, alerts }: { done: number; missed: number; alerts: number }) {
   return (
     <View style={styles.summaryBar}>
       <View style={[styles.statBox, { backgroundColor: Colors.successBg }]}>
@@ -125,8 +232,8 @@ function SummaryBar({ events }: { events: HistoryEvent[] }) {
         <Text style={[styles.statLabel, { color: Colors.warningText }]}>Perdidas</Text>
       </View>
       <View style={[styles.statBox, { backgroundColor: Colors.dangerBg }]}>
-        <Text style={[styles.statNum, { color: Colors.dangerText }]}>{breach}</Text>
-        <Text style={[styles.statLabel, { color: Colors.dangerText }]}>Saídas</Text>
+        <Text style={[styles.statNum, { color: Colors.dangerText }]}>{alerts}</Text>
+        <Text style={[styles.statLabel, { color: Colors.dangerText }]}>Saídas e SOS</Text>
       </View>
     </View>
   );
@@ -136,14 +243,16 @@ function SummaryBar({ events }: { events: HistoryEvent[] }) {
 
 function EntryCard({
   event,
+  timezone,
   expanded,
   onToggle,
 }: {
-  event: HistoryEvent;
+  event: Event;
+  timezone: string;
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const cfg = EVENT_CONFIG[event.type];
+  const view = presentEvent(event, timezone);
 
   return (
     <TouchableOpacity
@@ -154,24 +263,24 @@ function EntryCard({
       {/* Collapsed row */}
       <View style={styles.entryRow}>
         {/* Status dot */}
-        <View style={[styles.entryDot, { backgroundColor: cfg.dotBg }]}>
-          <Text style={[styles.entryDotText, { color: cfg.dotColor }]}>{cfg.icon}</Text>
+        <View style={[styles.entryDot, { backgroundColor: view.tone.dotBg }]}>
+          <Text style={[styles.entryDotText, { color: view.tone.dotColor }]}>{view.tone.icon}</Text>
         </View>
 
         {/* Content */}
         <View style={styles.entryContent}>
           <View style={styles.entryTopRow}>
-            <Text style={styles.entryTitle} numberOfLines={1}>{event.title}</Text>
-            <Text style={styles.entryTime}>{event.time}</Text>
+            <Text style={styles.entryTitle} numberOfLines={1}>{view.title}</Text>
+            <Text style={styles.entryTime}>{clockTime(event.at, timezone)}</Text>
           </View>
           <Text style={styles.entrySummary} numberOfLines={expanded ? undefined : 1}>
-            {event.summary}
+            {view.summary}
           </Text>
         </View>
 
         {/* Chevron */}
         <IconSymbol
-          name={expanded ? 'chevron.right' : 'chevron.right'}
+          name="chevron.right"
           size={14}
           color={Colors.textSecondary}
           style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
@@ -182,31 +291,31 @@ function EntryCard({
       {expanded && (
         <View style={styles.entryDetail}>
           <View style={styles.detailDivider} />
-
-          {event.type === 'breach' ? (
-            <>
-              <DetailRow label="Saída detectada" value={event.detectedTime ?? '—'} />
-              <DetailRow label="Resolvida às"    value={event.resolvedTime ?? 'Não resolvida'} danger={!event.resolvedTime} />
-              <DetailRow label="Distância"        value={event.distanceOutside ?? '—'} />
-              <DetailRow label="Duração"          value={event.duration ?? '—'} last />
-            </>
-          ) : (
-            <>
-              <DetailRow label="Horário programado" value={event.scheduledTime ?? '—'} />
-              {event.type === 'done' && (
-                <DetailRow label="Confirmada às" value={event.confirmedTime ?? '—'} last={!event.occurrenceNote} />
-              )}
-              {event.type === 'missed' && (
-                <DetailRow label="Status" value="Não confirmada" danger last={!event.occurrenceNote} />
-              )}
-              {event.occurrenceNote && (
-                <View style={styles.occurrenceNote}>
-                  <IconSymbol name="exclamationmark.triangle.fill" size={11} color={Colors.warningText} />
-                  <Text style={styles.occurrenceNoteText}>{event.occurrenceNote}</Text>
-                </View>
-              )}
-            </>
+          {view.rows.map((row, index) => (
+            <DetailRow
+              key={row.label}
+              label={row.label}
+              value={row.value}
+              danger={row.danger}
+              last={index === view.rows.length - 1 && !view.note && !view.map}
+            />
+          ))}
+          {view.map && (
+            <TouchableOpacity
+              style={extra.mapLink}
+              onPress={() => void Linking.openURL(mapsUrl(view.map!.lat, view.map!.lng))}
+              accessibilityRole="link"
+            >
+              <IconSymbol name="map.fill" size={12} color={Colors.primary} />
+              <Text style={extra.mapLinkText}>Abrir no mapa</Text>
+            </TouchableOpacity>
           )}
+          {view.note ? (
+            <View style={styles.occurrenceNote}>
+              <IconSymbol name="exclamationmark.triangle.fill" size={11} color={Colors.warningText} />
+              <Text style={styles.occurrenceNoteText}>{view.note}</Text>
+            </View>
+          ) : null}
         </View>
       )}
     </TouchableOpacity>
@@ -234,18 +343,11 @@ function DetailRow({
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
-function EmptyState({ filter }: { filter: FilterKey }) {
-  const messages: Record<FilterKey, string> = {
-    all:    'Nenhum evento registrado neste dia.',
-    done:   'Nenhuma tarefa concluída neste dia.',
-    missed: 'Nenhuma tarefa perdida neste dia.',
-    breach: 'Nenhuma saída da zona segura neste dia.',
-  };
-
+function EmptyDay({ filter }: { filter: FilterKey }) {
   return (
     <View style={styles.emptyWrap}>
       <IconSymbol name="checkmark.circle.fill" size={32} color={Colors.successText} />
-      <Text style={styles.emptyText}>{messages[filter]}</Text>
+      <Text style={styles.emptyText}>{EMPTY_MESSAGES[filter]}</Text>
     </View>
   );
 }
@@ -253,44 +355,74 @@ function EmptyState({ filter }: { filter: FilterKey }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function HistoricoScreen() {
-  const { weekHistory } = useApp();
+  const elder = useCurrentElder();
+  const today = useToday(elder);
+  const thisWeek = weekStartOf(today);
 
-  // Default to last day in history (most recent)
-  const [selectedDate, setSelectedDate] = useState(
-    weekHistory[weekHistory.length - 1]?.date ?? '',
-  );
+  const [weekStart, setWeekStart] = useState<LocalDate | null>(null);
+  const [pickedDate, setPickedDate] = useState<LocalDate | null>(null);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Selected day's data
-  const selectedDay = useMemo(
-    () => weekHistory.find((d) => d.date === selectedDate) ?? weekHistory[0],
-    [weekHistory, selectedDate],
-  );
+  const shownWeek = weekStart ?? thisWeek;
+  const isCurrentWeek = shownWeek >= thisWeek;
+  const dates = useMemo(() => weekDates(shownWeek), [shownWeek]);
+  const selectedDate = pickedDate && dates.includes(pickedDate) ? pickedDate : isCurrentWeek ? today : (dates[6] ?? shownWeek);
 
-  // Filtered events
-  const filteredEvents = useMemo(() => {
-    if (!selectedDay) return [];
-    if (filter === 'all') return selectedDay.events;
-    return selectedDay.events.filter((e) => e.type === filter);
-  }, [selectedDay, filter]);
+  const report = useWeeklyReport(elder.id, shownWeek);
+  const types = FILTERS.find((f) => f.key === filter)?.types;
+  const events = useEvents(elder.id, { from: selectedDate, to: selectedDate, types });
+
+  const days = useMemo<DayCell[]>(
+    () =>
+      dates.map((date) => {
+        const day = report.data?.days.find((d) => d.date === date);
+        return {
+          date,
+          hasDone: (day?.done ?? 0) > 0,
+          hasMissed: (day?.missed ?? 0) > 0,
+          hasAlert: (day?.geofenceExits ?? 0) + (day?.sos ?? 0) > 0,
+        };
+      }),
+    [dates, report.data],
+  );
+  const selectedDay = report.data?.days.find((d) => d.date === selectedDate);
+  const items = events.data?.pages.flatMap((page) => page.items) ?? [];
+
+  const animate = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
   const handleDaySelect = useCallback((date: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSelectedDate(date);
+    animate();
+    setPickedDate(date);
     setExpandedId(null);
   }, []);
 
   const handleFilterChange = useCallback((key: FilterKey) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    animate();
     setFilter(key);
     setExpandedId(null);
   }, []);
 
   const handleToggleEntry = useCallback((id: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    animate();
     setExpandedId((prev) => (prev === id ? null : id));
   }, []);
+
+  const moveWeek = useCallback(
+    (direction: -1 | 1) => {
+      const next = addDays(shownWeek, direction * 7);
+      setWeekStart(next >= thisWeek ? null : next);
+      setPickedDate(null);
+      setExpandedId(null);
+    },
+    [shownWeek, thisWeek],
+  );
+
+  const refreshing = (events.isRefetching && !events.isFetchingNextPage) || report.isRefetching;
+  const refresh = useCallback(() => {
+    void events.refetch();
+    void report.refetch();
+  }, [events, report]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -299,15 +431,26 @@ export default function HistoricoScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Histórico</Text>
+        <View style={extra.weekNav}>
+          <TouchableOpacity onPress={() => moveWeek(-1)} hitSlop={12} accessibilityLabel="Semana anterior">
+            <IconSymbol name="chevron.left" size={18} color={Colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={extra.weekLabel}>{weekRange(shownWeek, dates[6] ?? shownWeek)}</Text>
+          <TouchableOpacity
+            onPress={() => moveWeek(1)}
+            disabled={isCurrentWeek}
+            hitSlop={12}
+            accessibilityLabel="Próxima semana"
+            style={isCurrentWeek && { opacity: 0.3 }}
+          >
+            <IconSymbol name="chevron.right" size={18} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Week strip */}
       <View style={styles.weekStripWrap}>
-        <WeekStrip
-          days={weekHistory}
-          selectedDate={selectedDate}
-          onSelect={handleDaySelect}
-        />
+        <WeekStrip days={days} selectedDate={selectedDate} onSelect={handleDaySelect} />
       </View>
 
       {/* Filter chips */}
@@ -332,31 +475,69 @@ export default function HistoricoScreen() {
       </ScrollView>
 
       {/* Summary bar */}
-      {selectedDay && <SummaryBar events={selectedDay.events} />}
+      <SummaryBar
+        done={selectedDay?.done ?? 0}
+        missed={selectedDay?.missed ?? 0}
+        alerts={(selectedDay?.geofenceExits ?? 0) + (selectedDay?.sos ?? 0)}
+      />
 
       {/* Entry list */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredEvents.length === 0 ? (
-          <EmptyState filter={filter} />
-        ) : (
-          filteredEvents.map((event) => (
-            <EntryCard
-              key={event.id}
-              event={event}
-              expanded={expandedId === event.id}
-              onToggle={() => handleToggleEntry(event.id)}
-            />
-          ))
-        )}
-        <View style={{ height: Spacing.lg }} />
-      </ScrollView>
+      {events.isPending ? (
+        <LoadingState />
+      ) : events.isError ? (
+        <ErrorState message={friendlyError(events.error)} onRetry={() => void events.refetch()} />
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        >
+          {items.length === 0 ? (
+            <EmptyDay filter={filter} />
+          ) : (
+            items.map((event) => (
+              <EntryCard
+                key={event.id}
+                event={event}
+                timezone={elder.timezone}
+                expanded={expandedId === event.id}
+                onToggle={() => handleToggleEntry(event.id)}
+              />
+            ))
+          )}
+          {events.hasNextPage ? (
+            <TouchableOpacity
+              style={extra.loadMore}
+              onPress={() => void events.fetchNextPage()}
+              disabled={events.isFetchingNextPage}
+              accessibilityRole="button"
+            >
+              <Text style={extra.loadMoreText}>{events.isFetchingNextPage ? 'Carregando…' : 'Carregar mais'}</Text>
+            </TouchableOpacity>
+          ) : null}
+          <View style={{ height: Spacing.lg }} />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
+
+const extra = StyleSheet.create({
+  weekNav: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  weekLabel: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.textPrimary, minWidth: 84, textAlign: 'center' },
+  mapLink: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: Spacing.sm },
+  mapLinkText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.primary },
+  loadMore: {
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.white,
+  },
+  loadMoreText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.primary },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -368,6 +549,9 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: Colors.white,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
