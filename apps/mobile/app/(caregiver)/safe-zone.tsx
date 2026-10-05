@@ -1,10 +1,11 @@
 import { SafeZoneSchema } from '@aurelia/shared';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, FormError, Screen, ScreenHeader } from '@/components';
+import { SafeZoneMap } from '@/components/SafeZoneMap';
 import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
@@ -12,11 +13,10 @@ import { useCurrentElder, usePatchElder } from '@/queries';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 const RADIUS_STEPS = [50, 100, 150, 200, 300, 400, 500] as const;
-const MIN_STEP = 50;
-const MAX_STEP = 500;
-const PREVIEW = 200;
-
-/** Where the elder is "safe": a centre (the phone's current position) and a radius. */
+/**
+ * Where the elder is "safe": a centre and a radius, drawn on a map. The centre starts from the phone's
+ * current position; tapping the map moves it (to set the zone without being there).
+ */
 export default function SafeZoneScreen() {
   const elder = useCurrentElder();
   const router = useRouter();
@@ -51,7 +51,7 @@ export default function SafeZoneScreen() {
   const save = () => {
     const parsed = SafeZoneSchema.safeParse({ ...center, radiusM });
     if (!parsed.success) {
-      setError('Defina o centro da zona usando a sua localização atual.');
+      setError('Defina o centro da zona: use sua localização atual ou toque no mapa.');
       return;
     }
     setError(null);
@@ -64,21 +64,25 @@ export default function SafeZoneScreen() {
     patch.mutate({ safeZone: null }, { onSuccess: () => router.back(), onError: (e) => setError(friendlyError(e)) });
   };
 
-  const circle = PREVIEW * (0.3 + 0.55 * ((radiusM - MIN_STEP) / (MAX_STEP - MIN_STEP)));
+  const zone = useMemo(() => (center ? { ...center, radiusM } : null), [center, radiusM]);
 
   return (
     <Screen scroll>
       <ScreenHeader title="Zona segura" />
       <Text style={styles.lead}>
-        Vá até o local onde {firstName(elder.name)} fica (a casa, por exemplo) e use sua localização atual como centro. Você
-        será avisado quando ela sair do raio escolhido.
+        Use sua localização atual como centro (estando na casa de {firstName(elder.name)}, por exemplo) e depois toque no
+        mapa para ajustar o ponto, se precisar. Você será avisado quando ela sair do raio escolhido.
       </Text>
 
       <Card style={styles.previewCard}>
-        <View style={[styles.preview, { width: PREVIEW, height: PREVIEW }]}>
-          <View style={[styles.circle, { width: circle, height: circle, borderRadius: circle / 2 }]} />
-          <View style={styles.pin} />
-        </View>
+        <SafeZoneMap
+          zone={zone}
+          position={null}
+          status="unknown"
+          elderName={firstName(elder.name)}
+          height={260}
+          onPressCoordinate={setCenter}
+        />
         <Text style={styles.coords}>
           {center ? `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)} · raio de ${radiusM} m` : 'Centro ainda não definido'}
         </Text>
@@ -117,9 +121,6 @@ export default function SafeZoneScreen() {
 const styles = StyleSheet.create({
   lead: { fontSize: Typography.size.base, color: Colors.textSecondary, lineHeight: 22 },
   previewCard: { alignItems: 'center', gap: Spacing.md },
-  preview: { backgroundColor: Colors.progressBg, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  circle: { position: 'absolute', borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  pin: { width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.primary },
   coords: { fontSize: Typography.size.sm, color: Colors.textSecondary },
   label: { fontSize: Typography.size.sm, fontWeight: '600', color: Colors.textPrimary },
   steps: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
