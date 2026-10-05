@@ -17,9 +17,10 @@ describe('regionFor', () => {
     expect(regionFor(null, null)).toBeNull();
   });
 
-  it('centres on the zone and fits its whole circle', () => {
+  it('centres on the zone (a little north, for the pins) and fits its whole circle', () => {
     const region = regionFor(zone, null)!;
-    expect(region.latitude).toBeCloseTo(zone.lat, 6);
+    expect(region.latitude).toBeGreaterThan(zone.lat);
+    expect(region.latitude - zone.lat).toBeLessThan(region.latitudeDelta * 0.1);
     expect(region.longitude).toBeCloseTo(zone.lng, 6);
     const north = { lat: zone.lat + 150 / 111_320, lng: zone.lng };
     const east = { lat: zone.lat, lng: zone.lng + 150 / (111_320 * Math.cos((zone.lat * Math.PI) / 180)) };
@@ -33,6 +34,8 @@ describe('regionFor', () => {
     const region = regionFor(zone, away)!;
     expect(contains(region, away)).toBe(true);
     expect(contains(region, zone)).toBe(true);
+    // The northern point keeps room above it for its pin.
+    expect(region.latitude + region.latitudeDelta / 2 - away.lat).toBeGreaterThan(region.latitudeDelta * 0.15);
   });
 
   it('does not zoom in further than a few streets on a lone position', () => {

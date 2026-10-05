@@ -14,8 +14,13 @@ export interface MapRegion {
 }
 
 const METERS_PER_DEGREE_LAT = 111_320;
-/** Room around what must be visible, so the circle and the pin don't touch the edges. */
-const PADDING = 1.4;
+/** Room around what must be visible, so the circle and the pins don't touch the edges. */
+const PADDING = 1.6;
+/**
+ * Pins stand above their coordinate, so the view is moved north by this share of its height: a pin at
+ * the top of the box still shows whole.
+ */
+const PIN_HEADROOM = 0.08;
 /** Closest zoom: about 250 m across, enough to read the streets around one point. */
 const MIN_SPAN_M = 250;
 
@@ -50,10 +55,11 @@ export function regionFor(zone: SafeZone | null, position: LatLng | null): MapRe
   const latitude = (minLat + maxLat) / 2;
   const longitude = (minLng + maxLng) / 2;
 
+  const latitudeDelta = Math.max((maxLat - minLat) * PADDING, metersToLatDegrees(MIN_SPAN_M));
   return {
-    latitude,
+    latitude: latitude + latitudeDelta * PIN_HEADROOM,
     longitude,
-    latitudeDelta: Math.max((maxLat - minLat) * PADDING, metersToLatDegrees(MIN_SPAN_M)),
+    latitudeDelta,
     longitudeDelta: Math.max((maxLng - minLng) * PADDING, metersToLngDegrees(MIN_SPAN_M, latitude)),
   };
 }
