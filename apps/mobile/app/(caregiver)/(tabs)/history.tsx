@@ -6,7 +6,16 @@
  * tapping an entry expands it in place. Pull down to refresh.
  */
 
-import { addDays, weekDates, weekStartOf, type Event, type EventType, type LocalDate } from '@aurelia/shared';
+import {
+  addDays,
+  LABELS_PT,
+  memoryAccuracyPct,
+  weekDates,
+  weekStartOf,
+  type Event,
+  type EventType,
+  type LocalDate,
+} from '@aurelia/shared';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   LayoutAnimation,
@@ -37,7 +46,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type FilterKey = 'all' | 'done' | 'missed' | 'zone' | 'sos';
+type FilterKey = 'all' | 'done' | 'missed' | 'zone' | 'sos' | 'games';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,6 +56,7 @@ const FILTERS: { key: FilterKey; label: string; types?: EventType[] }[] = [
   { key: 'missed', label: 'Perdidas', types: ['taskMissed'] },
   { key: 'zone', label: 'Zona segura', types: ['geofenceExit', 'geofenceReturn'] },
   { key: 'sos', label: 'SOS', types: ['sos'] },
+  { key: 'games', label: 'Jogos', types: ['gamePlayed'] },
 ];
 
 const WEEKDAY_INITIALS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -57,6 +67,7 @@ const EMPTY_MESSAGES: Record<FilterKey, string> = {
   missed: 'Nenhuma tarefa perdida neste dia.',
   zone: 'Nenhuma saída da zona segura neste dia.',
   sos: 'Nenhum SOS neste dia.',
+  games: 'Nenhum jogo neste dia.',
 };
 
 // ─── Event presentation ───────────────────────────────────────────────────────
@@ -66,6 +77,7 @@ type Tone = { dotBg: string; dotColor: string; icon: string };
 const SUCCESS: Tone = { dotBg: Colors.successBg, dotColor: Colors.successText, icon: '✓' };
 const WARNING: Tone = { dotBg: Colors.warningBg, dotColor: Colors.warningText, icon: '✕' };
 const DANGER: Tone = { dotBg: Colors.dangerBg, dotColor: Colors.dangerText, icon: '!' };
+const GAME: Tone = { dotBg: Colors.primaryLight, dotColor: Colors.primary, icon: '★' };
 
 interface Row {
   label: string;
@@ -167,6 +179,35 @@ function presentEvent(event: Event, timezone: string): Presentation {
         summary: event.payload.label,
         rows: [{ label: 'Cadastrado às', value: at }],
       };
+    case 'gamePlayed': {
+      const { payload } = event;
+      const minutes = Math.max(1, Math.round(payload.durationSec / 60));
+      const duration = { label: 'Duração', value: `${minutes} min` };
+      if (payload.game === 'memory') {
+        return {
+          tone: GAME,
+          title: LABELS_PT.game.memory,
+          summary: `${payload.pairs} pares em ${payload.moves} jogadas`,
+          rows: [
+            { label: 'Terminado às', value: at },
+            { label: 'Pares', value: String(payload.pairs) },
+            { label: 'Jogadas', value: String(payload.moves) },
+            { label: 'Acertos', value: `${memoryAccuracyPct(payload)}% das jogadas` },
+            duration,
+          ],
+        };
+      }
+      return {
+        tone: GAME,
+        title: LABELS_PT.game.sequence,
+        summary: `Lembrou ${payload.longest} ${payload.longest === 1 ? 'cor' : 'cores'} em sequência`,
+        rows: [
+          { label: 'Terminado às', value: at },
+          { label: 'Maior sequência', value: `${payload.longest} ${payload.longest === 1 ? 'cor' : 'cores'}` },
+          duration,
+        ],
+      };
+    }
   }
 }
 

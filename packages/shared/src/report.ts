@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { weekDates } from './agenda';
 import type { Occurrence } from './agenda';
 import type { Event } from './event';
+import { memoryAccuracyPct } from './game';
 import { IdSchema, LocalDateSchema } from './primitives';
 import type { LocalDate } from './primitives';
 import type { Routine } from './routine';
@@ -23,8 +24,30 @@ export const DayReportSchema = z.object({
   sos: z.number().int(),
   geofenceExits: z.number().int(),
   minutesOutside: z.number().int(),
+  /** Games finished that day. */
+  games: z.number().int(),
 });
 export type DayReport = z.infer<typeof DayReportSchema>;
+
+export const GamesReportSchema = z.object({
+  /** Games finished in the week, of either kind. */
+  sessions: z.number().int().min(0),
+  /** Time spent on them, rounded to whole minutes. */
+  minutes: z.number().int().min(0),
+  memory: z.object({
+    played: z.number().int().min(0),
+    /** Best share of turns that found a pair (see `memoryAccuracyPct`); null when not played. */
+    bestAccuracyPct: z.number().min(0).max(100).nullable(),
+    /** Most pairs on a board finished that week; null when not played. */
+    mostPairs: z.number().int().nullable(),
+  }),
+  sequence: z.object({
+    played: z.number().int().min(0),
+    /** Longest sequence repeated that week; null when not played. */
+    best: z.number().int().nullable(),
+  }),
+});
+export type GamesReport = z.infer<typeof GamesReportSchema>;
 
 export const WeeklyReportSchema = z.object({
   weekStart: LocalDateSchema,
@@ -34,6 +57,7 @@ export const WeeklyReportSchema = z.object({
   sosCount: z.number().int(),
   geofenceExits: z.number().int(),
   minutesOutside: z.number().int(),
+  games: GamesReportSchema,
   days: z.array(DayReportSchema).length(7),
 });
 export type WeeklyReport = z.infer<typeof WeeklyReportSchema>;
@@ -74,7 +98,7 @@ export function computeWeeklyReport(input: ComputeWeeklyReportInput): WeeklyRepo
   const medicationIds = new Set(routines.filter((r) => r.type === 'medication').map((r) => r.id));
 
   const days = new Map<LocalDate, DayReport>(
-    dates.map((date) => [date, { date, done: 0, missed: 0, sos: 0, geofenceExits: 0, minutesOutside: 0 }]),
+    dates.map((date) => [date, { date, done: 0, missed: 0, sos: 0, geofenceExits: 0, minutesOutside: 0, games: 0 }]),
   );
   let medDone = 0;
   let medMissed = 0;
@@ -98,6 +122,13 @@ export function computeWeeklyReport(input: ComputeWeeklyReportInput): WeeklyRepo
     .slice()
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   let openExit: { at: number; date: LocalDate } | null = null;
+  const games: GamesReport = {
+    sessions: 0,
+    minutes: 0,
+    memory: { played: 0, bestAccuracyPct: null, mostPairs: null },
+    sequence: { played: 0, best: null },
+  };
+  let gameSeconds = 0;
 
   const closeExit = (until: number) => {
     if (!openExit) return;
@@ -114,6 +145,20 @@ export function computeWeeklyReport(input: ComputeWeeklyReportInput): WeeklyRepo
       if (!openExit) openExit = { at: Date.parse(event.at), date: event.date };
     }
     if (event.type === 'geofenceReturn') closeExit(Date.parse(event.at));
+    if (event.type === 'gamePlayed') {
+      const result = event.payload;
+      day.games += 1;
+      games.sessions += 1;
+      gameSeconds += result.durationSec;
+      if (result.game === 'memory') {
+        games.memory.played += 1;
+        games.memory.bestAccuracyPct = Math.max(games.memory.bestAccuracyPct ?? 0, memoryAccuracyPct(result));
+        games.memory.mostPairs = Math.max(games.memory.mostPairs ?? 0, result.pairs);
+      } else {
+        games.sequence.played += 1;
+        games.sequence.best = Math.max(games.sequence.best ?? 0, result.longest);
+      }
+    }
   }
   closeExit(Math.min(now.getTime(), weekEndInstant));
 
@@ -130,6 +175,7 @@ export function computeWeeklyReport(input: ComputeWeeklyReportInput): WeeklyRepo
     sosCount: sum((d) => d.sos),
     geofenceExits: sum((d) => d.geofenceExits),
     minutesOutside: sum((d) => d.minutesOutside),
+    games: { ...games, minutes: Math.round(gameSeconds / 60) },
     days: list,
   };
 }

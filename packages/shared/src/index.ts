@@ -8,6 +8,7 @@ export * from './me';
 export * from './routine';
 export * from './agenda';
 export * from './contact';
+export * from './game';
 export * from './event';
 export * from './report';
 export * from './device';

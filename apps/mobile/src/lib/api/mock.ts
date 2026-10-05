@@ -1,9 +1,12 @@
 import {
   computeAgenda,
   computeWeeklyReport,
+  addDays,
   DEFAULT_CAREGIVER_SETTINGS,
+  GameResultBodySchema,
   haversineMeters,
   INITIAL_LOCATION_STATE,
+  instantOf,
   localDateOf,
   PAIRING_CODE_ALPHABET,
   PAIRING_CODE_LENGTH,
@@ -177,6 +180,17 @@ export function createMockBackend(): MockBackend {
     { id: nextId('contact'), name: 'Ana Gorete', phone: '+5511999990001', relation: 'Filha', isEmergency: true, priority: 1, createdAt: new Date().toISOString() },
     { id: nextId('contact'), name: 'Dr. Paulo', phone: '+5511999990002', relation: 'Médico', isEmergency: false, priority: 2, createdAt: new Date().toISOString() },
   );
+
+  // A few games over the last days, so the history and the report have something to show.
+  const seedDay = localDateOf(new Date(), TIMEZONE);
+  for (const [daysAgo, time, payload] of [
+    [-5, '10:20', { game: 'memory', pairs: 3, moves: 5, durationSec: 95 }],
+    [-3, '10:15', { game: 'sequence', longest: 4, durationSec: 85 }],
+    [-2, '10:25', { game: 'memory', pairs: 6, moves: 9, durationSec: 210 }],
+    [-1, '10:10', { game: 'sequence', longest: 5, durationSec: 110 }],
+  ] as const) {
+    appendEvent(maria, { type: 'gamePlayed', payload, at: instantOf(addDays(seedDay, daysAgo), time, TIMEZONE) });
+  }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────────────────────
   function emit() {
@@ -439,6 +453,14 @@ export function createMockBackend(): MockBackend {
       const entry = elderFor(elderId);
       if (identity?.role !== 'elder') fail('FORBIDDEN', 'Apenas o idoso pode acionar o SOS.');
       const event = appendEvent(entry, { type: 'sos', payload: { lat: body.lat ?? null, lng: body.lng ?? null } });
+      return { eventId: event.id };
+    },
+    async sendGameResult(elderId, body) {
+      const entry = elderFor(elderId);
+      if (identity?.role !== 'elder') fail('FORBIDDEN', 'Apenas o idoso registra os jogos.');
+      const parsed = GameResultBodySchema.safeParse(body);
+      if (!parsed.success) fail('VALIDATION_ERROR', 'Dados inválidos.');
+      const event = appendEvent(entry, { type: 'gamePlayed', payload: parsed.data });
       return { eventId: event.id };
     },
     async resolveGeofence(elderId, body = {}) {
