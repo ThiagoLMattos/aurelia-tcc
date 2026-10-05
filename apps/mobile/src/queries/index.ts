@@ -5,6 +5,7 @@ import {
   type CreateContactBody,
   type CreateElderBody,
   type CreateRoutineBody,
+  type DoneBy,
   type Elder,
   type EventType,
   type LocalDate,
@@ -43,6 +44,13 @@ export function useCurrentElder(): Elder {
   const elder = data?.role === 'caregiver' ? data.elders[0] : undefined;
   if (!elder) throw new Error('useCurrentElder used before the caregiver has an elder');
   return elder;
+}
+
+/** The elder on an elder phone: `GET /me` for a paired phone returns exactly one. The elder layout mounts screens only once it has loaded. */
+export function useElderSelf(): Elder {
+  const { data } = useMe();
+  if (data?.role !== 'elder') throw new Error('useElderSelf used outside a paired elder phone');
+  return data.elder;
 }
 
 /** The elder's local calendar date, which moves on at the elder's midnight, not the phone's. */
@@ -180,7 +188,13 @@ export function useDeleteRoutine(elderId: string) {
  * Confirming or undoing a task is a cheap toggle, so the agenda updates at once and rolls back if the
  * server says no. The server's answer (and the events it adds) is fetched afterwards either way.
  */
-function useAgendaToggle(elderId: string, date: LocalDate, request: (routineId: string) => Promise<unknown>, next: 'done' | 'undo') {
+function useAgendaToggle(
+  elderId: string,
+  date: LocalDate,
+  request: (routineId: string) => Promise<unknown>,
+  next: 'done' | 'undo',
+  doneBy: DoneBy = 'caregiver',
+) {
   const client = useQueryClient();
   const key = queryKeys.agenda(elderId, date);
   return useMutation({
@@ -195,7 +209,7 @@ function useAgendaToggle(elderId: string, date: LocalDate, request: (routineId: 
             item.routineId !== routineId
               ? item
               : next === 'done'
-                ? { ...item, status: 'done', doneAt: new Date().toISOString(), doneBy: 'caregiver' }
+                ? { ...item, status: 'done', doneAt: new Date().toISOString(), doneBy }
                 : { ...item, status: 'pending', doneAt: null, doneBy: null },
           ),
         });
@@ -209,8 +223,8 @@ function useAgendaToggle(elderId: string, date: LocalDate, request: (routineId: 
   });
 }
 
-export function useMarkDone(elderId: string, date: LocalDate) {
-  return useAgendaToggle(elderId, date, (routineId) => api.markDone(elderId, date, routineId), 'done');
+export function useMarkDone(elderId: string, date: LocalDate, doneBy: DoneBy = 'caregiver') {
+  return useAgendaToggle(elderId, date, (routineId) => api.markDone(elderId, date, routineId), 'done', doneBy);
 }
 
 export function useUndoDone(elderId: string, date: LocalDate) {

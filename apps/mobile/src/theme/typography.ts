@@ -36,7 +36,7 @@ export const PatientTypography = {
   },
   weight: {
     regular: '400' as const, // sem negrito
-    bold: '625' as const, // negrito
+    bold: '600' as const, // negrito
   },
   lineHeight: {
     normal: 1.7, // leitura corrida

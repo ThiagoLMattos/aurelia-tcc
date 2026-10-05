@@ -1,7 +1,8 @@
 import type { EventsParams } from '@/lib/api/types';
-import { focusManager, QueryClient } from '@tanstack/react-query';
+import { focusManager, MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { AppState, Platform } from 'react-native';
 
+import { noteIfRevoked } from '@/auth/revoked';
 import { ApiError } from '@/lib/api/client';
 
 /** Client errors (4xx) will not fix themselves on a retry; network trouble and 5xx might. */
@@ -12,6 +13,8 @@ function shouldRetry(failureCount: number, error: unknown): boolean {
 }
 
 export const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: noteIfRevoked }),
+  mutationCache: new MutationCache({ onError: noteIfRevoked }),
   defaultOptions: {
     queries: { staleTime: 30_000, retry: shouldRetry },
   },

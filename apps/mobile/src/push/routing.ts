@@ -35,3 +35,8 @@ export function routeForPush(data: PushData, role: AuthRole): PushRoute {
       return { pathname: '/(caregiver)/(tabs)/profile' };
   }
 }
+
+/** Local reminders carry `{ kind: 'reminder' }`; tapping one on the elder phone opens the task list. */
+export function isReminderData(data: unknown): boolean {
+  return typeof data === 'object' && data !== null && (data as { kind?: unknown }).kind === 'reminder';
+}

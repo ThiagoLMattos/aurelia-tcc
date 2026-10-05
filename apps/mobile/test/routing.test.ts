@@ -44,3 +44,12 @@ describe('parsePushData', () => {
     expect(parsePushData(undefined)).toBeNull();
   });
 });
+
+describe('reminder taps', () => {
+  it('recognises local reminders and nothing else', async () => {
+    const { isReminderData } = await import('@/push/routing');
+    expect(isReminderData({ kind: 'reminder' })).toBe(true);
+    expect(isReminderData({ type: 'sos' })).toBe(false);
+    expect(isReminderData(null)).toBe(false);
+  });
+});

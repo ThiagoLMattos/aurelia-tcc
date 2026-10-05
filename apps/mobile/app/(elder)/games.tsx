@@ -1,155 +1,52 @@
-// @ts-nocheck
-
-import { Layout, PatientColors, PatientTypography, Shadow } from '@/theme';
-import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 
-// Dados dos jogos — adicionar rotas quando as telas estiverem prontas
+import { ElderHeader, MIN_TOUCH, type Section } from '@/elder/ui';
+import { PatientColors, PatientTypography, Shadow } from '@/theme';
+
+const SECTION: Section = {
+  main: PatientColors.gamesMain,
+  headerButton: PatientColors.gamesHeaderButton,
+  border: PatientColors.gamesHeaderBorder,
+  text: PatientColors.gamesHeaderText,
+};
+
+// Nenhum jogo está pronto ainda: cada cartão mostra "EM BREVE" no próprio lugar do botão JOGAR.
 const GAMES = [
-  {
-    id: '1',
-    name: 'Jogo da Memória',
-    image: require('../../assets/images/MemoriaIcon.png'),
-    route: '/jogos/memoria',
-  },
-  {
-    id: '2',
-    name: 'Jogo da Velha',
-    image: require('../../assets/images/JogoVelhaIcon.png'),
-    route: '/jogos/velha',
-  },
-  {
-    id: '3',
-    name: 'Palavras Cruzadas',
-    image: require('../../assets/images/PalavraCruzadaIcon.png'),
-    route: '/jogos/cruzadas',
-  },
-  {
-    id: '4',
-    name: 'Memória Sequencial',
-    image: require('../../assets/images/GeniusIcon.png'),
-    route: '/jogos/sequencial',
-  },
+  { id: '1', name: 'Jogo da Memória', image: require('../../assets/images/MemoriaIcon.png') },
+  { id: '2', name: 'Jogo da Velha', image: require('../../assets/images/JogoVelhaIcon.png') },
+  { id: '3', name: 'Palavras Cruzadas', image: require('../../assets/images/PalavraCruzadaIcon.png') },
+  { id: '4', name: 'Memória Sequencial', image: require('../../assets/images/GeniusIcon.png') },
 ];
 
-// Componente principal
 export default function JogosIdosoScreen() {
   const router = useRouter();
-  const [comingSoon, setComingSoon] = useState(false);
-
-  // Nenhum jogo está pronto ainda: "JOGAR" mostra o aviso de "em breve".
-  if (comingSoon) {
-    return (
-      <SafeAreaView style={[styles.container, styles.soonContainer]}>
-        <StatusBar style="light" backgroundColor={PatientColors.gamesMain} />
-        <Stack.Screen options={{ headerShown: false }} />
-
-        <View style={styles.soonBackground} pointerEvents="none">
-          <Text style={styles.soonBackgroundText}>EM BREVE</Text>
-        </View>
-
-        <View style={styles.soonFooter}>
-          <TouchableOpacity style={styles.soonBackButton} onPress={() => setComingSoon(false)} activeOpacity={0.8}>
-            <Text style={styles.soonBackButtonText}>VOLTAR</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" backgroundColor={PatientColors.gamesMain} />
-      <Stack.Screen options={{ headerShown: false }} />
+      <ElderHeader title="JOGOS" section={SECTION} onBack={() => router.back()} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>JOGOS</Text>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.headerButtonText}>VOLTAR</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Lista de jogos */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {GAMES.map((game) => (
-          <View key={game.id} style={styles.gameCard}>
-
-            {/* Ícone + nome */}
+          <View key={game.id} style={styles.gameCard} accessible accessibilityLabel={`${game.name}. Em breve.`}>
             <View style={styles.gameInfo}>
               <Image source={game.image} style={styles.gameIcon} resizeMode="contain" />
-              <Text style={[
-                styles.gameName,
-                game.id === '4' && styles.gameNameSmall,
-              ]}>
-                {game.name}
-              </Text>
+              <Text style={[styles.gameName, game.id === '4' && styles.gameNameSmall]}>{game.name}</Text>
             </View>
-
-            {/* Botão jogar */}
-            <TouchableOpacity
-              style={styles.playButton}
-              onPress={() => setComingSoon(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.playButtonText}>JOGAR</Text>
-            </TouchableOpacity>
-
+            <View style={styles.soonBadge}>
+              <Text style={styles.soonText}>EM BREVE</Text>
+            </View>
           </View>
         ))}
-
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// Estilos
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-
-  // Header
-  header: {
-    backgroundColor: PatientColors.gamesMain,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 25,
-    height: Layout.headerHeight,
-    zIndex: 1,
-    ...Shadow.header,
-  },
-  headerTitle: {
-    color: PatientColors.gamesHeaderText,
-    fontSize: PatientTypography.size.header,
-    fontWeight: PatientTypography.weight.regular,
-  },
-  headerButton: {
-    backgroundColor: PatientColors.gamesHeaderButton,
-    borderWidth: 1.5,
-    borderColor: PatientColors.gamesHeaderBorder,
-    borderRadius: 10,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  headerButtonText: {
-    color: PatientColors.gamesHeaderText,
-    fontSize: PatientTypography.size.backButton,
-    fontWeight: PatientTypography.weight.regular,
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
 
   // Lista
   scrollContent: {
@@ -187,59 +84,16 @@ const styles = StyleSheet.create({
     fontSize: 21,
   },
 
-  // Botão jogar
-  playButton: {
-    backgroundColor: PatientColors.gamesMain,
+  soonBadge: {
+    backgroundColor: PatientColors.gamesCardBg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: PatientColors.gamesHeaderButton,
+    borderColor: PatientColors.gamesMain,
     minWidth: 140,
-    minHeight: 50,
+    minHeight: MIN_TOUCH,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.soft,
   },
-  playButtonText: {
-    color: PatientColors.gamesHeaderText,
-    fontSize: PatientTypography.size.reduced,
-    fontWeight: PatientTypography.weight.bold,
-  },
-
-  // Aviso "em breve"
-  soonContainer: {
-    justifyContent: 'flex-end',
-  },
-  soonBackground: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 0,
-  },
-  soonBackgroundText: {
-    fontSize: 70,
-    fontWeight: 'bold',
-    color: PatientColors.gamesMain,
-    opacity: 0.15,
-    transform: [{ rotate: '-45deg' }],
-    textTransform: 'uppercase',
-  },
-  soonFooter: {
-    paddingHorizontal: 25,
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  soonBackButton: {
-    backgroundColor: PatientColors.gamesHeaderButton,
-    borderWidth: 1.5,
-    borderColor: PatientColors.gamesHeaderBorder,
-    borderRadius: 10,
-    paddingVertical: 20,
-    paddingHorizontal: 115,
-    alignItems: 'center',
-  },
-  soonBackButtonText: {
-    color: PatientColors.gamesHeaderText,
-    fontSize: PatientTypography.size.backButton,
-    fontWeight: PatientTypography.weight.regular,
-  },
+  soonText: { color: PatientColors.gamesMain, fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold },
 });

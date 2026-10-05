@@ -1,264 +1,158 @@
-// @ts-nocheck
-
-import { Layout, PatientColors, PatientTypography, Shadow } from '@/theme';
-import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { AgendaItem } from '@aurelia/shared';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 
-// Dados falsos — substituir pela API do cuidador depois
-const MOCK_TASKS = [
-  {
-    id: '1',
-    name: 'Omeprazol',
-    description: 'Tomar 1 cápsula em jejum',
-    time: '07:00',
-    done: false,
-  },
-  {
-    id: '2',
-    name: 'Caminhada',
-    description: 'Caminhar por 20 minutos no parque',
-    time: '08:30',
-    done: false,
-  },
-  {
-    id: '3',
-    name: 'Café da manhã',
-    description: 'Tomar café com pão e fruta',
-    time: '09:00',
-    done: false,
-  },
-  {
-    id: '4',
-    name: 'Losartana',
-    description: 'Tomar 1 comprimido com água',
-    time: '12:00',
-    done: false,
-  },
-  {
-    id: '5',
-    name: 'Almoço',
-    description: 'Almoçar com a família',
-    time: '12:30',
-    done: false,
-  },
-  {
-    id: '6',
-    name: 'Repouso',
-    description: 'Descansar por 30 minutos',
-    time: '14:00',
-    done: false,
-  },
-  {
-    id: '7',
-    name: 'Metformina',
-    description: 'Tomar 1 comprimido após o jantar',
-    time: '19:00',
-    done: false,
-  },
-];
+import { ErrorState, LoadingState } from '@/components';
+import { BigButton, ElderHeader, MIN_TOUCH, Sheet, SheetText, type Section } from '@/elder/ui';
+import { friendlyError } from '@/lib/errors';
+import { useAgenda, useElderSelf, useMarkDone, useToday } from '@/queries';
+import { PatientColors, PatientTypography, Shadow } from '@/theme';
 
-// Componente principal
+const SECTION: Section = {
+  main: PatientColors.tasksMain,
+  headerButton: PatientColors.tasksHeaderButton,
+  border: PatientColors.tasksBorder,
+  text: PatientColors.tasksHeaderText,
+};
+
+const CELEBRATION_MS = 1400;
+
+/** Big check that pops in when a task is confirmed; closes itself. */
+function DoneCelebration({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const scale = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    scale.setValue(0.4);
+    Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
+    const timer = setTimeout(onClose, CELEBRATION_MS);
+    return () => clearTimeout(timer);
+  }, [visible, scale, onClose]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.celebrateOverlay} onPress={onClose} accessibilityLabel="Tarefa feita. Toque para fechar.">
+        <Animated.View style={[styles.celebrateBadge, { transform: [{ scale }] }]}>
+          <Text style={styles.celebrateCheck}>✓</Text>
+        </Animated.View>
+        <Text style={styles.celebrateText}>MUITO BEM!</Text>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function TaskCard({ item, onConclude }: { item: AgendaItem; onConclude: (item: AgendaItem) => void }) {
+  const done = item.status === 'done';
+  const missed = item.status === 'missed';
+  const current = item.status === 'now';
+  const detail = item.medication ? `${item.medication.dosage}${item.description ? ` — ${item.description}` : ''}` : item.description;
+
+  return (
+    <View style={[styles.taskCard, done && styles.taskCardDone, current && styles.taskCardNow]}>
+      <View style={styles.cardHeader}>
+        <Text style={[styles.taskName, done && styles.taskNameDone]}>{item.name}</Text>
+        {done ? (
+          <View style={[styles.concludeButton, styles.concludeButtonDone]} accessibilityLabel={`${item.name}: feito`}>
+            <Text style={styles.concludeButtonText}>FEITO ✓</Text>
+          </View>
+        ) : missed ? (
+          <View style={[styles.concludeButton, styles.concludeButtonMissed]} accessibilityLabel={`${item.name}: não foi feita`}>
+            <Text style={[styles.concludeButtonText, styles.missedText]}>PERDIDA</Text>
+          </View>
+        ) : (
+          <Pressable
+            style={styles.concludeButton}
+            onPress={() => onConclude(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`Marcar ${item.name} como feita`}
+          >
+            <Text style={styles.concludeButtonText}>FEITO</Text>
+          </Pressable>
+        )}
+      </View>
+      <Text style={styles.taskDescription}>{detail ? `${item.time} — ${detail}` : item.time}</Text>
+    </View>
+  );
+}
+
 export default function TarefasIdosoScreen() {
   const router = useRouter();
+  const elder = useElderSelf();
+  const today = useToday(elder);
+  const agenda = useAgenda(elder.id, today);
+  const markDone = useMarkDone(elder.id, today, 'elder');
 
-  const [tasks, setTasks] = useState(MOCK_TASKS);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [showConfirmSheet, setShowConfirmSheet] = useState(false);
+  const [selected, setSelected] = useState<AgendaItem | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
+  const closeCelebration = useCallback(() => setCelebrating(false), []);
 
-  const handleConcluirPress = (task) => {
-    setSelectedTask(task);
-    setShowConfirmSheet(true);
-  };
+  function confirmDone() {
+    if (!selected) return;
+    const routineId = selected.routineId;
+    setSelected(null);
+    markDone.mutate(routineId, {
+      onSuccess: () => {
+        setCelebrating(true);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      },
+      onError: (error) => Alert.alert('Não foi possível confirmar', friendlyError(error)),
+    });
+  }
 
-  const handleConfirm = () => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === selectedTask.id ? { ...t, done: true } : t
-      )
-    );
-    setShowConfirmSheet(false);
-    setSelectedTask(null);
-  };
-
-  const handleCancel = () => {
-    setShowConfirmSheet(false);
-    setSelectedTask(null);
-  };
+  const items = agenda.data?.items ?? [];
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" backgroundColor={PatientColors.tasksMain} />
-      <Stack.Screen options={{ headerShown: false }} />
+      <ElderHeader title="TAREFAS" section={SECTION} onBack={() => router.back()} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>TAREFAS</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
-          <Text style={styles.headerButtonText}>VOLTAR</Text>
-        </TouchableOpacity>
-      </View>
+      {agenda.isPending ? (
+        <LoadingState role="elder" />
+      ) : agenda.isError && !agenda.data ? (
+        <ErrorState role="elder" message={friendlyError(agenda.error)} onRetry={() => void agenda.refetch()} />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.routineId}
+          renderItem={({ item }) => <TaskCard item={item} onConclude={setSelected} />}
+          refreshControl={<RefreshControl refreshing={agenda.isRefetching} onRefresh={() => void agenda.refetch()} />}
+          ListEmptyComponent={<Text style={styles.empty}>Nenhuma tarefa para hoje.</Text>}
+          contentContainerStyle={items.length === 0 ? styles.emptyWrap : undefined}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
-      {/* Lista de tarefas */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {tasks.map((task) => (
-          <View
-            key={task.id}
-            style={[styles.taskCard, task.done && styles.taskCardDone]}
-          >
-            {/* Linha superior: nome + botão */}
-            <View style={styles.cardHeader}>
-              <Text style={[styles.taskName, task.done && styles.taskNameDone]}>
-                {task.id}. {task.name}
-              </Text>
+      <Sheet visible={selected !== null} onClose={() => setSelected(null)} accent={PatientColors.tasksMain}>
+        <SheetText>Você já concluiu a tarefa?</SheetText>
+        <SheetText strong>{selected?.name.toUpperCase()}</SheetText>
+        <BigButton label="CONCLUÍ" onPress={confirmDone} color={PatientColors.tasksMain} textColor={PatientColors.tasksHeaderText} />
+        <BigButton label="CANCELAR" onPress={() => setSelected(null)} color={PatientColors.tasksHeaderButton} textColor={PatientColors.tasksHeaderText} />
+      </Sheet>
 
-              <TouchableOpacity
-                style={[
-                  styles.concludeButton,
-                  task.done && styles.concludeButtonDone,
-                ]}
-                onPress={() => !task.done && handleConcluirPress(task)}
-                activeOpacity={task.done ? 1 : 0.8}
-                disabled={task.done}
-              >
-                <Text style={styles.concludeButtonText}>
-                  {task.done ? 'FEITO ✓' : 'CONCLUIR'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Linha inferior: descrição */}
-            <Text style={styles.taskDescription} numberOfLines={2}>
-              {task.time} — {task.description}
-            </Text>
-          </View>
-        ))}
-
-        <View style={{ height: 32 }} />
-      </ScrollView>
-
-      {/* Aba de confirmação (Modal) */}
-      <Modal
-        visible={showConfirmSheet}
-        transparent
-        animationType="slide"
-        onRequestClose={handleCancel}
-      >
-        <View style={styles.sheetOverlay}>
-          <View style={styles.sheet}>
-
-            <Text style={styles.sheetQuestion}>
-              Você já concluiu a tarefa?
-            </Text>
-
-            <Text style={styles.sheetTaskName}>
-              {selectedTask?.id} — {selectedTask?.name.toUpperCase()}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.sheetButtonConfirm}
-              onPress={handleConfirm}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.sheetButtonConfirmText}>CONCLUÍ</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.sheetButtonCancel}
-              onPress={handleCancel}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.sheetButtonCancelText}>CANCELAR</Text>
-            </TouchableOpacity>
-
-          </View>
-        </View>
-      </Modal>
+      <DoneCelebration visible={celebrating} onClose={closeCelebration} />
     </SafeAreaView>
   );
 }
 
-// Estilos
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
 
-  // Header
-  header: {
-    backgroundColor: PatientColors.tasksMain,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 25,
-    height: Layout.headerHeight,
-    zIndex: 1,
-    ...Shadow.header,
-  },
-  headerTitle: {
-    color: PatientColors.tasksHeaderText,
-    fontSize: PatientTypography.size.header,
-    fontWeight: PatientTypography.weight.regular,
-  },
-  headerButton: {
-    backgroundColor: PatientColors.tasksHeaderButton,
-    borderWidth: 1.5,
-    borderColor: PatientColors.tasksBorder,
-    borderRadius: 10,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  headerButtonText: {
-    color: PatientColors.tasksHeaderText,
-    fontSize: PatientTypography.size.backButton,
-    fontWeight: PatientTypography.weight.regular,
-  },
+  empty: { fontSize: PatientTypography.size.common, color: '#2C2C2C', textAlign: 'center', padding: 32 },
+  emptyWrap: { flexGrow: 1, justifyContent: 'center' },
 
-  // Lista
-  scrollContent: {
-    paddingHorizontal: 0,
-  },
-  taskCard: {
-    borderWidth: 0.5,
-    borderColor: '#2C2C2C',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    flexDirection: 'column',
-    gap: 12,
-  },
-  taskCardDone: {
-    backgroundColor: '#F1EFE8',
-    borderColor: PatientColors.tasksDoneIcon,
-    opacity: 0.7,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  taskName: {
-    flex: 1,
-    fontSize: PatientTypography.size.common,
-    fontWeight: PatientTypography.weight.regular,
-    color: '#2C2C2C',
-  },
-  taskNameDone: {
-    textDecorationLine: 'line-through',
-    color: '#888780',
-  },
+  taskCard: { borderWidth: 0.5, borderColor: '#2C2C2C', paddingVertical: 20, paddingHorizontal: 16, gap: 12 },
+  taskCardDone: { backgroundColor: '#F1EFE8', borderColor: PatientColors.tasksDoneIcon, opacity: 0.8 },
+  taskCardNow: { borderWidth: 3, borderColor: PatientColors.tasksMain },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  taskName: { flex: 1, fontSize: PatientTypography.size.common, color: '#2C2C2C' },
+  taskNameDone: { textDecorationLine: 'line-through', color: '#5F5E5A' },
   taskDescription: {
-    fontSize: PatientTypography.size.minimum,
+    fontSize: PatientTypography.size.reduced,
     fontWeight: PatientTypography.weight.bold,
     color: '#2C2C2C',
-    lineHeight: 18 * 1.7,
-    width: '100%',
+    lineHeight: PatientTypography.size.reduced * PatientTypography.lineHeight.normal,
   },
   concludeButton: {
     backgroundColor: PatientColors.tasksHeaderButton,
@@ -266,67 +160,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PatientColors.tasksBorder,
     minWidth: 140,
-    minHeight: 50,
+    minHeight: MIN_TOUCH,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.soft,
   },
-  concludeButtonDone: {
-    backgroundColor: PatientColors.tasksDoneIcon,
-    borderColor: PatientColors.tasksDoneIcon,
-  },
-  concludeButtonText: {
-    color: PatientColors.tasksHeaderText,
-    fontSize: PatientTypography.size.reduced,
-    fontWeight: PatientTypography.weight.bold,
-  },
+  concludeButtonDone: { backgroundColor: PatientColors.tasksMain, borderColor: PatientColors.tasksDoneIcon },
+  concludeButtonMissed: { backgroundColor: '#FAEEDA', borderColor: '#EF9F27' },
+  concludeButtonText: { color: PatientColors.tasksHeaderText, fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold },
+  missedText: { color: '#854F0B' },
 
-  // Aba de confirmação
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-  },
-  sheet: {
-    backgroundColor: '#F1EFE8',
-    borderTopWidth: 7,
-    borderTopColor: PatientColors.tasksMain,
-    padding: 24,
-    gap: 16,
-    ...Shadow.sheet,
-  },
-  sheetQuestion: {
-    fontSize: PatientTypography.size.reduced,
-    fontWeight: PatientTypography.weight.regular,
-    color: '#2C2C2C',
-    textAlign: 'center',
-  },
-  sheetTaskName: {
-    fontSize: PatientTypography.size.sheet,
-    fontWeight: PatientTypography.weight.bold,
-    color: '#2C2C2C',
-    textAlign: 'center',
-  },
-  sheetButtonConfirm: {
-    backgroundColor: PatientColors.tasksMain,
-    borderRadius: 12,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  sheetButtonConfirmText: {
-    color: PatientColors.tasksHeaderText,
-    fontSize: PatientTypography.size.sheet,
-    fontWeight: PatientTypography.weight.bold,
-  },
-  sheetButtonCancel: {
-    backgroundColor: PatientColors.tasksHeaderButton,
-    borderRadius: 12,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  sheetButtonCancelText: {
-    color: PatientColors.tasksHeaderText,
-    fontSize: PatientTypography.size.sheet,
-    fontWeight: PatientTypography.weight.bold,
-  },
+  celebrateOverlay: { flex: 1, backgroundColor: 'rgba(15, 80, 30, 0.85)', alignItems: 'center', justifyContent: 'center', gap: 24 },
+  celebrateBadge: { width: 180, height: 180, borderRadius: 90, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  celebrateCheck: { fontSize: 110, color: PatientColors.tasksMain, fontWeight: '700' },
+  celebrateText: { fontSize: PatientTypography.size.header, color: '#FFFFFF', fontWeight: '700' },
 });

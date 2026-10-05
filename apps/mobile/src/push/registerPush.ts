@@ -22,6 +22,15 @@ export function configureNotificationHandler(): void {
   });
 }
 
+export async function ensureReminderChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(PUSH_CHANNELS.reminders, {
+    name: 'Lembretes',
+    description: 'Tarefas e rotinas',
+    importance: Notifications.AndroidImportance.DEFAULT,
+  });
+}
+
 /** Android needs the channels to exist before a token is requested, or alerts arrive silently. */
 async function createAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync(PUSH_CHANNELS.alerts, {
@@ -31,14 +40,10 @@ async function createAndroidChannels(): Promise<void> {
     vibrationPattern: [0, 400, 200, 400],
     sound: 'default',
   });
-  await Notifications.setNotificationChannelAsync(PUSH_CHANNELS.reminders, {
-    name: 'Lembretes',
-    description: 'Tarefas e rotinas',
-    importance: Notifications.AndroidImportance.DEFAULT,
-  });
+  await ensureReminderChannel();
 }
 
-async function ensurePermission(): Promise<boolean> {
+export async function ensureNotificationPermission(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   if (!current.canAskAgain) return false;
@@ -58,7 +63,7 @@ export async function registerPush(api: Api): Promise<string | null> {
   }
   try {
     if (Platform.OS === 'android') await createAndroidChannels();
-    if (!(await ensurePermission())) return null;
+    if (!(await ensureNotificationPermission())) return null;
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: env.easProjectId });
     await api.registerPushToken(token);
     await AsyncStorage.setItem(TOKEN_KEY, token);

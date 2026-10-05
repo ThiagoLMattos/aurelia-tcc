@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import { useSession } from '@/auth/SessionProvider';
 
-import { parsePushData, routeForPush } from './routing';
+import { isReminderData, parsePushData, routeForPush } from './routing';
 
 /**
  * Opens the right screen when a push is tapped. `useLastNotificationResponse` also reports the tap that
@@ -24,7 +24,12 @@ export function useNotificationRouting(): void {
     if (handled.current === id) return;
     handled.current = id;
 
-    const data = parsePushData(response.notification.request.content.data);
+    const content = response.notification.request.content.data;
+    if (role === 'elder' && isReminderData(content)) {
+      router.push('/(elder)/tasks');
+      return;
+    }
+    const data = parsePushData(content);
     if (!data) return;
     const { pathname, params } = routeForPush(data, role);
     router.push({ pathname, params } as Href);
