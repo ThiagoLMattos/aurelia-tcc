@@ -9,6 +9,10 @@ const { createApp } = await import('./app');
 const { loadConfig } = await import('./config');
 const { initFirebase } = await import('./firebase');
 const { createLogger } = await import('./logger');
+const { createServices } = await import('./services');
+const { createExpoPushSender } = await import('./push/sender');
+const { createLlmProvider } = await import('./modules/assistant/provider');
+const { startScheduler } = await import('./jobs/scheduler');
 
 let config;
 try {
@@ -19,8 +23,24 @@ try {
 }
 
 const logger = createLogger(config);
-const app = createApp({ config, firebase: initFirebase(config), logger });
+const firebase = initFirebase(config);
+const services = createServices({
+  firebase,
+  logger,
+  push: createExpoPushSender(logger),
+  llm: createLlmProvider(config),
+});
+const app = createApp({ config, firebase, logger, services });
 
-app.listen(config.PORT, () => {
+const server = app.listen(config.PORT, () => {
   logger.info({ port: config.PORT, emulators: config.USE_EMULATORS }, 'Aurélia API listening');
 });
+
+const scheduler = config.SCHEDULER_ENABLED ? startScheduler(services.jobs, logger) : null;
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(signal, () => {
+    scheduler?.stop();
+    server.close(() => process.exit(0));
+  });
+}

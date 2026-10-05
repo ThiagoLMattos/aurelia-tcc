@@ -8,6 +8,7 @@ export const ErrorCodeSchema = z.enum([
   'CONFLICT',
   'RATE_LIMITED',
   'INTERNAL',
+  'SERVICE_UNAVAILABLE',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 export const ErrorCode = ErrorCodeSchema.enum;
@@ -20,6 +21,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   CONFLICT: 409,
   RATE_LIMITED: 429,
   INTERNAL: 500,
+  SERVICE_UNAVAILABLE: 503,
 };
 
 export const ApiErrorBodySchema = z.object({

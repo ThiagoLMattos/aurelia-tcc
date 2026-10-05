@@ -3,9 +3,7 @@
 Express 5 + firebase-admin. Implements `/api/v1` from the spec; request and response shapes come
 from `@aurelia/shared`.
 
-Implemented: health, signup, `/me` and push tokens, elders, pairing, routines, agenda, contacts,
-events (history), weekly report and SOS. Not yet: push sending, the assistant, devices, location and
-geofence endpoints, and the scheduler that runs the missed-task job.
+Every row of spec §5 is implemented; `docs/api.md` lists them with their roles and shared schemas.
 
 Spec §5 lists the endpoints. Where the implementation fills a gap the spec leaves open:
 
@@ -15,15 +13,62 @@ Spec §5 lists the endpoints. Where the implementation fills a gap the spec leav
   whether done or missed, answers `409`.
 - Undoing a confirmation deletes the occurrence and keeps the original `taskDone` event, flagged with
   `payload.undoneAt`; it appends nothing.
-- `GET /elders/:elderId` returns `devices` from `elders/{id}/devices`; registering trackers comes later.
+- `GET /elders/:elderId` returns `devices` (id, label, last contact, battery) from `elders/{id}/devices`.
+- `SERVICE_UNAVAILABLE` (503) is a new error code, used when the assistant's model fails or times out.
+- `deviceOffline` is a new push type (it is also an event type already), sent on the `reminders` channel.
+- `GET /elders/:elderId/location` also returns `safeZone` and `deviceLastSeenAt`.
+- `POST /elders/:elderId/geofence/resolve` returns the updated `geofenceExit` event. It resolves the
+  latest unresolved exit unless `eventId` is given; there is no pending exit → `404`, already resolved → `409`.
 - An elder document carries `phonePairedAt` (set on pairing, cleared on unpairing). Pairing a new
   phone also clears the previous phone's push tokens.
 
-## Missed-task job
+## Push notifications
 
-`createServices(...).missedTasks.run(now)` marks overdue `alertIfMissed` tasks as missed, once each,
-and returns what it created so the caller can notify caregivers. It looks at today and yesterday in
-the elder's timezone, and skips a routine created after its time that day. Nothing schedules it yet.
+`src/push/`: `PushSender` (Expo, chunked, receipts not checked) and `notify.ts`, one function per
+event with the pt-BR text and the `data` the app routes on. SOS and geofence go to every caregiver on
+the `alerts` channel with high priority; missed tasks and confirmations go only to caregivers who
+turned `notifyMissedTask` / `notifyConfirmations` on; a tracker going offline goes to everyone on
+`reminders`. Tokens Expo reports as `DeviceNotRegistered` are removed. A failing push is logged and
+never fails the request or the job. Tests inject a fake sender; `createServices` defaults to one that
+sends nothing, and only `server.ts` wires the real one.
+
+## Trackers and geofence
+
+- `POST /elders/:id/devices` returns `{ deviceId, secret }` once. Only `sha256(secret)` is stored,
+  and `deviceIndex/{deviceId}` → `elderId` lets a report find its elder with one read.
+- `POST /device/location` authenticates with `X-Device-Id` + `X-Device-Secret` (constant-time hash
+  comparison; unknown id and wrong secret look the same). A tracker may report once per 10 seconds;
+  unauthenticated callers are also capped per IP.
+- The shared `nextLocationState()` runs in a transaction on the elder, together with the transition's
+  event, so concurrent reports cannot emit it twice. The push goes out after the commit.
+- With no safe zone the position is still stored, but the status stays `unknown`.
+- A tracker silent for 15 minutes (a tracker that never reported counts from its registration) gets
+  one `deviceOffline` event and push per silence; reporting again re-arms it.
+
+## Jobs
+
+`createServices(...).jobs.runAll(now)` runs the missed-task check and the device-offline check and
+refuses to start while a previous run is still going. `server.ts` schedules it every 5 minutes with
+`node-cron` (set `SCHEDULER_ENABLED=false` to turn that off). The scheduler never runs in tests.
+
+If the API is deployed with scale-to-zero (e.g. Cloud Run) an in-process timer cannot be relied on.
+Set `JOBS_TOKEN` (16+ characters) and have an external scheduler call
+`POST /api/v1/internal/jobs/run` with the header `X-Jobs-Token`; the route is not mounted without a
+token, and answers `409` if a run is already in progress.
+
+The missed-task job looks at today and yesterday in the elder's timezone and skips a routine created
+after its time that day.
+
+## Assistant
+
+`LlmProvider.generate({ system, messages, signal })`. `LLM_PROVIDER=groq` uses `groq-sdk` with
+`LLM_MODEL` and `GROQ_API_KEY` (both required then; pick a model from Groq's current list, none is
+hard-coded); `LLM_PROVIDER=fake` answers deterministically without a key. The system prompt is built
+per role from the elder's profile and today's agenda; caregivers also get a compact JSON summary of the
+last 7 days. Contacts, phone numbers and caregiver emails are never sent. History is capped at 20
+turns of 2,000 characters, the limit is 30 messages per hour per elder (shared by its caregivers and
+its phone), and a failure or a 15-second timeout answers `503` with a friendly message. Conversations
+are not stored.
 
 ## Not carried over from the old API
 
@@ -43,7 +88,9 @@ src/
   services.ts      wires repos into services; routes, tests and jobs share this graph
   clock.ts         injectable `now`, so time-dependent logic is testable
   modules/         routes + service per feature (auth, me, elders, pairing, routines, agenda,
-                   contacts, events, reports, sos, jobs)
+                   contacts, events, reports, sos, devices, location, assistant, jobs)
+  push/            PushSender (Expo) and per-event notifications
+  jobs/            node-cron scheduler (started by server.ts only)
   repos/           the only code that touches Firestore; converters live here
 test/              vitest + supertest against the Firebase emulators
 ```
@@ -60,6 +107,10 @@ There is a single `.env` at the **repository root** (copy `.env.example`). The A
 | `PORT` | default `3000` |
 | `CORS_ORIGINS` | comma-separated; empty disables CORS (native apps don't need it) |
 | `LOG_LEVEL` | `info` by default; `silent` in tests |
+| `LLM_PROVIDER` | `groq` (default) or `fake` |
+| `GROQ_API_KEY`, `LLM_MODEL` | required when `LLM_PROVIDER=groq` |
+| `JOBS_TOKEN` | optional, 16+ characters; enables `POST /internal/jobs/run` |
+| `SCHEDULER_ENABLED` | default `true`; `false` disables the in-process scheduler |
 
 ## Run against the emulators (no Firebase project needed)
 

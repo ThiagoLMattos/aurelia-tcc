@@ -81,7 +81,7 @@ describe('GET /elders/:elderId', () => {
       .doc(elderId)
       .collection('devices')
       .doc('dev1')
-      .set({ label: 'Pulseira', lastSeenAt: Timestamp.fromDate(new Date('2026-03-11T14:00:00Z')), batteryPct: 80 });
+      .set({ label: 'Pulseira', secretHash: 'x', createdAt: Timestamp.now(), lastSeenAt: Timestamp.fromDate(new Date('2026-03-11T14:00:00Z')), batteryPct: 80 });
 
     for (const token of [caregiver.token, elderToken]) {
       const response = await request(app).get(`/api/v1/elders/${elderId}`).set(bearer(token));

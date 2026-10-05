@@ -3,6 +3,7 @@ import type { Logger } from 'pino';
 
 import type { Clock } from '../../clock';
 import type { ElderDoc } from '../../repos';
+import type { Notifier } from '../../push/notify';
 import type { EldersRepo } from '../../repos/elders';
 import type { OccurrencesRepo } from '../../repos/occurrences';
 import type { RoutinesRepo } from '../../repos/routines';
@@ -14,6 +15,7 @@ interface Deps {
   routines: RoutinesRepo;
   occurrences: OccurrencesRepo;
   events: EventsService;
+  notifier: Notifier;
   now: Clock;
   logger: Logger;
 }
@@ -28,7 +30,7 @@ export interface MissedTask {
 
 const MINUTE_MS = 60_000;
 
-export function createMissedTasksJob({ elders, routines, occurrences, events, now, logger }: Deps) {
+export function createMissedTasksJob({ elders, routines, occurrences, events, notifier, now, logger }: Deps) {
   async function runForElder(elder: ElderDoc, current: Date): Promise<MissedTask[]> {
     const today = localDateOf(current, elder.timezone);
     // Yesterday too, so a task due just before midnight is still caught by a run just after it.
@@ -94,7 +96,11 @@ export function createMissedTasksJob({ elders, routines, occurrences, events, no
       const created: MissedTask[] = [];
       for (const elder of await elders.listAll()) {
         try {
-          created.push(...(await runForElder(elder, at)));
+          const missed = await runForElder(elder, at);
+          created.push(...missed);
+          for (const task of missed) {
+            await notifier.taskMissed(elder, task.eventId, task.routineName, task.occurrence.scheduledTime);
+          }
         } catch (error) {
           logger.error({ err: error, elderId: elder.id }, 'missed-task check failed for elder');
         }

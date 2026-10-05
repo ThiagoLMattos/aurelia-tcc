@@ -11,6 +11,7 @@ export const PushDataSchema = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('sos') }),
   z.object({ ...base, type: z.literal('taskMissed') }),
   z.object({ ...base, type: z.literal('taskDone') }),
+  z.object({ ...base, type: z.literal('deviceOffline') }),
 ]);
 export type PushData = z.infer<typeof PushDataSchema>;
 

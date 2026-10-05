@@ -30,6 +30,20 @@ interface UserData {
   elderIds?: string[];
 }
 
+function fromSnapshot(snap: FirebaseFirestore.DocumentSnapshot): UserDoc | null {
+  if (!snap.exists) return null;
+  const data = snap.data() as UserData;
+  return {
+    id: snap.id,
+    name: data.name,
+    email: data.email,
+    createdAt: toDate(data.createdAt),
+    settings: { ...DEFAULT_CAREGIVER_SETTINGS, ...data.settings },
+    pushTokens: data.pushTokens ?? [],
+    elderIds: data.elderIds ?? [],
+  };
+}
+
 export function createUsersRepo(db: Firestore) {
   const col = db.collection('users');
 
@@ -47,18 +61,14 @@ export function createUsersRepo(db: Firestore) {
     },
 
     async get(id: string): Promise<UserDoc | null> {
-      const snap = await col.doc(id).get();
-      if (!snap.exists) return null;
-      const data = snap.data() as UserData;
-      return {
-        id: snap.id,
-        name: data.name,
-        email: data.email,
-        createdAt: toDate(data.createdAt),
-        settings: { ...DEFAULT_CAREGIVER_SETTINGS, ...data.settings },
-        pushTokens: data.pushTokens ?? [],
-        elderIds: data.elderIds ?? [],
-      };
+      return fromSnapshot(await col.doc(id).get());
+    },
+
+    /** Missing users are skipped. */
+    async getMany(ids: string[]): Promise<UserDoc[]> {
+      if (ids.length === 0) return [];
+      const snaps = await db.getAll(...ids.map((id) => col.doc(id)));
+      return snaps.flatMap((snap) => fromSnapshot(snap) ?? []);
     },
 
     /** Returns false when the user does not exist. */
