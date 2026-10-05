@@ -1,4 +1,4 @@
-import type { RequestHandler } from 'express';
+import type { RequestHandler, Response } from 'express';
 
 import { forbidden, notFound, unauthenticated } from '../http/errors';
 import type { ElderDoc } from '../repos';
@@ -31,4 +31,11 @@ export function requireElderAccess(elders: ElderReader): RequestHandler<{ elderI
       next(error);
     }
   };
+}
+
+/** The elder loaded by requireElderAccess. Throws if a route forgot to mount it. */
+export function loadedElder(res: Response): ElderDoc {
+  const elder = res.locals.elder;
+  if (!elder) throw new Error('requireElderAccess must run before this handler');
+  return elder;
 }

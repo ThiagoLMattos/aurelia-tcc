@@ -9,3 +9,5 @@ export const GEOFENCE_HYSTERESIS_M = 15;
 export const GEOFENCE_CONFIRM_READINGS = 2;
 
 export const PAIRING_CODE_TTL_MIN = 15;
+
+export const MAX_EMERGENCY_CONTACTS = 5;
