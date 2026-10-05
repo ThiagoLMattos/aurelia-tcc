@@ -28,6 +28,7 @@ describe('routeForPush', () => {
   it('sends the other events somewhere sensible', () => {
     expect(routeForPush(data('taskDone'), 'caregiver').pathname).toBe('/(caregiver)/(tabs)');
     expect(routeForPush(data('geofenceReturn'), 'caregiver').pathname).toBe('/(caregiver)/(tabs)/history');
+    expect(routeForPush(data('contactsAlerted'), 'caregiver').pathname).toBe('/(caregiver)/(tabs)/history');
     expect(routeForPush(data('deviceOffline'), 'caregiver').pathname).toBe('/(caregiver)/(tabs)/profile');
   });
 

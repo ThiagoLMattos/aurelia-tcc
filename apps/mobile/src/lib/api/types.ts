@@ -89,6 +89,8 @@ export interface Api {
   getWeeklyReport(elderId: string, weekStart?: LocalDate): Promise<WeeklyReport>;
   sendSos(elderId: string, body?: SosBody): Promise<SosResponse>;
   resolveGeofence(elderId: string, body?: ResolveGeofenceBody): Promise<Event>;
+  /** A caregiver is handling this SOS / safe-zone exit; the emergency contacts will not be texted for it. */
+  acknowledgeAlert(elderId: string, eventId: string): Promise<Event>;
 
   // Games
   sendGameResult(elderId: string, body: GameResultBody): Promise<GameResultResponse>;

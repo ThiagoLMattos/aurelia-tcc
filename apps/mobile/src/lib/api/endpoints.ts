@@ -72,6 +72,8 @@ export function createEndpoints(client: ApiClient): Api {
       request('GET', `${elderPath(elderId)}/reports/weekly`, { query: { weekStart }, schema: WeeklyReportSchema }),
     sendSos: (elderId, body = {}) => request('POST', `${elderPath(elderId)}/sos`, { body, schema: SosResponseSchema }),
     resolveGeofence: (elderId, body = {}) => request('POST', `${elderPath(elderId)}/geofence/resolve`, { body, schema: EventSchema }),
+    acknowledgeAlert: (elderId, eventId) =>
+      request('POST', `${elderPath(elderId)}/events/${encodeURIComponent(eventId)}/acknowledge`, { schema: EventSchema }),
 
     sendGameResult: (elderId, body) => request('POST', `${elderPath(elderId)}/games`, { body, schema: GameResultResponseSchema }),
 

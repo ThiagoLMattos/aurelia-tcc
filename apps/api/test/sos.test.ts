@@ -22,7 +22,13 @@ describe('POST /elders/:elderId/sos', () => {
     expect(timeline.body.items).toHaveLength(2);
     const stored = timeline.body.items.find((e: { id: string }) => e.id === eventId);
     expect(stored).toMatchObject({ type: 'sos', at: now().toISOString(), payload: { lat: -23.55, lng: -46.63 } });
-    expect(timeline.body.items.find((e: { id: string }) => e.id === without.body.eventId).payload).toEqual({ lat: null, lng: null });
+    expect(timeline.body.items.find((e: { id: string }) => e.id === without.body.eventId).payload).toEqual({
+      lat: null,
+      lng: null,
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+      escalatedAt: null,
+    });
   });
 
   it('is elder-only and needs both coordinates or none', async () => {

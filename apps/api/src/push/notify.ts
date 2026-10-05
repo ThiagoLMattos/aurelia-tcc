@@ -1,4 +1,4 @@
-import type { LocalTime } from '@aurelia/shared';
+import type { AlertType, LocalTime } from '@aurelia/shared';
 import type { Logger } from 'pino';
 
 import type { ElderDoc } from '../repos';
@@ -107,6 +107,19 @@ export function createNotifier({ sender, users, elders, logger }: Deps) {
         data: { type: 'deviceOffline', elderId, eventId },
         channelId: 'reminders',
         priority: 'default',
+      })),
+
+    /** Nobody acknowledged an alert in time, so the emergency contacts were texted (`sent` of them reached). */
+    contactsAlerted: (elder: ElderDoc, eventId: string, alertType: AlertType, sent: number) =>
+      deliver(elder, 'all', (elderId) => ({
+        title: sent > 0 ? 'Contatos de emergência avisados' : 'Não foi possível avisar os contatos',
+        body:
+          sent > 0
+            ? `Ninguém respondeu ao alerta de ${alertType === 'sos' ? 'SOS' : 'saída da área segura'} de ${elder.name}. ${sent === 1 ? '1 contato recebeu' : `${sent} contatos receberam`} um SMS.`
+            : `O SMS para os contatos de emergência de ${elder.name} falhou. Ligue para eles.`,
+        data: { type: 'contactsAlerted', elderId, eventId },
+        channelId: 'alerts',
+        priority: 'high',
       })),
   };
 }

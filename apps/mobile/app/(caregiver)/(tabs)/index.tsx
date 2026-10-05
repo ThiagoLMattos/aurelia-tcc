@@ -43,7 +43,7 @@ import { useRouter } from 'expo-router';
 import { ErrorState, LoadingState } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { friendlyError } from '@/lib/errors';
-import { countdownLabel, firstName, weekRange } from '@/lib/format';
+import { clockTime, countdownLabel, firstName, weekRange } from '@/lib/format';
 import { mockControls } from '@/lib/backend';
 import {
   useAgenda,
@@ -52,6 +52,7 @@ import {
   useLocation,
   useMarkDone,
   useNow,
+  useOpenSos,
   useToday,
   useUndoDone,
   useWeeklyReport,
@@ -227,6 +228,24 @@ function AlertBanner({
           <Text style={styles.alertBannerText}>
             <Text style={styles.alertBannerBold}>{elderName} saiu da zona segura.</Text>
             {' '}Toque para ver detalhes.
+          </Text>
+          <IconSymbol name="chevron.right" size={14} color={Colors.dangerText} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/** An SOS nobody answered yet: the way back to it when the push was missed. */
+function SosBanner({ elderName, at, onPress }: { elderName: string; at: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} accessibilityRole="button">
+      <View style={styles.alertBannerRed}>
+        <View style={styles.alertBannerRow}>
+          <IconSymbol name="bell.fill" size={14} color={Colors.dangerText} />
+          <Text style={styles.alertBannerText}>
+            <Text style={styles.alertBannerBold}>SOS de {elderName} às {at}.</Text>
+            {' '}Ninguém respondeu ainda. Toque para ver.
           </Text>
           <IconSymbol name="chevron.right" size={14} color={Colors.dangerText} />
         </View>
@@ -933,7 +952,7 @@ const games = StyleSheet.create({
 });
 
 // Dev state switcher — dev builds in mock mode only: with no tracker and no scheduler behind the
-// mock, this is how a demo reaches the "missed" and "outside" states.
+// mock, this is how a demo reaches the "missed" and "outside" states, an SOS, and its escalation.
 function DevStateSwitcher({ onRefresh }: { onRefresh: () => void }) {
   if (!__DEV__ || !mockControls) return null;
   const controls = mockControls;
@@ -951,6 +970,8 @@ function DevStateSwitcher({ onRefresh }: { onRefresh: () => void }) {
     { label: 'Perdida', onPress: run(() => controls.simulateMissed()) },
     { label: 'Saída', onPress: run(() => controls.simulateExit()) },
     { label: 'Retorno', onPress: run(() => controls.simulateReturn()) },
+    { label: 'SOS', onPress: run(() => controls.simulateSos()) },
+    { label: '+5 min', onPress: run(() => controls.skipToEscalation()) },
   ];
 
   return (
@@ -979,6 +1000,7 @@ export default function HomeScreen() {
   const outside = location.data?.status === 'outside';
   const latestExit = useLatestExit(elder.id, outside);
   const week = useWeeklyReport(elder.id, weekStartOf(today));
+  const openSos = useOpenSos(elder.id);
   const markDone = useMarkDone(elder.id, today);
   const undoDone = useUndoDone(elder.id, today);
 
@@ -1077,6 +1099,14 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={refreshControl}
       >
+        {openSos ? (
+          <SosBanner
+            elderName={name}
+            at={clockTime(openSos.at, elder.timezone)}
+            onPress={() => router.push({ pathname: '/(caregiver)/sos-alert', params: { eventId: openSos.id } })}
+          />
+        ) : null}
+
         {/* Alert banner */}
         <AlertBanner
           screenState={screenState}
@@ -1535,6 +1565,7 @@ const styles = StyleSheet.create({
   // ── Dev switcher ───────────────────────────────────────────────────────────
   devSwitcher: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#1a1a2e',

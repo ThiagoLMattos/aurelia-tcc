@@ -13,6 +13,7 @@ import { createLogger } from '../src/logger';
 import { createRepos } from '../src/repos';
 import type { LlmProvider } from '../src/modules/assistant/provider';
 import type { PushMessage, PushSender } from '../src/push/sender';
+import type { SmsSender } from '../src/sms/sender';
 import { createServices } from '../src/services';
 
 export const config = loadConfig(process.env);
@@ -53,6 +54,24 @@ export function fakePush(): FakePush {
   return push;
 }
 
+/** An SmsSender that records the texts; numbers in `failFor` are refused like a provider error. */
+export interface FakeSms extends SmsSender {
+  sent: { to: string; body: string }[];
+  failFor: Set<string>;
+}
+
+export function fakeSms(): FakeSms {
+  const sms: FakeSms = {
+    sent: [],
+    failFor: new Set(),
+    async send(to, body) {
+      if (sms.failFor.has(to)) throw new Error(`provider refused ${to}`);
+      sms.sent.push({ to, body });
+    },
+  };
+  return sms;
+}
+
 interface BuildOptions {
   push?: PushSender;
   llm?: LlmProvider;
@@ -88,13 +107,14 @@ export function buildApp(options: BuildOptions = {}): Express {
 }
 
 /** The same service graph the app uses, for seeding data and calling jobs directly. */
-export const buildServices = (now?: Clock, extra: { push?: PushSender; llm?: LlmProvider } = {}) =>
+export const buildServices = (now?: Clock, extra: { push?: PushSender; sms?: SmsSender; llm?: LlmProvider } = {}) =>
   createServices({ firebase, logger: createLogger(config), ...(now ? { now } : {}), ...extra });
 
 /** App and services sharing one graph, so a test can drive HTTP and call jobs directly. */
-export function buildStack(options: BuildOptions & { now: Clock; push: PushSender }) {
+export function buildStack(options: BuildOptions & { now: Clock; push: PushSender; sms?: SmsSender }) {
   const services = buildServices(options.now, {
     push: options.push,
+    ...(options.sms ? { sms: options.sms } : {}),
     ...(options.llm ? { llm: options.llm } : {}),
   });
   return { services, app: buildApp({ ...options, services }) };

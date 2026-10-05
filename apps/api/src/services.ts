@@ -4,6 +4,8 @@ import { systemClock, type Clock } from './clock';
 import type { Firebase } from './firebase';
 import { createNotifier } from './push/notify';
 import { noopPushSender, type PushSender } from './push/sender';
+import { createLogSmsSender, type SmsSender } from './sms/sender';
+import { createAlertsService } from './modules/alerts/service';
 import { createAssistantService } from './modules/assistant/service';
 import { createAgendaService } from './modules/agenda/service';
 import { createAuthService } from './modules/auth/service';
@@ -15,6 +17,7 @@ import { createGamesService } from './modules/games/service';
 import { createJobsService } from './modules/jobs/service';
 import { createLocationService } from './modules/location/service';
 import { createMissedTasksJob } from './modules/jobs/missedTasks';
+import { createEscalationJob } from './modules/jobs/escalation';
 import { createMeService } from './modules/me/service';
 import { createPairingService } from './modules/pairing/service';
 import { createReportsService } from './modules/reports/service';
@@ -29,6 +32,8 @@ interface ServiceDeps {
   now?: Clock;
   /** Defaults to a sender that sends nothing; server.ts passes the real one. */
   push?: PushSender;
+  /** Defaults to a sender that only logs; server.ts passes the one SMS_PROVIDER asks for. */
+  sms?: SmsSender;
   /** Defaults to the fake provider; server.ts / createApp pass the configured one. */
   llm?: LlmProvider;
   assistantTimeoutMs?: number;
@@ -40,6 +45,7 @@ export function createServices({
   logger,
   now = systemClock,
   push = noopPushSender,
+  sms = createLogSmsSender(logger),
   llm = createFakeProvider(),
   assistantTimeoutMs,
 }: ServiceDeps) {
@@ -56,6 +62,17 @@ export function createServices({
     logger,
   });
   const devices = createDevicesService({ devices: repos.devices, events, now });
+  const escalation = createEscalationJob({
+    elders: repos.elders,
+    users: repos.users,
+    contacts: repos.contacts,
+    eventsRepo: repos.events,
+    events,
+    sms,
+    notifier,
+    now,
+    logger,
+  });
 
   return {
     repos,
@@ -75,6 +92,7 @@ export function createServices({
       now,
     }),
     sos: createSosService({ events, notifier }),
+    alerts: createAlertsService({ events: repos.events, users: repos.users, now }),
     games: createGamesService({ events }),
     devices,
     location: createLocationService({
@@ -94,8 +112,9 @@ export function createServices({
       logger,
       ...(assistantTimeoutMs ? { timeoutMs: assistantTimeoutMs } : {}),
     }),
-    jobs: createJobsService({ elders: repos.elders, devices: repos.devices, events, missedTasks, notifier, now, logger }),
+    jobs: createJobsService({ elders: repos.elders, devices: repos.devices, events, missedTasks, escalation, notifier, now, logger }),
     missedTasks,
+    escalation,
   };
 }
 

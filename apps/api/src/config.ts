@@ -32,11 +32,23 @@ const EnvSchema = z
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
     /** Set to false to run the API without the in-process scheduler (e.g. an external trigger calls the jobs). */
     SCHEDULER_ENABLED: booleanString.default(true),
+    /** How alerts reach the emergency contacts: `twilio` texts them, `log` only writes the text to the log. */
+    SMS_PROVIDER: z.enum(['twilio', 'log']).default('log'),
+    TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
+    TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
+    /** A Twilio number in E.164 (+1…) or a Messaging Service SID (MG…). */
+    TWILIO_FROM: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
-    if (env.LLM_PROVIDER !== 'groq') return;
-    for (const key of ['GROQ_API_KEY', 'LLM_MODEL'] as const) {
-      if (!env[key]) ctx.addIssue({ code: 'custom', path: [key], message: 'is required when LLM_PROVIDER=groq' });
+    if (env.LLM_PROVIDER === 'groq') {
+      for (const key of ['GROQ_API_KEY', 'LLM_MODEL'] as const) {
+        if (!env[key]) ctx.addIssue({ code: 'custom', path: [key], message: 'is required when LLM_PROVIDER=groq' });
+      }
+    }
+    if (env.SMS_PROVIDER === 'twilio') {
+      for (const key of ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM'] as const) {
+        if (!env[key]) ctx.addIssue({ code: 'custom', path: [key], message: 'is required when SMS_PROVIDER=twilio' });
+      }
     }
   });
 

@@ -3,6 +3,9 @@ import {
   computeWeeklyReport,
   addDays,
   DEFAULT_CAREGIVER_SETTINGS,
+  ESCALATE_AFTER_MIN,
+  ESCALATION_WINDOW_MIN,
+  EventSchema,
   GameResultBodySchema,
   haversineMeters,
   INITIAL_LOCATION_STATE,
@@ -19,6 +22,7 @@ import {
   type Elder,
   type ErrorCode,
   type Event,
+  type EventInput,
   type LocalDate,
   type Occurrence,
   type Routine,
@@ -112,6 +116,9 @@ export interface MockControls {
   simulateExit(): void;
   simulateReturn(): void;
   simulateMissed(): void;
+  simulateSos(): void;
+  /** Ages every unanswered alert by ESCALATE_AFTER_MIN, so the next read escalates it without waiting. */
+  skipToEscalation(): void;
 }
 
 export interface MockBackend {
@@ -222,11 +229,41 @@ export function createMockBackend(): MockBackend {
     return entry;
   }
 
-  function appendEvent(entry: MockElder, event: Omit<Event, 'id' | 'at' | 'date'> & { at?: Date }): Event {
-    const at = event.at ?? new Date();
-    const stored = { ...event, id: nextId('event'), at: at.toISOString(), date: localDateOf(at, entry.elder.timezone) } as Event;
+  /** Parsed like the API reads it back, so payload defaults (an alert's `acknowledgedAt`, …) are filled in. */
+  function appendEvent(entry: MockElder, event: Omit<EventInput, 'id' | 'at' | 'date'> & { at?: Date }): Event {
+    const { at: given, ...rest } = event;
+    const at = given ?? new Date();
+    const stored = EventSchema.parse({ ...rest, id: nextId('event'), at: at.toISOString(), date: localDateOf(at, entry.elder.timezone) });
     entry.events.push(stored);
     return stored;
+  }
+
+  /**
+   * What the API's escalation job does, run whenever the timeline is read: an SOS or safe-zone exit
+   * nobody answered in ESCALATE_AFTER_MIN is "texted" to the emergency contacts (nothing is sent).
+   */
+  function escalateDue(entry: MockElder) {
+    const now = Date.now();
+    const optedIn = [...caregivers.values()].some(
+      (c) => c.elderIds.includes(entry.elder.id) && c.record.settings.escalation === 'meThenContacts',
+    );
+    const emergency = entry.contacts.filter((c) => c.isEmergency);
+    if (!optedIn || emergency.length === 0) return;
+    const latestExit = entry.events.findLast((e) => e.type === 'geofenceExit');
+    entry.events.forEach((event, index) => {
+      if (event.type !== 'sos' && event.type !== 'geofenceExit') return;
+      const age = now - Date.parse(event.at);
+      if (age < ESCALATE_AFTER_MIN * 60_000 || age > ESCALATION_WINDOW_MIN * 60_000) return;
+      if (event.payload.acknowledgedAt || event.payload.escalatedAt) return;
+      if (event.type === 'geofenceExit') {
+        if (event.payload.resolvedAt || event.id !== latestExit?.id || entry.elder.locationState.status !== 'outside') return;
+      }
+      entry.events[index] = { ...event, payload: { ...event.payload, escalatedAt: new Date().toISOString() } } as Event;
+      appendEvent(entry, {
+        type: 'contactsAlerted',
+        payload: { alertEventId: event.id, alertType: event.type, sent: emergency.map((c) => c.name), failed: [] },
+      });
+    });
   }
 
   function agendaFor(entry: MockElder, date: LocalDate): AgendaItem[] {
@@ -430,6 +467,7 @@ export function createMockBackend(): MockBackend {
 
     async listEvents(elderId, params: EventsParams = {}) {
       const entry = elderFor(elderId, { caregiverOnly: true });
+      escalateDue(entry);
       const limit = params.limit ?? 50;
       const filtered = entry.events
         .filter((e) => !params.types || params.types.includes(e.type))
@@ -474,6 +512,20 @@ export function createMockBackend(): MockBackend {
       const resolved: Event = { ...exit, payload: { ...exit.payload, resolvedAt: new Date().toISOString(), resolvedNote: body.note ?? null } };
       entry.events[index] = resolved;
       return resolved;
+    },
+    async acknowledgeAlert(elderId, eventId) {
+      const entry = elderFor(elderId, { caregiverOnly: true });
+      const index = entry.events.findIndex((e) => e.id === eventId);
+      const event = entry.events[index];
+      if (!event || (event.type !== 'sos' && event.type !== 'geofenceExit')) fail('NOT_FOUND', 'Alerta não encontrado.');
+      if (event.payload.acknowledgedAt) return event;
+      const me = identity?.role === 'caregiver' ? caregivers.get(identity.user.uid)?.record.name : undefined;
+      const acknowledged = {
+        ...event,
+        payload: { ...event.payload, acknowledgedAt: new Date().toISOString(), acknowledgedBy: me ?? 'Cuidador' },
+      } as Event;
+      entry.events[index] = acknowledged;
+      return acknowledged;
     },
 
     async createDevice(elderId, body) {
@@ -547,6 +599,20 @@ export function createMockBackend(): MockBackend {
         locationState: { status: 'inside', since: now.toISOString(), lastLat: zone.lat, lastLng: zone.lng, lastAt: now.toISOString(), consecutiveOutside: 0, consecutiveInside: 2 },
       };
       appendEvent(entry, { type: 'geofenceReturn', payload: { lat: zone.lat, lng: zone.lng } });
+    },
+    simulateSos() {
+      const entry = demoElder();
+      const zone = entry.elder.safeZone;
+      appendEvent(entry, { type: 'sos', payload: { lat: zone?.lat ?? null, lng: zone?.lng ?? null } });
+    },
+    skipToEscalation() {
+      const entry = demoElder();
+      const shift = ESCALATE_AFTER_MIN * 60_000;
+      entry.events = entry.events.map((event) =>
+        (event.type === 'sos' || event.type === 'geofenceExit') && !event.payload.acknowledgedAt && !event.payload.escalatedAt
+          ? { ...event, at: new Date(Date.parse(event.at) - shift).toISOString() }
+          : event,
+      );
     },
     simulateMissed() {
       const entry = demoElder();

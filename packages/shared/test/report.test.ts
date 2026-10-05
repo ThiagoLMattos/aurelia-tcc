@@ -7,11 +7,12 @@ import { occurrence, routine, TZ } from './helpers';
 const WEEK = '2024-01-01'; // Monday
 const NOW = new Date('2024-02-01T12:00:00Z');
 
+const alert = { acknowledgedAt: null, acknowledgedBy: null, escalatedAt: null };
 const exit = (at: string, date: string, id = at): Event => ({
-  id, at, date, type: 'geofenceExit', payload: { lat: 0, lng: 0, distanceM: 200, resolvedAt: null, resolvedNote: null },
+  id, at, date, type: 'geofenceExit', payload: { lat: 0, lng: 0, distanceM: 200, resolvedAt: null, resolvedNote: null, ...alert },
 });
 const ret = (at: string, date: string, id = at): Event => ({ id, at, date, type: 'geofenceReturn', payload: { lat: 0, lng: 0 } });
-const sos = (at: string, date: string): Event => ({ id: at, at, date, type: 'sos', payload: { lat: null, lng: null } });
+const sos = (at: string, date: string): Event => ({ id: at, at, date, type: 'sos', payload: { lat: null, lng: null, ...alert } });
 const game = (at: string, date: string, payload: Extract<Event, { type: 'gamePlayed' }>['payload']): Event => ({
   id: at, at, date, type: 'gamePlayed', payload,
 });

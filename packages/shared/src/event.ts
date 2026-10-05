@@ -13,6 +13,7 @@ export const EventTypeSchema = z.enum([
   'deviceOffline',
   'devicePaired',
   'gamePlayed',
+  'contactsAlerted',
 ]);
 export type EventType = z.infer<typeof EventTypeSchema>;
 
@@ -32,7 +33,20 @@ export const TaskDonePayloadSchema = z.object({
   undoneAt: IsoDateTimeSchema.nullable().default(null),
 });
 export const TaskMissedPayloadSchema = z.object(taskPayload);
-export const SosPayloadSchema = z.object({ lat: LatSchema.nullable(), lng: LngSchema.nullable() });
+/** What an alert (SOS, safe-zone exit) records about who answered it and whether the contacts were texted. */
+const alertPayload = {
+  /** Set when a caregiver said they are handling it (POST …/events/:eventId/acknowledge). */
+  acknowledgedAt: IsoDateTimeSchema.nullable().default(null),
+  /** The name of that caregiver, so the others see who is on it. */
+  acknowledgedBy: z.string().nullable().default(null),
+  /** Set when nobody answered in time and the emergency contacts were texted (see `contactsAlerted`). */
+  escalatedAt: IsoDateTimeSchema.nullable().default(null),
+};
+
+export const AlertTypeSchema = z.enum(['sos', 'geofenceExit']);
+export type AlertType = z.infer<typeof AlertTypeSchema>;
+
+export const SosPayloadSchema = z.object({ lat: LatSchema.nullable(), lng: LngSchema.nullable(), ...alertPayload });
 export const GeofenceExitPayloadSchema = z.object({
   lat: LatSchema,
   lng: LngSchema,
@@ -40,10 +54,20 @@ export const GeofenceExitPayloadSchema = z.object({
   /** Set when a caregiver confirmed the elder is safe (POST …/geofence/resolve). */
   resolvedAt: IsoDateTimeSchema.nullable().default(null),
   resolvedNote: z.string().nullable().default(null),
+  ...alertPayload,
 });
 export const GeofenceReturnPayloadSchema = z.object({ lat: LatSchema, lng: LngSchema });
 export const DeviceOfflinePayloadSchema = z.object({ deviceId: IdSchema, lastSeenAt: IsoDateTimeSchema.nullable() });
 export const DevicePairedPayloadSchema = z.object({ deviceId: IdSchema, label: z.string() });
+/** The emergency contacts were texted because nobody acknowledged an alert in time. */
+export const ContactsAlertedPayloadSchema = z.object({
+  alertEventId: IdSchema,
+  alertType: AlertTypeSchema,
+  /** Names of the contacts the SMS reached the provider for. */
+  sent: z.array(z.string()),
+  /** Names of the contacts whose SMS could not be sent. */
+  failed: z.array(z.string()),
+});
 
 export const EventSchema = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('taskDone'), payload: TaskDonePayloadSchema }),
@@ -54,8 +78,14 @@ export const EventSchema = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('deviceOffline'), payload: DeviceOfflinePayloadSchema }),
   z.object({ ...base, type: z.literal('devicePaired'), payload: DevicePairedPayloadSchema }),
   z.object({ ...base, type: z.literal('gamePlayed'), payload: GamePlayedPayloadSchema }),
+  z.object({ ...base, type: z.literal('contactsAlerted'), payload: ContactsAlertedPayloadSchema }),
 ]);
 export type Event = z.infer<typeof EventSchema>;
+/** An SOS or safe-zone exit: the events a caregiver acknowledges and that may escalate to the contacts. */
+export type AlertEvent = Extract<Event, { type: AlertType }>;
+export type AlertPayload = AlertEvent['payload'];
+/** An event as written, before the payload defaults are applied. */
+export type EventInput = z.input<typeof EventSchema>;
 
 export const EventsQuerySchema = z.object({
   from: LocalDateSchema.optional(),
@@ -90,3 +120,6 @@ export const ResolveGeofenceBodySchema = z.strictObject({
   note: z.string().trim().max(500).optional(),
 });
 export type ResolveGeofenceBody = z.infer<typeof ResolveGeofenceBodySchema>;
+
+export const EventParamsSchema = z.object({ elderId: IdSchema, eventId: IdSchema });
+export type EventParams = z.infer<typeof EventParamsSchema>;

@@ -28,6 +28,14 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...base, LLM_PROVIDER: 'fake' }).JOBS_TOKEN).toBeUndefined();
   });
 
+  it('only logs SMS by default, and needs the three Twilio keys to send them', () => {
+    const base = { FIREBASE_PROJECT_ID: 'p', LLM_PROVIDER: 'fake' };
+    expect(loadConfig(base).SMS_PROVIDER).toBe('log');
+    expect(() => loadConfig({ ...base, SMS_PROVIDER: 'twilio', TWILIO_ACCOUNT_SID: 'AC1' })).toThrow(/TWILIO_AUTH_TOKEN[\s\S]*TWILIO_FROM/);
+    const twilio = { TWILIO_ACCOUNT_SID: 'AC1', TWILIO_AUTH_TOKEN: 't', TWILIO_FROM: '+15550001111' };
+    expect(loadConfig({ ...base, SMS_PROVIDER: 'twilio', ...twilio }).SMS_PROVIDER).toBe('twilio');
+  });
+
   it('trusts no proxy unless told how many sit in front of the API', () => {
     const base = { FIREBASE_PROJECT_ID: 'p', LLM_PROVIDER: 'fake' };
     expect(loadConfig(base).TRUST_PROXY).toBe(0);

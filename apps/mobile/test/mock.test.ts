@@ -159,6 +159,41 @@ describe('mock backend: trackers and demo controls', () => {
     expect((await api.getLocation(elderId)).status).toBe('inside');
   });
 
+  it('texts the emergency contacts about an SOS nobody answered, once the caregiver chose it', async () => {
+    const { api, controls, elderId } = await demo();
+    const alerted = async () => (await api.listEvents(elderId, { types: ['contactsAlerted'] })).items;
+    controls.simulateSos();
+    controls.skipToEscalation();
+    expect(await alerted()).toHaveLength(0); // still "me only"
+
+    await api.patchMe({ settings: { escalation: 'meThenContacts' } });
+    const [first] = await alerted();
+    expect(first).toMatchObject({ payload: { alertType: 'sos', sent: ['Ana Gorete'], failed: [] } });
+    const [sos] = (await api.listEvents(elderId, { types: ['sos'] })).items;
+    expect(sos?.payload).toMatchObject({ escalatedAt: expect.any(String) });
+    expect(await alerted()).toHaveLength(1); // once
+
+    controls.simulateSos();
+    expect(await alerted()).toHaveLength(1); // a fresh SOS waits ESCALATE_AFTER_MIN
+    controls.skipToEscalation();
+    expect(await alerted()).toHaveLength(2);
+  });
+
+  it('never escalates an SOS a caregiver answered', async () => {
+    const { api, controls, elderId } = await demo();
+    await api.patchMe({ settings: { escalation: 'meThenContacts' } });
+    controls.simulateSos();
+    const [sos] = (await api.listEvents(elderId, { types: ['sos'] })).items;
+    const answered = await api.acknowledgeAlert(elderId, sos!.id);
+    expect(answered.payload).toMatchObject({ acknowledgedBy: 'Cuidador Demo', acknowledgedAt: expect.any(String) });
+
+    controls.skipToEscalation();
+    expect((await api.listEvents(elderId, { types: ['contactsAlerted'] })).items).toHaveLength(0);
+    await api.createDevice(elderId, { label: 'x' });
+    const [paired] = (await api.listEvents(elderId, { types: ['devicePaired'] })).items;
+    await expect(api.acknowledgeAlert(elderId, paired!.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
   it('simulates a missed task', async () => {
     const { api, controls, elderId } = await demo();
     controls.simulateMissed();
