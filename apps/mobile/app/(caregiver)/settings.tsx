@@ -5,14 +5,14 @@
  *
  * Sections:
  *  1. Header with back button
- *  2. Account row (caregiver info)
- *  3. Notifications card (4 toggles, geo-fence locked)
- *  4. Missed task timeout card (3 chips)
- *  5. Escalation card (2 radio options)
- *  6. App preferences list (stub links)
- *  7. Sign out + version string
+ *  2. Account row (the signed-in caregiver)
+ *  3. Notifications card (toggles, geo-fence locked) — saved to `PATCH /me`
+ *  4. Missed task timeout card (3 chips) — saved to `PATCH /elders/:id`
+ *  5. Escalation card (2 radio options) — saved to `PATCH /me`
+ *  6. Sign out + version string
  */
 
+import { MISSED_TASK_TIMEOUT_OPTIONS, type CaregiverSettings, type Escalation } from '@aurelia/shared';
 import React, { useCallback } from 'react';
 import {
   Alert,
@@ -28,11 +28,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { useSession } from '@/auth/SessionProvider';
-import { useApp } from '@/context/AppContext';
+import { useMe } from '@/auth/useMe';
+import { ErrorState, LoadingState } from '@/components';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
-import { AppSettings } from '@/data/mock';
+import { friendlyError } from '@/lib/errors';
+import { firstName, initials } from '@/lib/format';
+import { useCurrentElder, usePatchElder, usePatchMe } from '@/queries';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
-import { IconSymbol, IconSymbolName } from '@/components/ui/icon-symbol';
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
@@ -82,6 +85,7 @@ function ToggleRow({
         trackColor={{ false: Colors.borderLight, true: Colors.primaryLight }}
         thumbColor={value ? Colors.primary : Colors.tabInactive}
         ios_backgroundColor={Colors.borderLight}
+        accessibilityLabel={label}
       />
     </View>
   );
@@ -89,51 +93,42 @@ function ToggleRow({
 
 // ─── Timeout chip selector ────────────────────────────────────────────────────
 
-type TimeoutOption = 15 | 30 | 60;
-const TIMEOUT_OPTIONS: { value: TimeoutOption; label: string }[] = [
-  { value: 15, label: '15 min' },
-  { value: 30, label: '30 min' },
-  { value: 60, label: '1 hora' },
+const TIMEOUT_LABELS: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 hora' };
+
+const ESCALATION_OPTIONS: { value: Escalation; label: string; sub: string }[] = [
+  { value: 'meOnly', label: 'Notificar apenas eu', sub: 'Somente você recebe os alertas' },
+  {
+    value: 'meThenContacts',
+    label: 'Notificar eu, depois os contatos',
+    sub: 'Os contatos de emergência também entram na lista de quem é avisado',
+  },
 ];
-
-// ─── Link row (preferences) ───────────────────────────────────────────────────
-
-function LinkRow({
-  icon,
-  label,
-  last,
-  onPress,
-}: {
-  icon: IconSymbolName;
-  label: string;
-  last?: boolean;
-  onPress?: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.linkRow, last && styles.linkRowLast]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.linkIconWrap}>
-        <IconSymbol name={icon} size={16} color={Colors.textSecondary} />
-      </View>
-      <Text style={styles.linkLabel}>{label}</Text>
-      <IconSymbol name="chevron.right" size={14} color={Colors.tabInactive} />
-    </TouchableOpacity>
-  );
-}
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
-  const { settings, updateSettings, caregiver } = useApp();
+  const me = useMe();
+  const elder = useCurrentElder();
   const router = useRouter();
   const { signOut } = useSession();
+  const patchMe = usePatchMe();
+  const patchElder = usePatchElder(elder.id);
 
-  const patchSettings = useCallback(
-    (patch: Partial<AppSettings>) => updateSettings(patch),
-    [updateSettings],
+  const saveSettings = useCallback(
+    (settings: Partial<CaregiverSettings>) => {
+      patchMe.mutate({ settings }, { onError: (error) => Alert.alert('Não foi possível salvar', friendlyError(error)) });
+    },
+    [patchMe],
+  );
+
+  const saveTimeout = useCallback(
+    (minutes: (typeof MISSED_TASK_TIMEOUT_OPTIONS)[number]) => {
+      patchElder.mutate(
+        { missedTaskTimeoutMin: minutes },
+        { onError: (error) => Alert.alert('Não foi possível salvar', friendlyError(error)) },
+      );
+    },
+    [patchElder],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -146,9 +141,9 @@ export default function SettingsScreen() {
     if (confirmed) await signOut();
   }, [signOut]);
 
-  const handleStub = useCallback((feature: string) => {
-    Alert.alert('Em breve', `${feature} estará disponível na próxima versão.`);
-  }, []);
+  const caregiver = me.data?.role === 'caregiver' ? me.data.caregiver : null;
+  const settings = caregiver?.settings;
+  const name = firstName(elder.name);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -160,6 +155,7 @@ export default function SettingsScreen() {
           style={styles.backBtn}
           onPress={() => router.back()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Voltar"
         >
           <IconSymbol name="chevron.left" size={20} color={Colors.textPrimary} />
         </TouchableOpacity>
@@ -167,6 +163,9 @@ export default function SettingsScreen() {
         <View style={{ width: 36 }} />
       </View>
 
+      {!caregiver || !settings ? (
+        me.isError ? <ErrorState message={friendlyError(me.error)} onRetry={() => void me.refetch()} /> : <LoadingState />
+      ) : (
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -175,49 +174,44 @@ export default function SettingsScreen() {
         {/* ── Account ── */}
         <SectionTitle title="Conta" />
         <SectionCard>
-          <TouchableOpacity
-            style={styles.accountRow}
-            onPress={() => handleStub('Edição de conta')}
-            activeOpacity={0.7}
-          >
+          <View style={styles.accountRow}>
             <View style={styles.accountAvatar}>
-              <Text style={styles.accountAvatarText}>{caregiver.initials}</Text>
+              <Text style={styles.accountAvatarText}>{initials(caregiver.name)}</Text>
             </View>
             <View style={styles.accountInfo}>
               <Text style={styles.accountName}>{caregiver.name}</Text>
-              <Text style={styles.accountRole}>{caregiver.role}</Text>
+              <Text style={styles.accountRole}>Cuidador</Text>
               <Text style={styles.accountEmail}>{caregiver.email}</Text>
             </View>
-            <IconSymbol name="chevron.right" size={16} color={Colors.tabInactive} />
-          </TouchableOpacity>
+          </View>
         </SectionCard>
 
         {/* ── Notifications ── */}
         <SectionTitle title="Notificações" />
         <SectionCard>
           <ToggleRow
-            label="Alertas de geo-fence"
-            sublabel="Notificação imediata quando Maria sair da zona segura"
-            value={settings.notifyGeofence}
+            label="Alertas de zona segura e SOS"
+            sublabel={`Notificação imediata quando ${name} sair da zona segura ou acionar o SOS`}
+            value
             locked
           />
           <ToggleRow
             label="Tarefas perdidas"
             sublabel="Aviso quando uma tarefa não for confirmada no prazo"
             value={settings.notifyMissedTask}
-            onValueChange={(v) => patchSettings({ notifyMissedTask: v })}
+            onValueChange={(v) => saveSettings({ notifyMissedTask: v })}
           />
           <ToggleRow
             label="Confirmações de tarefas"
-            sublabel="Notificação quando Maria confirmar uma tarefa"
+            sublabel={`Notificação quando ${name} confirmar uma tarefa`}
             value={settings.notifyConfirmations}
-            onValueChange={(v) => patchSettings({ notifyConfirmations: v })}
+            onValueChange={(v) => saveSettings({ notifyConfirmations: v })}
           />
           <ToggleRow
             label="Insights da Aurélia"
             sublabel="Análises e sugestões automáticas da IA"
-            value={settings.notifyAureliaInsights}
-            onValueChange={(v) => patchSettings({ notifyAureliaInsights: v })}
+            value={settings.notifyAssistantInsights}
+            onValueChange={(v) => saveSettings({ notifyAssistantInsights: v })}
             last
           />
         </SectionCard>
@@ -227,19 +221,21 @@ export default function SettingsScreen() {
         <SectionCard>
           <View style={styles.timeoutSection}>
             <Text style={styles.timeoutDesc}>
-              Após quantos minutos sem confirmação uma tarefa é marcada como perdida e Aurélia é alertada?
+              Após quantos minutos sem confirmação uma tarefa de {name} é marcada como perdida e os cuidadores são avisados?
             </Text>
             <View style={styles.timeoutChips}>
-              {TIMEOUT_OPTIONS.map((opt) => {
-                const active = settings.missedTaskTimeout === opt.value;
+              {MISSED_TASK_TIMEOUT_OPTIONS.map((minutes) => {
+                const active = elder.missedTaskTimeoutMin === minutes;
                 return (
                   <TouchableOpacity
-                    key={opt.value}
+                    key={minutes}
                     style={[styles.timeoutChip, active && styles.timeoutChipActive]}
-                    onPress={() => patchSettings({ missedTaskTimeout: opt.value })}
+                    onPress={() => saveTimeout(minutes)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
                   >
                     <Text style={[styles.timeoutChipText, active && styles.timeoutChipTextActive]}>
-                      {opt.label}
+                      {TIMEOUT_LABELS[minutes]}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -253,30 +249,19 @@ export default function SettingsScreen() {
         <SectionCard>
           <View style={styles.escalationDesc}>
             <Text style={styles.timeoutDesc}>
-              Quando um evento crítico ocorre (geo-fence ou tarefa perdida), quem deve ser notificado?
+              Quando um evento crítico ocorre (saída da zona segura ou tarefa perdida), quem deve ser notificado?
             </Text>
           </View>
-          {(
-            [
-              {
-                value: 'me-only' as const,
-                label: 'Notificar apenas eu',
-                sub: 'Somente você recebe os alertas',
-              },
-              {
-                value: 'me-then-contacts' as const,
-                label: 'Notificar eu, depois os contatos',
-                sub: 'Se você não responder em 5 minutos, os contatos com escalonamento ativo são avisados',
-              },
-            ] as const
-          ).map((opt, i, arr) => {
-            const active = settings.escalationMode === opt.value;
+          {ESCALATION_OPTIONS.map((opt, i, arr) => {
+            const active = settings.escalation === opt.value;
             return (
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.radioRow, i === arr.length - 1 && styles.radioRowLast]}
-                onPress={() => patchSettings({ escalationMode: opt.value })}
+                onPress={() => saveSettings({ escalation: opt.value })}
                 activeOpacity={0.7}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active }}
               >
                 <View style={[styles.radioOuter, active && styles.radioOuterActive]}>
                   {active && <View style={styles.radioInner} />}
@@ -292,35 +277,9 @@ export default function SettingsScreen() {
           })}
         </SectionCard>
 
-        {/* ── Preferences ── */}
-        <SectionTitle title="Preferências" />
-        <SectionCard>
-          <LinkRow
-            icon="globe"
-            label={`Idioma — ${settings.language}`}
-            onPress={() => handleStub('Seleção de idioma')}
-          />
-          <LinkRow
-            icon="person.2.fill"
-            label="Contatos compartilhados"
-            onPress={() => handleStub('Contatos compartilhados')}
-          />
-          <LinkRow
-            icon="lock.shield.fill"
-            label="Privacidade e dados"
-            onPress={() => handleStub('Configurações de privacidade')}
-          />
-          <LinkRow
-            icon="questionmark.circle.fill"
-            label="Ajuda e suporte"
-            last
-            onPress={() => handleStub('Central de ajuda')}
-          />
-        </SectionCard>
-
         {/* ── Sign out ── */}
         <View style={{ height: Spacing.lg }} />
-        <TouchableOpacity style={styles.signOutBtn} onPress={() => void handleSignOut()} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.signOutBtn} onPress={() => void handleSignOut()} activeOpacity={0.8} accessibilityRole="button">
           <IconSymbol name="arrow.right.square" size={16} color={Colors.dangerText} />
           <Text style={styles.signOutText}>Sair da conta</Text>
         </TouchableOpacity>
@@ -330,6 +289,7 @@ export default function SettingsScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

@@ -58,6 +58,12 @@
           "icon": "./assets/images/android-icon-monochrome.png",
           "color": "#0F8080"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O Aurélia usa a sua localização atual só para marcar o centro da zona segura."
+        }
       ]
     ],
     "experiments": {

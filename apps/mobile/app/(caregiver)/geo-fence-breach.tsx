@@ -2,17 +2,21 @@
  * Aurélia — Geo-fence breach modal
  *
  * Full-screen modal. Highest-stakes screen in the app.
- * gestureEnabled: false is set in _layout.tsx — do not change.
- * Dismissal requires a deliberate two-step confirmation (tap link → confirm alert).
+ * gestureEnabled: false is set in the layout — do not change.
+ * Resolving ("ela está segura") needs a deliberate two-step confirmation (tap link → confirm).
+ *
+ * Opened from the push for `geofenceExit` or from the banner on Início. Everything on it comes from
+ * the API: how long she has been outside (`locationState.since`), where she was last seen, and
+ * who to call (the elder's contacts, emergency ones first).
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { haversineMeters, type Contact } from '@aurelia/shared';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Linking,
-  Platform,
-  Pressable,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -20,35 +24,21 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { useApp } from '@/context/AppContext';
-import { Colors, Radius, Spacing, Typography } from '@/theme';
+import { ErrorState, FormError, LoadingState } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatElapsed(from: Date | null): string {
-  if (!from) return '—';
-  const diffMs = Date.now() - from.getTime();
-  const totalSeconds = Math.floor(diffMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes === 0) return `${seconds}s atrás`;
-  if (minutes < 60) return `${minutes} min atrás`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}min atrás`;
-}
-
-function formatTime(date: Date | null): string {
-  if (!date) return '—';
-  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
+import { confirm } from '@/lib/confirm';
+import { ApiError } from '@/lib/api/client';
+import { friendlyError } from '@/lib/errors';
+import { clockTime, firstName, formatElapsed, formatPhone, formatStopwatch, mapsUrl } from '@/lib/format';
+import { useContacts, useCurrentElder, useLatestExit, useLocation, useNow, useResolveGeofence } from '@/queries';
+import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 // ─── Map placeholder ──────────────────────────────────────────────────────────
-// Schematic representation. Replace with react-native-maps in production.
+// Schematic representation (no map SDK in v1); "Abrir no mapa" opens the phone's maps app.
 
-function MapPlaceholder() {
+function MapPlaceholder({ elderName, onOpen }: { elderName: string; onOpen: (() => void) | null }) {
   return (
     <View style={styles.mapContainer}>
       {/* Safe-zone circle */}
@@ -63,14 +53,16 @@ function MapPlaceholder() {
       {/* Elder pin — outside safe zone (red) */}
       <View style={styles.elderPin}>
         <View style={styles.elderPinDot} />
-        <Text style={styles.elderPinLabel}>Maria</Text>
+        <Text style={styles.elderPinLabel}>{elderName}</Text>
       </View>
 
       {/* Open map affordance */}
-      <TouchableOpacity style={styles.mapOpenBtn} activeOpacity={0.8}>
-        <IconSymbol name="map.fill" size={11} color={Colors.primary} />
-        <Text style={styles.mapOpenBtnText}>Abrir mapa completo</Text>
-      </TouchableOpacity>
+      {onOpen ? (
+        <TouchableOpacity style={styles.mapOpenBtn} activeOpacity={0.8} onPress={onOpen} accessibilityRole="link">
+          <IconSymbol name="map.fill" size={11} color={Colors.primary} />
+          <Text style={styles.mapOpenBtnText}>Abrir no mapa</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -96,78 +88,129 @@ function InfoRow({
   );
 }
 
+/** Emergency contacts first, then the rest, each group in priority order (the API already sorts by priority). */
+function callOrder(contacts: Contact[]): Contact[] {
+  return [...contacts.filter((c) => c.isEmergency), ...contacts.filter((c) => !c.isEmergency)];
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function GeoFenceBreachScreen() {
-  const { elder, breachTimestamp, resolveBreach } = useApp();
+  const elder = useCurrentElder();
   const router = useRouter();
+  const params = useLocalSearchParams<{ eventId?: string }>();
+  const location = useLocation(elder.id);
+  const outside = location.data?.status === 'outside';
+  const latestExit = useLatestExit(elder.id, true);
+  const contacts = useContacts(elder.id);
+  const resolve = useResolveGeofence(elder.id);
+  const now = useNow(1000);
+  const [resolveError, setResolveError] = useState<string | null>(null);
 
-  // Live elapsed timer — ticks every second
-  const [elapsed, setElapsed] = useState(() => formatElapsed(breachTimestamp));
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const name = firstName(elder.name);
+  const exit = latestExit.data;
+  const eventId = params.eventId ?? exit?.id;
+  const resolved = exit?.payload.resolvedAt != null;
+  const order = useMemo(() => callOrder(contacts.data?.items ?? []), [contacts.data]);
 
-  useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      setElapsed(formatElapsed(breachTimestamp));
-    }, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [breachTimestamp]);
+  const leave = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(caregiver)/(tabs)');
+  }, [router]);
 
-  // Two-step dismiss — tap link → confirm alert
-  const handleDismissRequest = useCallback(() => {
-    Alert.alert(
-      'Confirmar dispensa',
-      `Tem certeza que Maria está segura e deseja dispensar o alerta?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sim, ela está segura',
-          style: 'destructive',
-          onPress: () => {
-            resolveBreach();
-            router.back();
-          },
+  // Two-step resolve — tap link → confirm
+  const handleResolve = useCallback(async () => {
+    const ok = await confirm(
+      'Confirmar',
+      `Tem certeza que ${name} está segura e deseja dispensar o alerta?`,
+      'Sim, está segura',
+      true,
+    );
+    if (!ok) return;
+    setResolveError(null);
+    resolve.mutate(
+      { eventId },
+      {
+        onSuccess: leave,
+        // Someone else already confirmed it: the alert is over either way.
+        onError: (error) => {
+          if (error instanceof ApiError && error.code === 'CONFLICT') leave();
+          else setResolveError(friendlyError(error));
         },
-      ],
-      { cancelable: false },
+      },
     );
-  }, [resolveBreach, router]);
+  }, [name, eventId, resolve, leave]);
 
-  // Call elder
-  const handleCall = useCallback(() => {
-    const phone = `tel:+5519999991111`; // In production: from contacts list
-    Linking.canOpenURL(phone).then((supported) => {
-      if (supported) Linking.openURL(phone);
-    });
+  const handleCall = useCallback((phone: string) => {
+    void Linking.openURL(`tel:${phone}`);
   }, []);
 
-  // Share location (stub — would open share sheet in production)
-  const handleShare = useCallback(() => {
-    Alert.alert(
-      'Compartilhar localização',
-      'Isso enviaria a localização atual de Maria para os contatos de escalonamento. (Funcionalidade completa requer backend.)',
-      [{ text: 'OK' }],
-    );
+  const lat = location.data?.lat ?? null;
+  const lng = location.data?.lng ?? null;
+  const position = useMemo(() => (lat !== null && lng !== null ? { lat, lng } : null), [lat, lng]);
+
+  const handleOpenMap = useCallback(() => {
+    if (position) void Linking.openURL(mapsUrl(position.lat, position.lng));
+  }, [position]);
+
+  const handleShare = useCallback(async () => {
+    if (!position) return;
+    try {
+      await Share.share({ message: `Última localização de ${elder.name}: ${mapsUrl(position.lat, position.lng)}` });
+    } catch {
+      Alert.alert('Compartilhar localização', 'Não foi possível compartilhar agora.');
+    }
+  }, [position, elder.name]);
+
+  // Emergency services
+  const handleEmergency = useCallback(async () => {
+    const ok = await confirm('Serviço de emergência', 'Deseja ligar para o SAMU (192)?', 'Ligar 192');
+    if (ok) void Linking.openURL('tel:192');
   }, []);
 
-  // Emergency (stub)
-  const handleEmergency = useCallback(() => {
-    Alert.alert(
-      'Serviço de emergência',
-      'Deseja ligar para o SAMU (192)?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Ligar 192',
-          onPress: () => Linking.openURL('tel:192'),
-        },
-      ],
+  if (location.isPending || latestExit.isPending) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LoadingState />
+      </SafeAreaView>
     );
-  }, []);
+  }
+  if (location.isError) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ErrorState message={friendlyError(location.error)} onRetry={() => void location.refetch()} />
+        <TouchableOpacity onPress={leave} style={styles.dismissWrap}>
+          <Text style={styles.dismissLink}>Voltar</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
-  const detectionTime = breachTimestamp ? formatTime(breachTimestamp) : '—';
+  // Nothing left to act on: she is back, or someone already confirmed the exit.
+  if (!outside || resolved) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={extra.settled}>
+          <IconSymbol name="checkmark.circle.fill" size={48} color={Colors.successText} />
+          <Text style={extra.settledTitle}>{outside ? `${name} foi confirmada como segura` : `${name} está na zona segura`}</Text>
+          <Text style={extra.settledSub}>
+            {outside
+              ? 'O alerta foi resolvido. Você será avisado de novo se ela voltar a sair.'
+              : 'Não há saída ativa. Você será avisado se ela sair do raio seguro.'}
+          </Text>
+          <TouchableOpacity style={styles.btnCall} onPress={leave} activeOpacity={0.85} accessibilityRole="button">
+            <Text style={styles.btnCallText}>Fechar</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const since = location.data?.since ? Date.parse(location.data.since) : exit ? Date.parse(exit.at) : null;
+  const zone = location.data?.safeZone ?? null;
+  const metersOutside = position && zone ? Math.max(0, Math.round(haversineMeters(position, zone) - zone.radiusM)) : null;
+  const lastSeen = location.data?.deviceLastSeenAt ? Date.parse(location.data.deviceLastSeenAt) : null;
+  const primary = order[0];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -183,8 +226,8 @@ export default function GeoFenceBreachScreen() {
             <Text style={styles.breachTitle}>{elder.name} saiu da zona segura</Text>
             <Text style={styles.breachSub}>Saída da zona segura detectada</Text>
           </View>
-          <View style={styles.elapsedBadge}>
-            <Text style={styles.elapsedText}>{elapsed}</Text>
+          <View style={styles.elapsedBadge} accessibilityLabel="Tempo fora da zona segura">
+            <Text style={styles.elapsedText}>{since === null ? '—' : formatStopwatch(now.getTime() - since)}</Text>
           </View>
         </View>
       </View>
@@ -196,54 +239,100 @@ export default function GeoFenceBreachScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Map */}
-        <MapPlaceholder />
+        <MapPlaceholder elderName={name} onOpen={position ? handleOpenMap : null} />
 
         {/* Info card */}
         <View style={styles.card}>
-          <InfoRow label="Última localização" value="~80m fora do raio seguro" danger />
-          <InfoRow label="Saída detectada às" value={detectionTime} />
-          <InfoRow label="Distância da zona" value="~80 metros" />
-          <InfoRow label="Dispositivo" value={elder.deviceConnected ? 'Ativo · sinal OK' : 'Último sinal há 5 min'} last />
+          <InfoRow
+            label="Última localização"
+            value={metersOutside !== null ? `~${metersOutside} m fora do raio seguro` : 'Sem posição recente'}
+            danger={metersOutside !== null}
+          />
+          <InfoRow label="Saída detectada às" value={since === null ? '—' : clockTime(new Date(since).toISOString(), elder.timezone)} />
+          <InfoRow
+            label="Distância do centro"
+            value={exit ? `~${Math.round(exit.payload.distanceM)} m` : position && zone ? `~${Math.round(haversineMeters(position, zone))} m` : '—'}
+          />
+          <InfoRow
+            label="Rastreador"
+            value={lastSeen === null ? 'Sem sinal registrado' : `Último sinal há ${formatElapsed(now.getTime() - lastSeen)}`}
+            last
+          />
         </View>
 
-        {/* Aurélia card — operational tone */}
-        <View style={styles.aureliaCard}>
-          <View style={styles.aureliaAvatar}>
-            <Text style={styles.aureliaAvatarText}>A</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.aureliaName}>Aurélia</Text>
-            <Text style={styles.aureliaText}>
-              Maria se moveu em direção ao norte após sair da zona. Estou enviando alertas pelo dispositivo dela. Recomendo ligar agora.
-            </Text>
-          </View>
-        </View>
+        {/* Primary action: call the first emergency contact */}
+        {primary ? (
+          <TouchableOpacity style={styles.btnCall} onPress={() => handleCall(primary.phone)} activeOpacity={0.85} accessibilityRole="button">
+            <IconSymbol name="phone.fill" size={18} color={Colors.white} />
+            <Text style={styles.btnCallText}>Ligar para {primary.name} ({primary.relation})</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.btnCall}
+            onPress={() => router.push('/(caregiver)/(tabs)/profile')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+          >
+            <IconSymbol name="person.fill" size={18} color={Colors.white} />
+            <Text style={styles.btnCallText}>Cadastrar um contato para ligar</Text>
+          </TouchableOpacity>
+        )}
 
-        {/* Primary action */}
-        <TouchableOpacity style={styles.btnCall} onPress={handleCall} activeOpacity={0.85}>
-          <IconSymbol name="phone.fill" size={18} color={Colors.white} />
-          <Text style={styles.btnCallText}>Ligar para {elder.name} agora</Text>
-        </TouchableOpacity>
+        {/* The other contacts */}
+        {order.slice(1).map((contact) => (
+          <TouchableOpacity
+            key={contact.id}
+            style={extra.contactRow}
+            onPress={() => handleCall(contact.phone)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Ligar para ${contact.name}`}
+          >
+            <IconSymbol name="phone.fill" size={14} color={Colors.primary} />
+            <Text style={extra.contactName}>{contact.name} · {contact.relation}</Text>
+            <Text style={extra.contactPhone}>{formatPhone(contact.phone)}</Text>
+          </TouchableOpacity>
+        ))}
 
         {/* Secondary actions */}
         <View style={styles.secondaryRow}>
-          <TouchableOpacity style={styles.btnSecondary} onPress={handleShare} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={[styles.btnSecondary, !position && { opacity: 0.5 }]}
+            onPress={() => void handleShare()}
+            disabled={!position}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
             <IconSymbol name="square.and.arrow.up" size={16} color={Colors.textPrimary} />
             <Text style={styles.btnSecondaryText}>Compartilhar{'\n'}localização</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.btnSecondary, styles.btnEmergency]}
-            onPress={handleEmergency}
+            onPress={() => void handleEmergency()}
             activeOpacity={0.8}
+            accessibilityRole="button"
           >
             <IconSymbol name="exclamationmark.triangle.fill" size={16} color={Colors.dangerText} />
             <Text style={[styles.btnSecondaryText, styles.btnEmergencyText]}>Emergência{'\n'}(SAMU 192)</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Two-step dismiss link */}
-        <TouchableOpacity onPress={handleDismissRequest} activeOpacity={0.7} style={styles.dismissWrap}>
-          <Text style={styles.dismissLink}>Ela está segura — dispensar alerta</Text>
+        <FormError message={resolveError} />
+
+        {/* Two-step resolve link */}
+        <TouchableOpacity
+          onPress={() => void handleResolve()}
+          disabled={resolve.isPending}
+          activeOpacity={0.7}
+          style={styles.dismissWrap}
+          accessibilityRole="button"
+        >
+          <Text style={styles.dismissLink}>{resolve.isPending ? 'Resolvendo…' : 'Ela está segura — dispensar alerta'}</Text>
+        </TouchableOpacity>
+
+        {/* Leaving without resolving keeps the alert on Início */}
+        <TouchableOpacity onPress={leave} activeOpacity={0.7} style={styles.dismissWrap} accessibilityRole="button">
+          <Text style={extra.keepLink}>Manter o alerta e voltar</Text>
         </TouchableOpacity>
 
         <View style={{ height: Spacing.lg }} />
@@ -251,6 +340,25 @@ export default function GeoFenceBreachScreen() {
     </SafeAreaView>
   );
 }
+
+const extra = StyleSheet.create({
+  settled: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, padding: Spacing.xxl },
+  settledTitle: { fontSize: Typography.size.lg, fontWeight: Typography.weight.bold, color: Colors.textPrimary, textAlign: 'center' },
+  settledSub: { fontSize: Typography.size.base, color: Colors.textSecondary, textAlign: 'center' },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.white,
+  },
+  contactName: { flex: 1, fontSize: Typography.size.sm, color: Colors.textPrimary },
+  contactPhone: { fontSize: Typography.size.sm, color: Colors.textSecondary },
+  keepLink: { fontSize: Typography.size.sm, color: Colors.textSecondary },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

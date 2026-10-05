@@ -1,12 +1,14 @@
 /**
  * Aurélia — Rotinas tab
- * Lists all routine items. Each card shows type, name, time, repeat summary,
- * and reminder flags. FAB opens the routine builder modal.
+ * Lists the elder's routines grouped by type. Each card shows name, time, repeat summary and
+ * reminder flags. The + button opens the routine builder; long-press or the bin removes a routine.
  */
 
-import React, { useCallback } from 'react';
+import { LABELS_PT, type Routine, type RoutineType } from '@aurelia/shared';
+import React, { useCallback, useMemo } from 'react';
 import {
-  FlatList,
+  Alert,
+  SectionList,
   StatusBar,
   StyleSheet,
   Text,
@@ -16,48 +18,53 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { useApp } from '@/context/AppContext';
-import { Task, TaskType } from '@/data/mock';
-import { Colors, Radius, Spacing, Typography } from '@/theme';
+import { ErrorState, LoadingState } from '@/components';
 import { IconSymbol, IconSymbolName } from '@/components/ui/icon-symbol';
+import { confirm } from '@/lib/confirm';
+import { friendlyError } from '@/lib/errors';
+import { firstName } from '@/lib/format';
+import { useCurrentElder, useDeleteRoutine, useRoutines } from '@/queries';
+import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const TYPE_CONFIG: Record<
-  TaskType,
-  { label: string; icon: IconSymbolName; color: string; bg: string }
-> = {
-  medication: { label: 'Medicação', icon: 'pills.fill', color: Colors.primary, bg: Colors.primaryLight },
-  meal:       { label: 'Refeição',  icon: 'fork.knife', color: '#7B5E3B', bg: '#FFF3E0' },
-  activity:   { label: 'Atividade', icon: 'figure.walk', color: Colors.successText, bg: Colors.successBg },
-  custom:     { label: 'Personalizada', icon: 'star.fill', color: Colors.aureliaText, bg: Colors.aureliaBg },
-};
+const TYPE_ORDER: RoutineType[] = ['medication', 'meal', 'activity', 'custom'];
 
-const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const TYPE_CONFIG: Record<RoutineType, { icon: IconSymbolName; color: string; bg: string }> = {
+  medication: { icon: 'pills.fill', color: Colors.primary, bg: Colors.primaryLight },
+  meal:       { icon: 'fork.knife', color: '#7B5E3B', bg: '#FFF3E0' },
+  activity:   { icon: 'figure.walk', color: Colors.successText, bg: Colors.successBg },
+  custom:     { icon: 'star.fill', color: Colors.aureliaText, bg: Colors.aureliaBg },
+};
 
 function repeatSummary(days: number[]): string {
   if (days.length === 7) return 'Todos os dias';
   const sorted = [...days].sort((a, b) => a - b);
   if (JSON.stringify(sorted) === JSON.stringify([1, 2, 3, 4, 5])) return 'Dias úteis';
-  if (days.length === 0) return 'Sem repetição';
-  return sorted.map((d) => DAY_LABELS[d]).join(', ');
+  return sorted.map((d) => LABELS_PT.weekdayShort[d]).join(', ');
 }
 
 // ─── Routine card ─────────────────────────────────────────────────────────────
 
 function RoutineCard({
-  task,
+  routine,
   onEdit,
   onDelete,
 }: {
-  task: Task;
+  routine: Routine;
   onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  onDelete: (routine: Routine) => void;
 }) {
-  const cfg = TYPE_CONFIG[task.type];
+  const cfg = TYPE_CONFIG[routine.type];
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onEdit(routine.id)}
+      onLongPress={() => onDelete(routine)}
+      activeOpacity={0.85}
+      accessibilityHint="Toque para editar, segure para remover"
+    >
       {/* Left icon */}
       <View style={[styles.typeIconWrap, { backgroundColor: cfg.bg }]}>
         <IconSymbol name={cfg.icon} size={20} color={cfg.color} />
@@ -66,24 +73,26 @@ function RoutineCard({
       {/* Content */}
       <View style={styles.cardContent}>
         <View style={styles.cardTopRow}>
-          <Text style={styles.cardName} numberOfLines={1}>{task.name}</Text>
-          <Text style={styles.cardTime}>{task.time}</Text>
+          <Text style={styles.cardName} numberOfLines={1}>{routine.name}</Text>
+          <Text style={styles.cardTime}>{routine.time}</Text>
         </View>
 
-        {task.dosage ? (
-          <Text style={styles.cardSub}>{task.dosage} · {task.form}</Text>
+        {routine.medication ? (
+          <Text style={styles.cardSub}>{routine.medication.dosage} · {routine.medication.form}</Text>
+        ) : routine.description ? (
+          <Text style={styles.cardSub} numberOfLines={2}>{routine.description}</Text>
         ) : null}
 
-        <Text style={styles.cardRepeat}>{repeatSummary(task.repeatDays)}</Text>
+        <Text style={styles.cardRepeat}>{repeatSummary(routine.weekdays)}</Text>
 
         {/* Reminder flags */}
         <View style={styles.flagRow}>
-          {task.notifyAurelia && (
+          {routine.remindElder && (
             <View style={styles.flagAurelia}>
-              <Text style={styles.flagText}>Aurélia</Text>
+              <Text style={styles.flagText}>Lembrete ao idoso</Text>
             </View>
           )}
-          {task.alertIfMissed && (
+          {routine.alertIfMissed && (
             <View style={styles.flagAlert}>
               <Text style={styles.flagAlertText}>Alerta se perdida</Text>
             </View>
@@ -94,27 +103,29 @@ function RoutineCard({
       {/* Actions */}
       <View style={styles.cardActions}>
         <TouchableOpacity
-          onPress={() => onEdit(task.id)}
+          onPress={() => onEdit(routine.id)}
           style={styles.editBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={`Editar ${routine.name}`}
         >
           <IconSymbol name="pencil" size={15} color={Colors.primary} />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => onDelete(task.id)}
+          onPress={() => onDelete(routine)}
           style={styles.deleteBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={`Remover ${routine.name}`}
         >
           <IconSymbol name="trash" size={15} color={Colors.dangerText} />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
-function EmptyState({ onAdd }: { onAdd: () => void }) {
+function EmptyRoutines({ name, onAdd }: { name: string; onAdd: () => void }) {
   return (
     <View style={styles.emptyWrap}>
       <View style={styles.emptyIconWrap}>
@@ -122,7 +133,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       </View>
       <Text style={styles.emptyTitle}>Nenhuma rotina criada</Text>
       <Text style={styles.emptySub}>
-        Adicione medicações, refeições e atividades para que Aurélia possa acompanhar o dia de Maria.
+        Adicione medicações, refeições e atividades para que Aurélia possa acompanhar o dia de {name}.
       </Text>
       <TouchableOpacity style={styles.emptyBtn} onPress={onAdd} activeOpacity={0.85}>
         <IconSymbol name="plus" size={16} color={Colors.white} />
@@ -135,8 +146,21 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function RotinasScreen() {
-  const { tasks, deleteTask } = useApp();
+  const elder = useCurrentElder();
+  const routines = useRoutines(elder.id);
+  const remove = useDeleteRoutine(elder.id);
   const router = useRouter();
+
+  const items = useMemo(() => routines.data?.items ?? [], [routines.data]);
+  const sections = useMemo(
+    () =>
+      TYPE_ORDER.map((type) => ({
+        type,
+        title: LABELS_PT.routineType[type],
+        data: items.filter((r) => r.type === type).sort((a, b) => a.time.localeCompare(b.time) || a.name.localeCompare(b.name)),
+      })).filter((section) => section.data.length > 0),
+    [items],
+  );
 
   const handleAdd = useCallback(() => {
     router.push('/(caregiver)/routine-builder');
@@ -150,17 +174,17 @@ export default function RotinasScreen() {
   );
 
   const handleDelete = useCallback(
-    (id: string) => {
-      deleteTask(id);
+    async (routine: Routine) => {
+      const ok = await confirm(
+        'Remover rotina',
+        `“${routine.name}” deixará de aparecer na agenda. O que já foi registrado continua no histórico.`,
+        'Remover',
+        true,
+      );
+      if (!ok) return;
+      remove.mutate(routine.id, { onError: (error) => Alert.alert('Não foi possível remover', friendlyError(error)) });
     },
-    [deleteTask],
-  );
-
-  const renderItem = useCallback(
-    ({ item }: { item: Task }) => (
-      <RoutineCard task={item} onEdit={handleEdit} onDelete={handleDelete} />
-    ),
-    [handleEdit, handleDelete],
+    [remove],
   );
 
   return (
@@ -172,37 +196,57 @@ export default function RotinasScreen() {
         <View>
           <Text style={styles.headerTitle}>Rotinas</Text>
           <Text style={styles.headerSub}>
-            {tasks.length} {tasks.length === 1 ? 'item' : 'itens'} configurados
+            {items.length} {items.length === 1 ? 'item' : 'itens'} configurados
           </Text>
         </View>
-        <TouchableOpacity style={styles.headerAddBtn} onPress={handleAdd} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.headerAddBtn} onPress={handleAdd} activeOpacity={0.85} accessibilityLabel="Nova rotina">
           <IconSymbol name="plus" size={20} color={Colors.white} />
         </TouchableOpacity>
       </View>
 
       {/* List */}
-      {tasks.length === 0 ? (
-        <EmptyState onAdd={handleAdd} />
+      {routines.isPending ? (
+        <LoadingState />
+      ) : routines.isError ? (
+        <ErrorState message={friendlyError(routines.error)} onRetry={() => void routines.refetch()} />
+      ) : items.length === 0 ? (
+        <EmptyRoutines name={firstName(elder.name)} onAdd={handleAdd} />
       ) : (
-        <FlatList
-          data={tasks}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
-          renderItem={renderItem}
+          renderItem={({ item }) => <RoutineCard routine={item} onEdit={handleEdit} onDelete={(r) => void handleDelete(r)} />}
+          renderSectionHeader={({ section }) => <Text style={extra.sectionTitle}>{section.title}</Text>}
+          stickySectionHeadersEnabled={false}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+          refreshing={routines.isRefetching}
+          onRefresh={() => void routines.refetch()}
         />
       )}
 
       {/* FAB */}
-      {tasks.length > 0 && (
-        <TouchableOpacity style={styles.fab} onPress={handleAdd} activeOpacity={0.85}>
+      {items.length > 0 && (
+        <TouchableOpacity style={styles.fab} onPress={handleAdd} activeOpacity={0.85} accessibilityLabel="Nova rotina">
           <IconSymbol name="plus" size={24} color={Colors.white} />
         </TouchableOpacity>
       )}
     </SafeAreaView>
   );
 }
+
+const extra = StyleSheet.create({
+  sectionTitle: {
+    fontSize: Typography.size.xs,
+    fontWeight: Typography.weight.semibold,
+    letterSpacing: 0.6,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

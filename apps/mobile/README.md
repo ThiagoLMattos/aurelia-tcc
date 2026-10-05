@@ -25,6 +25,9 @@ Sign in as the seeded caregiver `demo@aurelia.app` / `demo1234` (it already has 
 a new one and go through the "create elder" step. To use the elder side, choose "Sou o idoso" and
 enter the code `DEMA23`.
 
+In a dev build in mock mode, the bar at the bottom of Início has "Perdida", "Saída" and "Retorno": with no
+tracker and no scheduler behind the mock, that is how a demo reaches the missed-task and outside-the-zone states.
+
 ### Against the real API
 
 `apps/mobile/.env` needs the Firebase web config (public by design) and the API address:
@@ -75,6 +78,7 @@ src/
                          responses validated with @aurelia/shared), mock.ts (in-memory twin)
   lib/backend.ts         picks real or mock from EXPO_PUBLIC_API_MODE
   lib/query.ts           TanStack Query client and query keys
+  queries/               one hook per read and write the caregiver screens use
   auth/                  SessionProvider (role from token claims), useMe
   push/                  permission, Android channels, token registration, tap routing
   theme/                 colour, type and spacing tokens, `caregiver` and `elder` palettes
@@ -84,8 +88,8 @@ src/
 Routes are only reachable by the right role (`Stack.Protected`), and signing out clears the query cache.
 Hrefs include the group, for example `/(elder)/sos`, because both sides have an `assistant` screen.
 
-`context/`, `services/` and `data/` are the old mock-backed state the caregiver and elder screens still
-read; they go away as those screens move to `lib/api`.
+The caregiver screens read and write through the hooks in `src/queries` (TanStack Query over `lib/api`);
+none of them know whether the backend is the real API or the mock.
 
 ## Checks
 

@@ -2,6 +2,7 @@ import {
   computeAgenda,
   computeWeeklyReport,
   DEFAULT_CAREGIVER_SETTINGS,
+  haversineMeters,
   INITIAL_LOCATION_STATE,
   localDateOf,
   PAIRING_CODE_ALPHABET,
@@ -11,6 +12,7 @@ import {
   type AgendaItem,
   type Caregiver,
   type Contact,
+  type Device,
   type Elder,
   type ErrorCode,
   type Event,
@@ -47,6 +49,7 @@ interface MockCaregiver {
 
 interface MockElder {
   elder: Elder;
+  devices: Device[];
   routines: Routine[];
   occurrences: Occurrence[];
   contacts: Contact[];
@@ -98,9 +101,20 @@ function makeElder(id: string, input: Pick<Elder, 'name' | 'birthDate' | 'diagno
   };
 }
 
+/**
+ * What the real system gets from the tracker and the scheduler. The mock has neither, so a demo
+ * triggers the same state changes by hand (dev builds in mock mode only, see the Início screen).
+ */
+export interface MockControls {
+  simulateExit(): void;
+  simulateReturn(): void;
+  simulateMissed(): void;
+}
+
 export interface MockBackend {
   api: Api;
   auth: AuthAdapter;
+  controls: MockControls;
 }
 
 export function createMockBackend(): MockBackend {
@@ -111,7 +125,7 @@ export function createMockBackend(): MockBackend {
   let identity: AuthIdentity | null = null;
 
   function addElder(elder: Elder): MockElder {
-    const entry: MockElder = { elder, routines: [], occurrences: [], contacts: [], events: [], phonePaired: false };
+    const entry: MockElder = { elder, devices: [], routines: [], occurrences: [], contacts: [], events: [], phonePaired: false };
     elders.set(elder.id, entry);
     return entry;
   }
@@ -297,7 +311,11 @@ export function createMockBackend(): MockBackend {
       return entry.elder;
     },
     async getElder(elderId) {
-      return { ...elderFor(elderId).elder, devices: [] };
+      const { elder, devices } = elderFor(elderId);
+      return {
+        ...elder,
+        devices: devices.map(({ id, label, lastSeenAt, batteryPct }) => ({ id, label, lastSeenAt, batteryPct })),
+      };
     },
     async patchElder(elderId, body) {
       const entry = elderFor(elderId, { caregiverOnly: true });
@@ -434,12 +452,24 @@ export function createMockBackend(): MockBackend {
       return resolved;
     },
 
-    async createDevice(elderId) {
-      elderFor(elderId, { caregiverOnly: true });
-      return { deviceId: nextId('device'), secret: 'mock-device-secret' };
+    async createDevice(elderId, body) {
+      const entry = elderFor(elderId, { caregiverOnly: true });
+      const device: Device = {
+        id: nextId('device'),
+        label: body.label,
+        createdAt: new Date().toISOString(),
+        lastSeenAt: null,
+        batteryPct: null,
+        firmwareVersion: null,
+      };
+      entry.devices.push(device);
+      appendEvent(entry, { type: 'devicePaired', payload: { deviceId: device.id, label: device.label } });
+      return { deviceId: device.id, secret: 'mock-device-secret' };
     },
-    async deleteDevice(elderId) {
-      elderFor(elderId, { caregiverOnly: true });
+    async deleteDevice(elderId, deviceId) {
+      const entry = elderFor(elderId, { caregiverOnly: true });
+      if (!entry.devices.some((d) => d.id === deviceId)) fail('NOT_FOUND', 'Rastreador não encontrado.');
+      entry.devices = entry.devices.filter((d) => d.id !== deviceId);
     },
     async getLocation(elderId) {
       const { elder } = elderFor(elderId, { caregiverOnly: true });
@@ -461,5 +491,62 @@ export function createMockBackend(): MockBackend {
     },
   };
 
-  return { api, auth };
+  // ── Controls (demo only) ────────────────────────────────────────────────────────────────────
+  function demoElder(): MockElder {
+    const current = requireCaregiver();
+    const elderId = current.elderIds[0] ?? fail('NOT_FOUND', 'Cadastre o idoso primeiro.');
+    return elders.get(elderId) as MockElder;
+  }
+
+  const controls: MockControls = {
+    simulateExit() {
+      const entry = demoElder();
+      const zone = entry.elder.safeZone ?? fail('CONFLICT', 'Defina a zona segura antes de simular uma saída.');
+      // About 1.5 radii straight north of the centre: well outside radius + hysteresis.
+      const lat = zone.lat + (zone.radiusM * 1.5) / 111_320;
+      const now = new Date();
+      entry.elder = {
+        ...entry.elder,
+        locationState: { status: 'outside', since: now.toISOString(), lastLat: lat, lastLng: zone.lng, lastAt: now.toISOString(), consecutiveOutside: 2, consecutiveInside: 0 },
+      };
+      appendEvent(entry, {
+        type: 'geofenceExit',
+        payload: { lat, lng: zone.lng, distanceM: haversineMeters({ lat, lng: zone.lng }, zone), resolvedAt: null, resolvedNote: null },
+      });
+    },
+    simulateReturn() {
+      const entry = demoElder();
+      const zone = entry.elder.safeZone ?? fail('CONFLICT', 'Defina a zona segura antes de simular um retorno.');
+      const now = new Date();
+      entry.elder = {
+        ...entry.elder,
+        locationState: { status: 'inside', since: now.toISOString(), lastLat: zone.lat, lastLng: zone.lng, lastAt: now.toISOString(), consecutiveOutside: 0, consecutiveInside: 2 },
+      };
+      appendEvent(entry, { type: 'geofenceReturn', payload: { lat: zone.lat, lng: zone.lng } });
+    },
+    simulateMissed() {
+      const entry = demoElder();
+      const date = today(entry);
+      const target =
+        agendaFor(entry, date).find((item) => item.status === 'pending') ??
+        agendaFor(entry, date).find((item) => item.status === 'now' || item.status === 'upcoming') ??
+        fail('NOT_FOUND', 'Não há tarefas abertas hoje.');
+      const now = new Date();
+      entry.occurrences.push({
+        routineId: target.routineId,
+        date,
+        scheduledTime: target.time,
+        status: 'missed',
+        doneAt: null,
+        doneBy: null,
+        markedMissedAt: now.toISOString(),
+      });
+      appendEvent(entry, {
+        type: 'taskMissed',
+        payload: { routineId: target.routineId, routineName: target.name, date, scheduledTime: target.time },
+      });
+    },
+  };
+
+  return { api, auth, controls };
 }
