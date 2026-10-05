@@ -198,8 +198,8 @@ export async function seedDemo({ firebase, logger, password, now: realNow = () =
   const sosAt = instantOf(addDays(today, -2), '16:05', TIMEZONE);
   steps.push({ at: sosAt, run: async () => void (await services.sos.trigger(await elder(), offset(HOME, 400, 250))) });
 
-  // Most mornings she plays a little: the memory game, the colour sequence getting slowly longer, and
-  // a round of Jogo da Velha against the phone.
+  // Most mornings she plays a little: the memory game, the colour sequence getting slowly longer, a
+  // round of Jogo da Velha against the phone, and a crossword in the afternoon.
   const games: [number, string, GamePlayedPayload][] = [
     [-6, '10:20', { game: 'memory', pairs: 3, moves: 5, durationSec: 95 }],
     [-5, '10:05', { game: 'sequence', longest: 3, durationSec: 70 }],
@@ -208,6 +208,7 @@ export async function seedDemo({ firebase, logger, password, now: realNow = () =
     [-3, '10:25', { game: 'memory', pairs: 6, moves: 9, durationSec: 210 }],
     [-2, '10:40', { game: 'tictactoe', level: 'easy', outcome: 'win', durationSec: 60 }],
     [-1, '10:10', { game: 'sequence', longest: 5, durationSec: 110 }],
+    [-1, '16:00', { game: 'crossword', theme: 'Frutas', words: 5, totalWords: 5, hints: 2, durationSec: 380 }],
   ];
   for (const [daysAgo, time, result] of games) {
     steps.push({

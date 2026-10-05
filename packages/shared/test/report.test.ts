@@ -96,17 +96,20 @@ describe('computeWeeklyReport', () => {
         game('2024-01-06T13:00:00.000Z', '2024-01-06', { game: 'tictactoe', level: 'easy', outcome: 'win', durationSec: 40 }),
         game('2024-01-06T13:05:00.000Z', '2024-01-06', { game: 'tictactoe', level: 'normal', outcome: 'draw', durationSec: 50 }),
         game('2024-01-06T13:10:00.000Z', '2024-01-06', { game: 'tictactoe', level: 'normal', outcome: 'loss', durationSec: 30 }),
+        game('2024-01-07T13:00:00.000Z', '2024-01-07', { game: 'crossword', theme: 'Frutas', words: 5, totalWords: 5, hints: 2, durationSec: 300 }),
+        game('2024-01-07T14:00:00.000Z', '2024-01-07', { game: 'crossword', theme: 'Casa', words: 2, totalWords: 5, hints: 0, durationSec: 120 }),
         game('2024-01-09T13:00:00.000Z', '2024-01-09', { game: 'sequence', longest: 9, durationSec: 50 }), // other week
       ],
     });
     expect(r.games).toEqual({
-      sessions: 7,
-      minutes: 9,
+      sessions: 9,
+      minutes: 16,
       memory: { played: 2, bestAccuracyPct: 75, mostPairs: 6 },
       sequence: { played: 2, best: 5 },
       ticTacToe: { played: 3, wins: 1, draws: 1 },
+      crossword: { played: 2, completed: 1, words: 7, hints: 2 },
     });
-    expect(r.days.map((d) => d.games)).toEqual([0, 2, 0, 1, 1, 3, 0]);
+    expect(r.days.map((d) => d.games)).toEqual([0, 2, 0, 1, 1, 3, 2]);
   });
 
   it('reports no games as zero sessions and null bests', () => {
@@ -116,6 +119,7 @@ describe('computeWeeklyReport', () => {
       memory: { played: 0, bestAccuracyPct: null, mostPairs: null },
       sequence: { played: 0, best: null },
       ticTacToe: { played: 0, wins: 0, draws: 0 },
+      crossword: { played: 0, completed: 0, words: 0, hints: 0 },
     });
   });
 

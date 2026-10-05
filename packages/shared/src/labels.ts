@@ -32,6 +32,7 @@ export const LABELS_PT = {
     memory: 'Jogo da Memória',
     sequence: 'Memória Sequencial',
     tictactoe: 'Jogo da Velha',
+    crossword: 'Palavras Cruzadas',
   } satisfies Record<GameId, string>,
   ticTacToeLevel: {
     easy: 'Fácil',

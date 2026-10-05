@@ -197,6 +197,22 @@ function presentEvent(event: Event, timezone: string): Presentation {
           ],
         };
       }
+      if (payload.game === 'crossword') {
+        const complete = payload.words === payload.totalWords;
+        return {
+          tone: GAME,
+          title: `${LABELS_PT.game.crossword}: ${payload.theme}`,
+          summary: complete
+            ? `Completou as ${payload.totalWords} palavras`
+            : `Encontrou ${payload.words} de ${payload.totalWords} palavras`,
+          rows: [
+            { label: 'Terminado às', value: at },
+            { label: 'Palavras', value: `${payload.words} de ${payload.totalWords}` },
+            { label: 'Dicas usadas', value: String(payload.hints) },
+            duration,
+          ],
+        };
+      }
       if (payload.game === 'tictactoe') {
         return {
           tone: GAME,

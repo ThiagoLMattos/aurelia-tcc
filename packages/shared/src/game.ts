@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { IdSchema } from './primitives';
 
 /** The games on the elder's phone. */
-export const GameIdSchema = z.enum(['memory', 'sequence', 'tictactoe']);
+export const GameIdSchema = z.enum(['memory', 'sequence', 'tictactoe', 'crossword']);
 export type GameId = z.infer<typeof GameIdSchema>;
 
 /** How hard the phone plays Jogo da Velha. */
@@ -40,11 +40,24 @@ const ticTacToeFields = {
   durationSec: DurationSecSchema,
 };
 
+const crosswordFields = {
+  game: z.literal('crossword'),
+  /** The puzzle's theme as shown to the elder ("Frutas"). */
+  theme: z.string().trim().min(1).max(40),
+  /** Words found; less than `totalWords` when the elder left before the end. */
+  words: z.number().int().min(0).max(50),
+  totalWords: z.number().int().min(1).max(50),
+  /** Letters the elder asked the game to fill in. */
+  hints: z.number().int().min(0).max(999),
+  durationSec: DurationSecSchema,
+};
+
 /** The fields each game sends besides `game` and `durationSec`. */
 const GAME_FIELDS = {
   memory: ['pairs', 'moves'],
   sequence: ['longest'],
   tictactoe: ['level', 'outcome'],
+  crossword: ['theme', 'words', 'totalWords', 'hints'],
 } as const satisfies Record<GameId, readonly string[]>;
 const ALL_FIELDS = Object.values(GAME_FIELDS).flat();
 
@@ -52,10 +65,15 @@ const enoughMoves = (result: { game: GameId; pairs?: number | undefined; moves?:
   result.game !== 'memory' || (result.moves ?? 0) >= (result.pairs ?? 0);
 const enoughMovesMessage = { message: 'Cada par precisa de ao menos uma jogada.', path: ['moves'] };
 
+const wordsWithinTotal = (result: { game: GameId; words?: number | undefined; totalWords?: number | undefined }) =>
+  result.game !== 'crossword' || (result.words ?? 0) <= (result.totalWords ?? 0);
+const wordsWithinTotalMessage = { message: 'Não pode haver mais palavras encontradas que no total.', path: ['words'] };
+
 /** What a finished game stores in the timeline (`gamePlayed` event). */
 export const GamePlayedPayloadSchema = z
-  .discriminatedUnion('game', [z.object(memoryFields), z.object(sequenceFields), z.object(ticTacToeFields)])
-  .refine(enoughMoves, enoughMovesMessage);
+  .discriminatedUnion('game', [z.object(memoryFields), z.object(sequenceFields), z.object(ticTacToeFields), z.object(crosswordFields)])
+  .refine(enoughMoves, enoughMovesMessage)
+  .refine(wordsWithinTotal, wordsWithinTotalMessage);
 export type GamePlayedPayload = z.infer<typeof GamePlayedPayloadSchema>;
 
 /**
@@ -70,6 +88,10 @@ export const GameResultBodySchema = z
     longest: sequenceFields.longest.optional(),
     level: ticTacToeFields.level.optional(),
     outcome: ticTacToeFields.outcome.optional(),
+    theme: crosswordFields.theme.optional(),
+    words: crosswordFields.words.optional(),
+    totalWords: crosswordFields.totalWords.optional(),
+    hints: crosswordFields.hints.optional(),
     durationSec: DurationSecSchema,
   })
   .superRefine((body, ctx) => {
@@ -80,6 +102,7 @@ export const GameResultBodySchema = z
       if (!own.includes(field) && present) ctx.addIssue({ code: 'custom', message: 'Campo de outro jogo.', path: [field] });
     }
     if (!enoughMoves(body)) ctx.addIssue({ code: 'custom', ...enoughMovesMessage });
+    if (!wordsWithinTotal(body)) ctx.addIssue({ code: 'custom', ...wordsWithinTotalMessage });
   })
   .transform((body): GamePlayedPayload => {
     const { durationSec } = body;
@@ -90,6 +113,15 @@ export const GameResultBodySchema = z
         return { game: 'sequence', longest: body.longest as number, durationSec };
       case 'tictactoe':
         return { game: 'tictactoe', level: body.level as TicTacToeLevel, outcome: body.outcome as TicTacToeOutcome, durationSec };
+      case 'crossword':
+        return {
+          game: 'crossword',
+          theme: body.theme as string,
+          words: body.words as number,
+          totalWords: body.totalWords as number,
+          hints: body.hints as number,
+          durationSec,
+        };
     }
   });
 export type GameResultBody = z.input<typeof GameResultBodySchema>;

@@ -7,12 +7,11 @@ import { ElderHeader, MIN_TOUCH } from '@/elder/ui';
 import { PatientColors, PatientTypography, Shadow } from '@/theme';
 
 
-// Os jogos sem tela ainda mostram "EM BREVE" no próprio lugar do botão JOGAR.
-const GAMES: { id: string; name: string; image: number; href: Href | null }[] = [
+const GAMES: { id: string; name: string; image: number; href: Href }[] = [
   { id: '1', name: 'Jogo da Memória', image: require('../../../assets/images/MemoriaIcon.png'), href: '/(elder)/games/memory' },
   { id: '4', name: 'Memória Sequencial', image: require('../../../assets/images/GeniusIcon.png'), href: '/(elder)/games/sequence' },
   { id: '2', name: 'Jogo da Velha', image: require('../../../assets/images/JogoVelhaIcon.png'), href: '/(elder)/games/tictactoe' },
-  { id: '3', name: 'Palavras Cruzadas', image: require('../../../assets/images/PalavraCruzadaIcon.png'), href: null },
+  { id: '3', name: 'Palavras Cruzadas', image: require('../../../assets/images/PalavraCruzadaIcon.png'), href: '/(elder)/games/crossword' },
 ];
 
 export default function JogosIdosoScreen() {
@@ -23,31 +22,22 @@ export default function JogosIdosoScreen() {
       <ElderHeader title="JOGOS" section={GAMES_SECTION} onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {GAMES.map((game) => {
-          const { href } = game;
-          return (
-            <View key={game.id} style={styles.gameCard} accessible={!href} accessibilityLabel={href ? undefined : `${game.name}. Em breve.`}>
-              <View style={styles.gameInfo}>
-                <Image source={game.image} style={styles.gameIcon} resizeMode="contain" />
-                <Text style={[styles.gameName, game.id === '4' && styles.gameNameSmall]}>{game.name}</Text>
-              </View>
-              {href ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Jogar ${game.name}`}
-                  onPress={() => router.push(href)}
-                  style={({ pressed }) => [styles.playButton, pressed && { opacity: 0.85 }]}
-                >
-                  <Text style={styles.playText}>JOGAR</Text>
-                </Pressable>
-              ) : (
-                <View style={styles.soonBadge}>
-                  <Text style={styles.soonText}>EM BREVE</Text>
-                </View>
-              )}
+        {GAMES.map((game) => (
+          <View key={game.id} style={styles.gameCard}>
+            <View style={styles.gameInfo}>
+              <Image source={game.image} style={styles.gameIcon} resizeMode="contain" />
+              <Text style={[styles.gameName, game.id === '4' && styles.gameNameSmall]}>{game.name}</Text>
             </View>
-          );
-        })}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Jogar ${game.name}`}
+              onPress={() => router.push(game.href)}
+              style={({ pressed }) => [styles.playButton, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.playText}>JOGAR</Text>
+            </Pressable>
+          </View>
+        ))}
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
@@ -93,17 +83,6 @@ const styles = StyleSheet.create({
     fontSize: 21,
   },
 
-  soonBadge: {
-    backgroundColor: PatientColors.gamesCardBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: PatientColors.gamesMain,
-    minWidth: 140,
-    minHeight: MIN_TOUCH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Shadow.soft,
-  },
   playButton: {
     backgroundColor: PatientColors.gamesMain,
     borderRadius: 10,
@@ -114,5 +93,4 @@ const styles = StyleSheet.create({
     ...Shadow.soft,
   },
   playText: { color: PatientColors.gamesHeaderText, fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold },
-  soonText: { color: PatientColors.gamesMain, fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold },
 });

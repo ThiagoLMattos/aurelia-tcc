@@ -196,6 +196,10 @@ describe('games', () => {
     expect(GameResultBodySchema.safeParse({ game: 'tictactoe', level: 'normal', durationSec: 45 }).success).toBe(false);
     expect(GameResultBodySchema.safeParse({ game: 'tictactoe', level: 'hard', outcome: 'win', durationSec: 45 }).success).toBe(false);
     expect(GameResultBodySchema.safeParse({ game: 'memory', pairs: 3, moves: 3, outcome: 'win', durationSec: 45 }).success).toBe(false);
+    const crossword = { game: 'crossword', theme: 'Frutas', words: 3, totalWords: 5, hints: 1, durationSec: 200 };
+    expect(GameResultBodySchema.parse(crossword)).toEqual(crossword);
+    expect(GameResultBodySchema.safeParse({ ...crossword, words: 6 }).success).toBe(false);
+    expect(GameResultBodySchema.safeParse({ ...crossword, hints: undefined }).success).toBe(false);
   });
 
   it('memoryAccuracyPct is the share of turns that found a pair', async () => {

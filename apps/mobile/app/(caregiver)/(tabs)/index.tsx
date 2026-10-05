@@ -759,7 +759,7 @@ function GameTile({
   footer,
   delta,
 }: {
-  icon: 'square.grid.2x2.fill' | 'circle.grid.2x2.fill' | 'number';
+  icon: 'square.grid.2x2.fill' | 'circle.grid.2x2.fill' | 'number' | 'textformat.abc';
   name: string;
   value: string | null;
   caption: string;
@@ -804,7 +804,7 @@ function GamesCard({
   elderName: string;
   weekInProgress: boolean;
 }) {
-  const { memory, sequence, ticTacToe } = report;
+  const { memory, sequence, ticTacToe, crossword } = report;
   const sessionsBefore = weekInProgress ? undefined : previous?.sessions;
 
   return (
@@ -858,6 +858,14 @@ function GamesCard({
             footer={`${plural(ticTacToe.draws, 'empate', 'empates')} · ${plural(ticTacToe.played - ticTacToe.wins - ticTacToe.draws, 'derrota', 'derrotas')}`}
             delta={null}
           />
+          <GameTile
+            icon="textformat.abc"
+            name={LABELS_PT.game.crossword}
+            value={crossword.played > 0 ? plural(crossword.words, 'palavra', 'palavras') : null}
+            caption={`encontradas em ${plural(crossword.played, 'cruzadinha', 'cruzadinhas')}`}
+            footer={`${plural(crossword.completed, 'completa', 'completas')} · ${plural(crossword.hints, 'dica', 'dicas')}`}
+            delta={null}
+          />
         </View>
       )}
     </View>
@@ -882,7 +890,7 @@ const games = StyleSheet.create({
   pillDown: { backgroundColor: Colors.dangerBg },
   pillText: { fontSize: 11, fontWeight: Typography.weight.semibold },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.xs },
-  /** Two tiles per row; the third takes a row of its own. */
+  /** Two tiles per row. */
   tile: {
     flexGrow: 1,
     flexBasis: '45%',

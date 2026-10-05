@@ -188,6 +188,7 @@ export function createMockBackend(): MockBackend {
     [-3, '10:15', { game: 'sequence', longest: 4, durationSec: 85 }],
     [-2, '10:25', { game: 'memory', pairs: 6, moves: 9, durationSec: 210 }],
     [-2, '10:40', { game: 'tictactoe', level: 'easy', outcome: 'win', durationSec: 60 }],
+    [-1, '16:00', { game: 'crossword', theme: 'Frutas', words: 5, totalWords: 5, hints: 2, durationSec: 380 }],
     [-1, '10:10', { game: 'sequence', longest: 5, durationSec: 110 }],
   ] as const) {
     appendEvent(maria, { type: 'gamePlayed', payload, at: instantOf(addDays(seedDay, daysAgo), time, TIMEZONE) });
