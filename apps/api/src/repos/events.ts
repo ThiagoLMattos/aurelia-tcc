@@ -72,6 +72,34 @@ export function createEventsRepo(db: Firestore) {
       return ref.id;
     },
 
+    async get(elderId: string, eventId: string): Promise<Event | null> {
+      const snap = await col(elderId).doc(eventId).get();
+      return snap.exists ? toEvent(snap as FirebaseFirestore.QueryDocumentSnapshot) : null;
+    },
+
+    /**
+     * Records that a caregiver confirmed the elder is safe after a geofence exit. The check and the
+     * write share a transaction so two caregivers cannot both resolve the same exit.
+     */
+    async resolveExit(
+      elderId: string,
+      eventId: string,
+      resolution: { at: Date; note: string | null },
+    ): Promise<'resolved' | 'notFound' | 'alreadyResolved'> {
+      const ref = col(elderId).doc(eventId);
+      return db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const data = snap.data() as EventData | undefined;
+        if (!data || data.type !== 'geofenceExit') return 'notFound';
+        if (data.payload.resolvedAt) return 'alreadyResolved';
+        tx.update(ref, {
+          'payload.resolvedAt': resolution.at.toISOString(),
+          'payload.resolvedNote': resolution.note,
+        });
+        return 'resolved';
+      });
+    },
+
     /** Newest first. Returns null when the cursor is not one this repo issued. */
     async query(elderId: string, params: EventsQueryParams): Promise<EventsPageResult | null> {
       let query: FirebaseFirestore.Query = col(elderId);

@@ -11,6 +11,8 @@ export default defineConfig({
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
       USE_EMULATORS: 'true',
+      LLM_PROVIDER: 'fake',
+      JOBS_TOKEN: 'test-jobs-token-0123456789',
       FIREBASE_PROJECT_ID: 'demo-aurelia',
       FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
       FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',

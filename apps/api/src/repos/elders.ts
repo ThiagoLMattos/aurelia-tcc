@@ -46,7 +46,7 @@ interface ElderData extends Omit<ElderDoc, 'id' | 'createdAt' | 'locationState' 
   };
 }
 
-function fromSnapshot(snap: FirebaseFirestore.DocumentSnapshot): ElderDoc | null {
+export function elderFromSnapshot(snap: FirebaseFirestore.DocumentSnapshot): ElderDoc | null {
   if (!snap.exists) return null;
   const data = snap.data() as ElderData;
   const state = data.locationState ?? {};
@@ -90,20 +90,20 @@ export function createEldersRepo(db: Firestore) {
 
   return {
     async get(id: string): Promise<ElderDoc | null> {
-      return fromSnapshot(await col.doc(id).get());
+      return elderFromSnapshot(await col.doc(id).get());
     },
 
     /** Missing elders are skipped; order follows `ids`. */
     async getMany(ids: string[]): Promise<ElderDoc[]> {
       if (ids.length === 0) return [];
       const snaps = await db.getAll(...ids.map((id) => col.doc(id)));
-      return snaps.flatMap((snap) => fromSnapshot(snap) ?? []);
+      return snaps.flatMap((snap) => elderFromSnapshot(snap) ?? []);
     },
 
     /** Every elder, for jobs that sweep all of them. */
     async listAll(): Promise<ElderDoc[]> {
       const snaps = await col.get();
-      return snaps.docs.flatMap((snap) => fromSnapshot(snap) ?? []);
+      return snaps.docs.flatMap((snap) => elderFromSnapshot(snap) ?? []);
     },
 
     /**
@@ -134,7 +134,7 @@ export function createEldersRepo(db: Firestore) {
         if (isNotFoundError(error)) return null;
         throw error;
       }
-      return fromSnapshot(await ref.get());
+      return elderFromSnapshot(await ref.get());
     },
 
     /** Applies only the fields present in the patch. Returns false if the elder does not exist. */

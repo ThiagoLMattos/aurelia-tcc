@@ -11,6 +11,8 @@ import { loadConfig } from '../src/config';
 import { initFirebase } from '../src/firebase';
 import { createLogger } from '../src/logger';
 import { createRepos } from '../src/repos';
+import type { LlmProvider } from '../src/modules/assistant/provider';
+import type { PushMessage, PushSender } from '../src/push/sender';
 import { createServices } from '../src/services';
 
 export const config = loadConfig(process.env);
@@ -31,7 +33,32 @@ export function fixedClock(iso = '2026-03-11T15:00:00.000Z'): TestClock {
   return clock;
 }
 
+/** A PushSender that records what it was asked to send; `invalid` tokens are reported back as unregistered. */
+export interface FakePush extends PushSender {
+  sent: { tokens: string[]; message: PushMessage }[];
+  invalid: Set<string>;
+  failWith?: Error;
+}
+
+export function fakePush(): FakePush {
+  const push: FakePush = {
+    sent: [],
+    invalid: new Set(),
+    async send(tokens, message) {
+      if (push.failWith) throw push.failWith;
+      push.sent.push({ tokens: [...tokens], message });
+      return { invalidTokens: tokens.filter((token) => push.invalid.has(token)) };
+    },
+  };
+  return push;
+}
+
 interface BuildOptions {
+  push?: PushSender;
+  llm?: LlmProvider;
+  assistantTimeoutMs?: number;
+  limits?: NonNullable<Parameters<typeof createApp>[0]['limits']>;
+  services?: ReturnType<typeof createServices>;
   logStream?: Writable;
   signupPerHour?: number;
   pairPer15Min?: number;
@@ -43,6 +70,7 @@ const loggerFor = (options: BuildOptions) =>
 
 export function buildApp(options: BuildOptions = {}): Express {
   const limits = {
+    ...options.limits,
     ...(options.signupPerHour ? { signupPerHour: options.signupPerHour } : {}),
     ...(options.pairPer15Min ? { pairPer15Min: options.pairPer15Min } : {}),
   };
@@ -51,12 +79,26 @@ export function buildApp(options: BuildOptions = {}): Express {
     firebase,
     logger: loggerFor(options),
     ...(options.now ? { now: options.now } : {}),
+    ...(options.push ? { push: options.push } : {}),
+    ...(options.llm ? { llm: options.llm } : {}),
+    ...(options.assistantTimeoutMs ? { assistantTimeoutMs: options.assistantTimeoutMs } : {}),
+    ...(options.services ? { services: options.services } : {}),
     ...(Object.keys(limits).length > 0 ? { limits } : {}),
   });
 }
 
 /** The same service graph the app uses, for seeding data and calling jobs directly. */
-export const buildServices = (now?: Clock) => createServices({ firebase, logger: createLogger(config), ...(now ? { now } : {}) });
+export const buildServices = (now?: Clock, extra: { push?: PushSender; llm?: LlmProvider } = {}) =>
+  createServices({ firebase, logger: createLogger(config), ...(now ? { now } : {}), ...extra });
+
+/** App and services sharing one graph, so a test can drive HTTP and call jobs directly. */
+export function buildStack(options: BuildOptions & { now: Clock; push: PushSender }) {
+  const services = buildServices(options.now, {
+    push: options.push,
+    ...(options.llm ? { llm: options.llm } : {}),
+  });
+  return { services, app: buildApp({ ...options, services }) };
+}
 
 let counter = 0;
 const unique = (prefix: string) => `${prefix}${Date.now().toString(36)}${(counter++).toString(36)}`;
@@ -80,19 +122,30 @@ export async function tokenFor(uid: string, claims?: Record<string, unknown>): P
   return exchangeCustomToken(await firebase.auth.createCustomToken(uid, claims));
 }
 
-export async function createCaregiver(overrides: { name?: string; elderIds?: string[] } = {}) {
+export async function createCaregiver(
+  overrides: { name?: string; elderIds?: string[]; pushTokens?: string[]; settings?: Partial<CaregiverSettings> } = {},
+) {
   const email = `${unique('cg')}@example.com`;
   const name = overrides.name ?? 'Cuidadora Teste';
   const { uid } = await firebase.auth.createUser({ email, password: 'senha-segura-123', displayName: name });
   await firebase.auth.setCustomUserClaims(uid, { role: 'caregiver' });
   await repos.users.create({ id: uid, name, email });
-  if (overrides.elderIds) await firebase.db.collection('users').doc(uid).update({ elderIds: overrides.elderIds });
+  const extra: Record<string, unknown> = {};
+  if (overrides.elderIds) extra.elderIds = overrides.elderIds;
+  if (overrides.pushTokens) extra.pushTokens = overrides.pushTokens;
+  for (const [key, value] of Object.entries(overrides.settings ?? {})) extra[`settings.${key}`] = value;
+  if (Object.keys(extra).length > 0) await firebase.db.collection('users').doc(uid).update(extra);
   return { uid, email, name, token: await tokenFor(uid) };
 }
 
 export async function createElderDoc(
   caregiverIds: string[],
-  overrides: { name?: string; timezone?: string; missedTaskTimeoutMin?: 15 | 30 | 60 } = {},
+  overrides: {
+    name?: string;
+    timezone?: string;
+    missedTaskTimeoutMin?: 15 | 30 | 60;
+    safeZone?: { lat: number; lng: number; radiusM: number } | null;
+  } = {},
 ) {
   const id = unique('elder');
   await firebase.db
@@ -107,7 +160,7 @@ export async function createElderDoc(
       createdBy: caregiverIds[0] ?? 'unknown',
       missedTaskTimeoutMin: overrides.missedTaskTimeoutMin ?? 30,
       caregiverIds,
-      safeZone: null,
+      safeZone: overrides.safeZone ?? null,
       pushTokens: [],
     });
   return id;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { LocationStatusSchema } from './elder';
+import { LocationStatusSchema, SafeZoneSchema } from './elder';
 import { IdSchema, IsoDateTimeSchema, LatSchema, LngSchema } from './primitives';
 
 export const DeviceSchema = z.object({
@@ -48,5 +48,8 @@ export const LocationResponseSchema = z.object({
   lat: LatSchema.nullable(),
   lng: LngSchema.nullable(),
   at: IsoDateTimeSchema.nullable(),
+  safeZone: SafeZoneSchema.nullable(),
+  /** Most recent contact from any of the elder's trackers. */
+  deviceLastSeenAt: IsoDateTimeSchema.nullable(),
 });
 export type LocationResponse = z.infer<typeof LocationResponseSchema>;

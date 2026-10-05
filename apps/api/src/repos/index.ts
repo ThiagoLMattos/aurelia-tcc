@@ -4,6 +4,7 @@ import { createContactsRepo, type ContactsRepo } from './contacts';
 import { createDevicesRepo, type DevicesRepo } from './devices';
 import { createEldersRepo, type EldersRepo } from './elders';
 import { createEventsRepo, type EventsRepo } from './events';
+import { createLocationRepo, type LocationRepo } from './location';
 import { createOccurrencesRepo, type OccurrencesRepo } from './occurrences';
 import { createPairingCodesRepo, type PairingCodesRepo } from './pairingCodes';
 import { createRoutinesRepo, type RoutinesRepo } from './routines';
@@ -17,6 +18,7 @@ export interface Repos {
   contacts: ContactsRepo;
   events: EventsRepo;
   devices: DevicesRepo;
+  location: LocationRepo;
   pairingCodes: PairingCodesRepo;
 }
 
@@ -29,7 +31,8 @@ export function createRepos(db: Firestore): Repos {
     occurrences: createOccurrencesRepo(db, events),
     contacts: createContactsRepo(db),
     events,
-    devices: createDevicesRepo(db),
+    devices: createDevicesRepo(db, events),
+    location: createLocationRepo(db, events),
     pairingCodes: createPairingCodesRepo(db),
   };
 }

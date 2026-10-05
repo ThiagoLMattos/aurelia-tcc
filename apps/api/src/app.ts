@@ -12,6 +12,12 @@ import type { Config } from './config';
 import type { Firebase } from './firebase';
 import { errorHandler, notFoundHandler } from './http/errorHandler';
 import { validate } from './http/validate';
+import { assistantRoutes } from './modules/assistant/routes';
+import { createLlmProvider, type LlmProvider } from './modules/assistant/provider';
+import { devicesRoutes } from './modules/devices/routes';
+import { jobsRoutes } from './modules/jobs/routes';
+import { deviceRoutes, elderLocationRoutes } from './modules/location/routes';
+import { noopPushSender, type PushSender } from './push/sender';
 import { agendaRoutes } from './modules/agenda/routes';
 import { authRoutes } from './modules/auth/routes';
 import { contactsRoutes } from './modules/contacts/routes';
@@ -22,7 +28,7 @@ import { pairRoutes, pairingManagementRoutes } from './modules/pairing/routes';
 import { reportsRoutes } from './modules/reports/routes';
 import { routinesRoutes } from './modules/routines/routes';
 import { sosRoutes } from './modules/sos/routes';
-import { createServices } from './services';
+import { createServices, type Services } from './services';
 
 export interface AppDeps {
   config: Config;
@@ -30,12 +36,32 @@ export interface AppDeps {
   logger: Logger;
   /** Defaults to the system clock; tests pass a fixed one. */
   now?: Clock;
-  limits?: { signupPerHour?: number; pairPer15Min?: number };
+  limits?: {
+    signupPerHour?: number;
+    pairPer15Min?: number;
+    deviceLocationWindowMs?: number;
+    deviceLocationPerWindow?: number;
+    assistantPerHour?: number;
+  };
+  /** Pass the graph the scheduler also uses; otherwise one is built from the other deps. */
+  services?: Services;
+  push?: PushSender;
+  llm?: LlmProvider;
+  assistantTimeoutMs?: number;
 }
 
 /** Builds the Express app without listening, so tests can drive it with supertest. */
-export function createApp({ config, firebase, logger, now, limits }: AppDeps): Express {
-  const services = createServices({ firebase, logger, ...(now ? { now } : {}) });
+export function createApp({ config, firebase, logger, now, limits, services: given, push, llm, assistantTimeoutMs }: AppDeps): Express {
+  const services =
+    given ??
+    createServices({
+      firebase,
+      logger,
+      push: push ?? noopPushSender,
+      llm: llm ?? createLlmProvider(config),
+      ...(now ? { now } : {}),
+      ...(assistantTimeoutMs ? { assistantTimeoutMs } : {}),
+    });
   const app = express();
 
   app.disable('x-powered-by');
@@ -54,6 +80,14 @@ export function createApp({ config, firebase, logger, now, limits }: AppDeps): E
 
   api.use('/auth', authRoutes({ service: services.auth, signupPerHour: limits?.signupPerHour ?? 10 }));
   api.use('/auth', pairRoutes(services.pairing, limits?.pairPer15Min ?? 10));
+  api.use(
+    '/device',
+    deviceRoutes(services.devices, services.location, {
+      windowMs: limits?.deviceLocationWindowMs ?? 10_000,
+      perWindow: limits?.deviceLocationPerWindow ?? 1,
+    }),
+  );
+  if (config.JOBS_TOKEN) api.use('/internal/jobs', jobsRoutes(services.jobs, config.JOBS_TOKEN));
   api.use('/me', requireAuth, meRoutes(services.me));
   api.use('/elders', requireAuth, eldersRoutes(services.elders));
 
@@ -67,6 +101,9 @@ export function createApp({ config, firebase, logger, now, limits }: AppDeps): E
   elderScope.use('/events', eventsRoutes(services.events));
   elderScope.use('/reports', reportsRoutes(services.reports));
   elderScope.use('/sos', sosRoutes(services.sos));
+  elderScope.use('/devices', devicesRoutes(services.devices));
+  elderScope.use('/', elderLocationRoutes(services.location));
+  elderScope.use('/assistant', assistantRoutes(services.assistant, limits?.assistantPerHour ?? 30));
   api.use(
     '/elders/:elderId',
     requireAuth,

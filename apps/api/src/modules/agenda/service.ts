@@ -14,6 +14,7 @@ import { conflict, forbidden, notFound } from '../../http/errors';
 import type { ElderDoc } from '../../repos';
 import type { OccurrencesRepo } from '../../repos/occurrences';
 import type { RoutinesRepo } from '../../repos/routines';
+import type { Notifier } from '../../push/notify';
 import type { EventsService } from '../events/service';
 import { toRoutine } from '../routines/serialize';
 import { toOccurrence } from './serialize';
@@ -22,13 +23,14 @@ interface Deps {
   routines: RoutinesRepo;
   occurrences: OccurrencesRepo;
   events: EventsService;
+  notifier: Notifier;
   now: Clock;
 }
 
 /** How many days back a caregiver may still confirm a task. */
 const CAREGIVER_BACKFILL_DAYS = 2;
 
-export function createAgendaService({ routines, occurrences, events, now }: Deps) {
+export function createAgendaService({ routines, occurrences, events, notifier, now }: Deps) {
   /** Spec §5: the elder confirms only today; a caregiver today and the previous two days. */
   function assertCanMarkDone(role: Express.AuthContext['role'], date: LocalDate, today: LocalDate): void {
     if (date > today) throw forbidden('Não é possível confirmar tarefas de dias futuros.');
@@ -88,6 +90,8 @@ export function createAgendaService({ routines, occurrences, events, now }: Deps
         ),
       );
       if (eventId === null) throw conflict('Esta tarefa já foi registrada.');
+      // Caregivers already know about their own confirmations; only the elder's are news.
+      if (doneBy === 'elder') await notifier.taskDone(elder, eventId, routine.name);
 
       const [item] = computeAgenda({
         routines: [toRoutine(routine)],
