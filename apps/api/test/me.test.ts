@@ -126,3 +126,41 @@ describe('push tokens', () => {
     expectApiError(response, 400, 'VALIDATION_ERROR');
   });
 });
+
+describe('DELETE /me', () => {
+  it('deletes the caregiver and the elders only they follow, and leaves shared elders to the others', async () => {
+    const leaving = await createCaregiver({ name: 'Quem sai' });
+    const staying = await createCaregiver({ name: 'Quem fica' });
+    const ownElderId = await createElderDoc([leaving.uid]);
+    const sharedElderId = await createElderDoc([leaving.uid, staying.uid], { name: 'Seu Antônio' });
+    await firebase.db.doc(`users/${leaving.uid}`).update({ elderIds: [ownElderId, sharedElderId] });
+    await firebase.db.doc(`users/${staying.uid}`).update({ elderIds: [sharedElderId] });
+
+    const own = `/api/v1/elders/${ownElderId}`;
+    await request(app).post(`${own}/contacts`).set(bearer(leaving.token)).send({ name: 'Ana', phone: '+5511999990000', relation: 'Filha' });
+    const device = await request(app).post(`${own}/devices`).set(bearer(leaving.token)).send({ label: 'Pulseira' });
+    const code = await request(app).post(`${own}/pairing-codes`).set(bearer(leaving.token));
+    expect([device.status, code.status]).toEqual([201, 201]);
+
+    expect((await request(app).delete('/api/v1/me').set(bearer(leaving.token))).status).toBe(204);
+
+    expect((await firebase.db.doc(`users/${leaving.uid}`).get()).exists).toBe(false);
+    await expect(firebase.auth.getUser(leaving.uid)).rejects.toMatchObject({ code: 'auth/user-not-found' });
+    expect(await repos.elders.get(ownElderId)).toBeNull();
+    expect((await firebase.db.collection(`elders/${ownElderId}/contacts`).get()).size).toBe(0);
+    expect((await firebase.db.doc(`deviceIndex/${device.body.deviceId}`).get()).exists).toBe(false);
+    expect((await firebase.db.collection('pairingCodes').where('elderId', '==', ownElderId).get()).size).toBe(0);
+
+    expect((await repos.elders.get(sharedElderId))?.caregiverIds).toEqual([staying.uid]);
+    const me = MeResponseSchema.parse((await request(app).get('/api/v1/me').set(bearer(staying.token))).body);
+    expect(me.role === 'caregiver' && me.elders.map((e) => e.id)).toEqual([sharedElderId]);
+  });
+
+  it('is only for caregivers', async () => {
+    const caregiver = await createCaregiver();
+    const elderId = await createElderDoc([caregiver.uid]);
+    expectApiError(await request(app).delete('/api/v1/me').set(bearer(await elderToken(elderId))), 403, 'FORBIDDEN');
+    expectApiError(await request(app).delete('/api/v1/me'), 401, 'UNAUTHENTICATED');
+    expect(await repos.elders.get(elderId)).not.toBeNull();
+  });
+});

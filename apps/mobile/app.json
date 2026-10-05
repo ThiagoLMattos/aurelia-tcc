@@ -10,10 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "app.aurelia.tcc",
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSContactsUsageDescription": "Precisamos acessar seus contatos para exibi-los na tela de telefone."
-      }
+      "supportsTablet": true
     },
     "android": {
       "package": "app.aurelia.tcc",
@@ -26,8 +23,10 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "READ_CONTACTS",
-        "WRITE_CONTACTS"
+        "READ_CONTACTS"
+      ],
+      "blockedPermissions": [
+        "android.permission.WRITE_CONTACTS"
       ]
     },
     "web": {
@@ -51,7 +50,7 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "Este aplicativo precisa de acesso aos seus contatos para realizar ligações de emergência."
+          "contactsPermission": "O Aurélia mostra os contatos do celular na tela Telefone, para ligar com um toque. Nada é alterado nem enviado."
         }
       ],
       [

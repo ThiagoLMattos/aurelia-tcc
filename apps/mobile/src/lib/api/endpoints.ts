@@ -36,6 +36,7 @@ export function createEndpoints(client: ApiClient): Api {
 
     getMe: () => request('GET', '/me', { schema: MeResponseSchema }),
     patchMe: (body) => request('PATCH', '/me', { body, schema: MeResponseSchema }),
+    deleteAccount: () => request('DELETE', '/me'),
     registerPushToken: (token) => request('POST', '/me/push-tokens', { body: { token } }),
     unregisterPushToken: (token) => request('DELETE', `/me/push-tokens/${encodeURIComponent(token)}`),
 

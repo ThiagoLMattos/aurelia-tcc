@@ -94,7 +94,7 @@ export function createApp({ config, firebase, logger, now, limits, services: giv
     }),
   );
   if (config.JOBS_TOKEN) api.use('/internal/jobs', jobsRoutes(services.jobs, config.JOBS_TOKEN));
-  api.use('/me', requireAuth, meRoutes(services.me));
+  api.use('/me', requireAuth, meRoutes(services.me, services.account));
   api.use('/elders', requireAuth, eldersRoutes(services.elders));
 
   // Everything under /elders/:elderId passes the access rule of spec §5 first.

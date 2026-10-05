@@ -47,6 +47,28 @@ describe('mock backend: sessions', () => {
   });
 });
 
+describe('mock backend: password and account', () => {
+  it('accepts a reset request for any well-formed e-mail and checks the password again', async () => {
+    const backend = createMockBackend();
+    await backend.auth.sendPasswordReset('ninguem@exemplo.com');
+    await expect(backend.auth.sendPasswordReset('não é e-mail')).rejects.toMatchObject({ code: 'auth/invalid-email' });
+
+    await backend.auth.signInWithPassword(MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD);
+    await backend.auth.confirmPassword(MOCK_DEMO_PASSWORD);
+    await expect(backend.auth.confirmPassword('errada')).rejects.toMatchObject({ code: 'auth/invalid-credential' });
+  });
+
+  it('deletes the caregiver and the elder only they follow', async () => {
+    const backend = createMockBackend();
+    await backend.auth.signInWithPassword(MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD);
+    await backend.api.deleteAccount();
+    await backend.auth.signOut();
+
+    await expect(backend.auth.signInWithPassword(MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD)).rejects.toMatchObject({ code: 'auth/invalid-credential' });
+    await expect(backend.api.pair({ code: MOCK_DEMO_PAIRING_CODE })).rejects.toBeTruthy();
+  });
+});
+
 describe('mock backend: onboarding and pairing', () => {
   it('lets a caregiver with no elder create one and then see it in /me', async () => {
     const { api, auth } = createMockBackend();

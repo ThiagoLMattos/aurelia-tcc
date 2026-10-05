@@ -24,6 +24,13 @@ export interface AuthAdapter {
   signInWithPassword(email: string, password: string): Promise<void>;
   signInWithCustomToken(token: string): Promise<void>;
   signOut(): Promise<void>;
+  /**
+   * Emails a link to choose a new password. Resolves the same whether or not the e-mail has an
+   * account, so the screen never tells a stranger which e-mails are registered.
+   */
+  sendPasswordReset(email: string): Promise<void>;
+  /** Checks the signed-in caregiver's password again, before something that cannot be undone. */
+  confirmPassword(password: string): Promise<void>;
   /** A valid ID token, refreshed when it is about to expire; null when signed out. */
   getIdToken(forceRefresh?: boolean): Promise<string | null>;
 }

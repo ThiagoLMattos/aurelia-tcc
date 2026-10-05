@@ -5,6 +5,7 @@ import type { Firebase } from './firebase';
 import { createNotifier } from './push/notify';
 import { noopPushSender, type PushSender } from './push/sender';
 import { createLogSmsSender, type SmsSender } from './sms/sender';
+import { createAccountService } from './modules/account/service';
 import { createAlertsService } from './modules/alerts/service';
 import { createAssistantService } from './modules/assistant/service';
 import { createAgendaService } from './modules/agenda/service';
@@ -80,6 +81,7 @@ export function createServices({
     notifier,
     auth: createAuthService({ auth: firebase.auth, users: repos.users, logger }),
     me: createMeService(repos),
+    account: createAccountService({ firebase, logger }),
     elders: createEldersService({ elders: repos.elders, devices: repos.devices, now }),
     pairing: createPairingService({ auth: firebase.auth, elders: repos.elders, codes: repos.pairingCodes, now, logger }),
     routines: createRoutinesService({ routines: repos.routines, now }),

@@ -19,6 +19,7 @@ import type { Clock } from '../src/clock';
 import { loadConfig } from '../src/config';
 import { initFirebase, type Firebase } from '../src/firebase';
 import { createLogger } from '../src/logger';
+import { createAccountService } from '../src/modules/account/service';
 import { createMissedTasksJob } from '../src/modules/jobs/missedTasks';
 import { elderUid } from '../src/modules/pairing/service';
 import { createServices } from '../src/services';
@@ -78,28 +79,14 @@ const isNotFound = (error: unknown) =>
   typeof error === 'object' && error !== null && NOT_FOUND_CODES.has((error as { code?: unknown }).code);
 
 /** Removes the demo caregiver, its elders (with everything under them), trackers and pairing codes. */
-export async function wipeDemo({ db, auth }: Firebase): Promise<void> {
+export async function wipeDemo(firebase: Firebase, logger: Logger): Promise<void> {
   let uid: string | null = null;
   try {
-    uid = (await auth.getUserByEmail(DEMO_EMAIL)).uid;
+    uid = (await firebase.auth.getUserByEmail(DEMO_EMAIL)).uid;
   } catch (error) {
     if (!isNotFound(error)) throw error;
   }
-  if (!uid) return;
-
-  const user = await db.collection('users').doc(uid).get();
-  const elderIds: string[] = user.exists ? (user.data()?.elderIds ?? []) : [];
-  for (const elderId of elderIds) {
-    const ref = db.collection('elders').doc(elderId);
-    for (const device of (await ref.collection('devices').get()).docs) await db.collection('deviceIndex').doc(device.id).delete();
-    for (const code of (await db.collection('pairingCodes').where('elderId', '==', elderId).get()).docs) await code.ref.delete();
-    await auth.deleteUser(elderUid(elderId)).catch((error: unknown) => {
-      if (!isNotFound(error)) throw error;
-    });
-    await db.recursiveDelete(ref);
-  }
-  await db.collection('users').doc(uid).delete();
-  await auth.deleteUser(uid);
+  if (uid) await createAccountService({ firebase, logger }).deleteCaregiver(uid);
 }
 
 /** A point `northM` metres north and `eastM` metres east of `from`. */
@@ -121,7 +108,7 @@ export async function seedDemo({ firebase, logger, password, now: realNow = () =
     current = date;
   };
 
-  await wipeDemo(firebase);
+  await wipeDemo(firebase, logger);
 
   const services = createServices({ firebase, logger, now: clock });
   const accountPassword = password ?? randomBytes(9).toString('base64url');
