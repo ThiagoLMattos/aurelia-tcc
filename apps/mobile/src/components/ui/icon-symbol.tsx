@@ -61,6 +61,7 @@ const MAPPING = {
   'puzzlepiece.fill': 'extension',
   'square.grid.2x2.fill': 'grid-view',
   'circle.grid.2x2.fill': 'apps',
+  'number': 'tag',
 
   // ── Misc ──────────────────────────────────────────────────────────────────
   'gear': 'settings',

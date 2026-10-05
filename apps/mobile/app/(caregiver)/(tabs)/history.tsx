@@ -197,6 +197,24 @@ function presentEvent(event: Event, timezone: string): Presentation {
           ],
         };
       }
+      if (payload.game === 'tictactoe') {
+        return {
+          tone: GAME,
+          title: LABELS_PT.game.tictactoe,
+          summary:
+            payload.outcome === 'win'
+              ? 'Venceu o celular'
+              : payload.outcome === 'draw'
+                ? 'Empatou com o celular'
+                : 'O celular venceu desta vez',
+          rows: [
+            { label: 'Terminado às', value: at },
+            { label: 'Nível', value: LABELS_PT.ticTacToeLevel[payload.level] },
+            { label: 'Resultado', value: LABELS_PT.ticTacToeOutcome[payload.outcome] },
+            duration,
+          ],
+        };
+      }
       return {
         tone: GAME,
         title: LABELS_PT.game.sequence,

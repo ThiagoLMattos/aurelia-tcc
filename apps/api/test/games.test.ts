@@ -17,9 +17,14 @@ describe('POST /elders/:elderId/games', () => {
     const { eventId } = GameResultResponseSchema.parse(memory.body);
     const sequence = await request(app).post(path).set(bearer(elderToken)).send({ game: 'sequence', longest: 4, durationSec: 90 });
     expect(sequence.status).toBe(201);
+    const ticTacToe = await request(app)
+      .post(path)
+      .set(bearer(elderToken))
+      .send({ game: 'tictactoe', level: 'normal', outcome: 'win', durationSec: 40 });
+    expect(ticTacToe.status).toBe(201);
 
     const timeline = await request(app).get(`/api/v1/elders/${elderId}/events?types=gamePlayed`).set(bearer(caregiver.token));
-    expect(timeline.body.items).toHaveLength(2);
+    expect(timeline.body.items).toHaveLength(3);
     expect(timeline.body.items.find((e: { id: string }) => e.id === eventId)).toMatchObject({
       type: 'gamePlayed',
       at: now().toISOString(),
@@ -28,10 +33,11 @@ describe('POST /elders/:elderId/games', () => {
 
     const report = await request(app).get(`/api/v1/elders/${elderId}/reports/weekly`).set(bearer(caregiver.token));
     expect(report.body.games).toEqual({
-      sessions: 2,
-      minutes: 4,
+      sessions: 3,
+      minutes: 5,
       memory: { played: 1, bestAccuracyPct: 75, mostPairs: 6 },
       sequence: { played: 1, best: 4 },
+      ticTacToe: { played: 1, wins: 1, draws: 0 },
     });
   });
 

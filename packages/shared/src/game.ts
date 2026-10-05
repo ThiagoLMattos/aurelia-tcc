@@ -2,9 +2,17 @@ import { z } from 'zod';
 
 import { IdSchema } from './primitives';
 
-/** The memory games on the elder's phone. */
-export const GameIdSchema = z.enum(['memory', 'sequence']);
+/** The games on the elder's phone. */
+export const GameIdSchema = z.enum(['memory', 'sequence', 'tictactoe']);
 export type GameId = z.infer<typeof GameIdSchema>;
+
+/** How hard the phone plays Jogo da Velha. */
+export const TicTacToeLevelSchema = z.enum(['easy', 'normal']);
+export type TicTacToeLevel = z.infer<typeof TicTacToeLevelSchema>;
+
+/** How a Jogo da Velha ended, from the elder's side. */
+export const TicTacToeOutcomeSchema = z.enum(['win', 'draw', 'loss']);
+export type TicTacToeOutcome = z.infer<typeof TicTacToeOutcomeSchema>;
 
 /** Longest a single game may report (2 h); anything above is a clock left running, not play. */
 const DurationSecSchema = z.number().int().min(1).max(7_200);
@@ -25,13 +33,28 @@ const sequenceFields = {
   durationSec: DurationSecSchema,
 };
 
+const ticTacToeFields = {
+  game: z.literal('tictactoe'),
+  level: TicTacToeLevelSchema,
+  outcome: TicTacToeOutcomeSchema,
+  durationSec: DurationSecSchema,
+};
+
+/** The fields each game sends besides `game` and `durationSec`. */
+const GAME_FIELDS = {
+  memory: ['pairs', 'moves'],
+  sequence: ['longest'],
+  tictactoe: ['level', 'outcome'],
+} as const satisfies Record<GameId, readonly string[]>;
+const ALL_FIELDS = Object.values(GAME_FIELDS).flat();
+
 const enoughMoves = (result: { game: GameId; pairs?: number | undefined; moves?: number | undefined }) =>
   result.game !== 'memory' || (result.moves ?? 0) >= (result.pairs ?? 0);
 const enoughMovesMessage = { message: 'Cada par precisa de ao menos uma jogada.', path: ['moves'] };
 
 /** What a finished game stores in the timeline (`gamePlayed` event). */
 export const GamePlayedPayloadSchema = z
-  .discriminatedUnion('game', [z.object(memoryFields), z.object(sequenceFields)])
+  .discriminatedUnion('game', [z.object(memoryFields), z.object(sequenceFields), z.object(ticTacToeFields)])
   .refine(enoughMoves, enoughMovesMessage);
 export type GamePlayedPayload = z.infer<typeof GamePlayedPayloadSchema>;
 
@@ -45,24 +68,30 @@ export const GameResultBodySchema = z
     pairs: memoryFields.pairs.optional(),
     moves: memoryFields.moves.optional(),
     longest: sequenceFields.longest.optional(),
+    level: ticTacToeFields.level.optional(),
+    outcome: ticTacToeFields.outcome.optional(),
     durationSec: DurationSecSchema,
   })
   .superRefine((body, ctx) => {
-    const fields = body.game === 'memory' ? ['pairs', 'moves'] : ['longest'];
-    const others = body.game === 'memory' ? ['longest'] : ['pairs', 'moves'];
-    for (const field of fields) {
-      if (body[field as keyof typeof body] === undefined) ctx.addIssue({ code: 'custom', message: 'Campo obrigatório.', path: [field] });
-    }
-    for (const field of others) {
-      if (body[field as keyof typeof body] !== undefined) ctx.addIssue({ code: 'custom', message: 'Campo de outro jogo.', path: [field] });
+    const own: readonly string[] = GAME_FIELDS[body.game];
+    for (const field of ALL_FIELDS) {
+      const present = body[field] !== undefined;
+      if (own.includes(field) && !present) ctx.addIssue({ code: 'custom', message: 'Campo obrigatório.', path: [field] });
+      if (!own.includes(field) && present) ctx.addIssue({ code: 'custom', message: 'Campo de outro jogo.', path: [field] });
     }
     if (!enoughMoves(body)) ctx.addIssue({ code: 'custom', ...enoughMovesMessage });
   })
-  .transform((body): GamePlayedPayload =>
-    body.game === 'memory'
-      ? { game: 'memory', pairs: body.pairs as number, moves: body.moves as number, durationSec: body.durationSec }
-      : { game: 'sequence', longest: body.longest as number, durationSec: body.durationSec },
-  );
+  .transform((body): GamePlayedPayload => {
+    const { durationSec } = body;
+    switch (body.game) {
+      case 'memory':
+        return { game: 'memory', pairs: body.pairs as number, moves: body.moves as number, durationSec };
+      case 'sequence':
+        return { game: 'sequence', longest: body.longest as number, durationSec };
+      case 'tictactoe':
+        return { game: 'tictactoe', level: body.level as TicTacToeLevel, outcome: body.outcome as TicTacToeOutcome, durationSec };
+    }
+  });
 export type GameResultBody = z.input<typeof GameResultBodySchema>;
 
 export const GameResultResponseSchema = z.object({ eventId: IdSchema });

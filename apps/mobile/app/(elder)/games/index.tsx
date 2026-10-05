@@ -11,7 +11,7 @@ import { PatientColors, PatientTypography, Shadow } from '@/theme';
 const GAMES: { id: string; name: string; image: number; href: Href | null }[] = [
   { id: '1', name: 'Jogo da Memória', image: require('../../../assets/images/MemoriaIcon.png'), href: '/(elder)/games/memory' },
   { id: '4', name: 'Memória Sequencial', image: require('../../../assets/images/GeniusIcon.png'), href: '/(elder)/games/sequence' },
-  { id: '2', name: 'Jogo da Velha', image: require('../../../assets/images/JogoVelhaIcon.png'), href: null },
+  { id: '2', name: 'Jogo da Velha', image: require('../../../assets/images/JogoVelhaIcon.png'), href: '/(elder)/games/tictactoe' },
   { id: '3', name: 'Palavras Cruzadas', image: require('../../../assets/images/PalavraCruzadaIcon.png'), href: null },
 ];
 

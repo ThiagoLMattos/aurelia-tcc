@@ -11,6 +11,7 @@ import {
 } from '@/elder/games/memory';
 import { createResultSender, elapsedSeconds } from '@/elder/games/results';
 import { finishShowing, newSequenceGame, nextRound, pressPad, replay } from '@/elder/games/sequence';
+import { chooseMove, newTicTacToeGame, playElder, playPhone, winningLine } from '@/elder/games/ticTacToe';
 import { ApiError } from '@/lib/api/client';
 
 /** A deterministic "random" that walks through the given values. */
@@ -122,5 +123,50 @@ describe('game results', () => {
     createResultSender({ send: refused, delaysMs: [1_000] }).record('elder-1', result);
     await vi.advanceTimersByTimeAsync(5_000);
     expect(refused).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('jogo da velha', () => {
+  const X = 'X' as const;
+  const O = 'O' as const;
+  const _ = null;
+
+  it('alternates turns and ignores taps on taken squares or out of turn', () => {
+    let game = newTicTacToeGame();
+    game = playElder(game, 4);
+    expect(game.board[4]).toBe('X');
+    expect(game.turn).toBe('phone');
+    expect(playElder(game, 0)).toBe(game);
+    game = playPhone(game, 'easy', sequenceOf(0));
+    expect(game.turn).toBe('elder');
+    expect(game.board.filter((c) => c === 'O')).toHaveLength(1);
+    const taken = game.board.findIndex((c) => c === 'O');
+    expect(playElder(game, taken)).toBe(game);
+  });
+
+  it('ends with the winning line when the elder gets three in a row', () => {
+    const game = playElder({ board: [X, X, _, O, O, _, _, _, _], turn: 'elder', outcome: null, line: null }, 2);
+    expect(game).toMatchObject({ outcome: 'win', line: [0, 1, 2] });
+    expect(playPhone(game, 'normal')).toBe(game);
+  });
+
+  it('calls a full board with no line a draw', () => {
+    const game = playElder({ board: [X, O, X, X, O, O, O, X, _], turn: 'elder', outcome: null, line: null }, 8);
+    expect(game).toMatchObject({ outcome: 'draw', line: null });
+  });
+
+  it('the phone takes a win on both levels, and blocks only on normal', () => {
+    const canWin = [O, O, _, X, X, _, X, _, _];
+    expect(chooseMove(canWin, 'easy', sequenceOf(0))).toBe(2);
+    expect(chooseMove(canWin, 'normal')).toBe(2);
+    const mustBlock = [X, X, _, _, O, _, _, _, _];
+    expect(chooseMove(mustBlock, 'normal')).toBe(2);
+    expect(chooseMove(mustBlock, 'easy', sequenceOf(0.99))).toBe(8);
+    expect(winningLine(playPhone({ board: [O, O, _, X, X, _, X, _, _], turn: 'phone', outcome: null, line: null }, 'easy').board)).toMatchObject({ mark: 'O' });
+  });
+
+  it('on normal takes the centre first, then a corner', () => {
+    expect(chooseMove([X, _, _, _, _, _, _, _, _], 'normal')).toBe(4);
+    expect([2, 6, 8]).toContain(chooseMove([X, _, _, _, O, _, _, _, _], 'normal'));
   });
 });
