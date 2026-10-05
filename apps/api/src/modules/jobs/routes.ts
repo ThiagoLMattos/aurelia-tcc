@@ -23,5 +23,13 @@ export function jobsRoutes(service: JobsService, token: string): Router {
     res.json(summary);
   });
 
+  /** Only the alert escalation, for a Cloud Scheduler job that runs every minute. */
+  router.post('/escalate', async (req, res) => {
+    if (!tokenMatches(req.header('x-jobs-token'), token)) throw unauthenticated('Token de jobs inválido.');
+    const alertsEscalated = await service.escalateAlerts();
+    if (alertsEscalated === null) throw conflict('A escalação já está em execução.');
+    res.json({ alertsEscalated });
+  });
+
   return router;
 }

@@ -287,6 +287,17 @@ describe('tracker offline check', () => {
   });
 });
 
+describe('POST /internal/jobs/escalate', () => {
+  const path = '/api/v1/internal/jobs/escalate';
+  it('needs the jobs token and runs only the escalation', async () => {
+    expectApiError(await request(app).post(path), 401, 'UNAUTHENTICATED');
+    expectApiError(await request(app).post(path).set('X-Jobs-Token', 'nope'), 401, 'UNAUTHENTICATED');
+    const response = await request(app).post(path).set('X-Jobs-Token', 'test-jobs-token-0123456789');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ alertsEscalated: expect.any(Number) });
+  });
+});
+
 describe('POST /internal/jobs/run', () => {
   const path = '/api/v1/internal/jobs/run';
   it('needs the jobs token', async () => {
@@ -297,7 +308,7 @@ describe('POST /internal/jobs/run', () => {
   it('runs the jobs and summarises them', async () => {
     const response = await request(app).post(path).set('X-Jobs-Token', 'test-jobs-token-0123456789');
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ missedTasks: expect.any(Number), devicesOffline: expect.any(Number) });
+    expect(response.body).toEqual({ missedTasks: expect.any(Number), devicesOffline: expect.any(Number), alertsEscalated: expect.any(Number) });
   });
 
   it('is not mounted without a token configured', async () => {

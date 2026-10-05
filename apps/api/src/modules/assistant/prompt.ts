@@ -58,8 +58,17 @@ function summariseEvent(event: Event): Record<string, unknown> {
       return { ...base, task: event.payload.routineName, doneBy: event.payload.doneBy, undone: event.payload.undoneAt !== null };
     case 'taskMissed':
       return { ...base, task: event.payload.routineName, scheduledTime: event.payload.scheduledTime };
+    case 'sos':
+      return { ...base, answered: event.payload.acknowledgedAt !== null, contactsTexted: event.payload.escalatedAt !== null };
     case 'geofenceExit':
-      return { ...base, distanceM: event.payload.distanceM, resolved: event.payload.resolvedAt !== null };
+      return {
+        ...base,
+        distanceM: event.payload.distanceM,
+        resolved: event.payload.resolvedAt !== null,
+        contactsTexted: event.payload.escalatedAt !== null,
+      };
+    case 'contactsAlerted':
+      return { ...base, alertType: event.payload.alertType, contactsReached: event.payload.sent.length, contactsFailed: event.payload.failed.length };
     case 'deviceOffline':
       return { ...base, lastSeenAt: event.payload.lastSeenAt };
     case 'gamePlayed':

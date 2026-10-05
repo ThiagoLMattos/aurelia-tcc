@@ -29,6 +29,7 @@ const PUBLIC_ROUTES = new Set([
   'POST /auth/pair',
   'POST /device/location',
   'POST /internal/jobs/run',
+  'POST /internal/jobs/escalate',
 ]);
 
 const parentOf = new Map<object, { parent: object; path: string }>();

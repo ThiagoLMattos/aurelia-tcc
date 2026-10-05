@@ -18,8 +18,10 @@ import { devicesRoutes } from './modules/devices/routes';
 import { jobsRoutes } from './modules/jobs/routes';
 import { deviceRoutes, elderLocationRoutes } from './modules/location/routes';
 import { noopPushSender, type PushSender } from './push/sender';
+import { createSmsSender, type SmsSender } from './sms/sender';
 import { agendaRoutes } from './modules/agenda/routes';
 import { authRoutes } from './modules/auth/routes';
+import { alertsRoutes } from './modules/alerts/routes';
 import { contactsRoutes } from './modules/contacts/routes';
 import { elderRoutes, eldersRoutes } from './modules/elders/routes';
 import { eventsRoutes } from './modules/events/routes';
@@ -47,18 +49,20 @@ export interface AppDeps {
   /** Pass the graph the scheduler also uses; otherwise one is built from the other deps. */
   services?: Services;
   push?: PushSender;
+  sms?: SmsSender;
   llm?: LlmProvider;
   assistantTimeoutMs?: number;
 }
 
 /** Builds the Express app without listening, so tests can drive it with supertest. */
-export function createApp({ config, firebase, logger, now, limits, services: given, push, llm, assistantTimeoutMs }: AppDeps): Express {
+export function createApp({ config, firebase, logger, now, limits, services: given, push, sms, llm, assistantTimeoutMs }: AppDeps): Express {
   const services =
     given ??
     createServices({
       firebase,
       logger,
       push: push ?? noopPushSender,
+      sms: sms ?? createSmsSender(config, logger),
       llm: llm ?? createLlmProvider(config),
       ...(now ? { now } : {}),
       ...(assistantTimeoutMs ? { assistantTimeoutMs } : {}),
@@ -101,6 +105,7 @@ export function createApp({ config, firebase, logger, now, limits, services: giv
   elderScope.use('/agenda', agendaRoutes(services.agenda));
   elderScope.use('/contacts', contactsRoutes(services.contacts));
   elderScope.use('/events', eventsRoutes(services.events));
+  elderScope.use('/events', alertsRoutes(services.alerts));
   elderScope.use('/reports', reportsRoutes(services.reports));
   elderScope.use('/sos', sosRoutes(services.sos));
   elderScope.use('/games', gamesRoutes(services.games));

@@ -33,6 +33,7 @@ flowchart LR
   FB[("Firebase<br/>Auth + Firestore")]
   LLM["Groq<br/>(assistente)"]
   PUSH["Expo Push"]
+  SMS["Twilio<br/>(SMS)"]
   SCH["Cloud Scheduler"]
 
   C -- "HTTPS + token" --> API
@@ -43,12 +44,15 @@ flowchart LR
   API -- "alertas" --> PUSH
   PUSH --> C
   PUSH --> E
+  API -- "sem resposta: contatos de emergência" --> SMS
   SCH -- "a cada 5 min" --> API
 ```
 
 Os apps falam **só com a API**; apenas ela lê e escreve no Firestore (as regras do Firestore negam todo
 o resto). O idoso entra no celular com um código gerado pelo cuidador; o rastreador manda a posição e a
-API decide se saiu da zona segura e quem avisar. O contrato entre as partes (schemas zod) está em
+API decide se saiu da zona segura e quem avisar. Se ninguém responder a um SOS ou a uma saída da zona
+segura em 5 minutos, e o cuidador tiver escolhido "eu, depois os contatos", a API manda SMS aos
+contatos de emergência. O contrato entre as partes (schemas zod) está em
 `packages/shared`.
 
 ## Estrutura do monorepo
@@ -151,6 +155,7 @@ O Aurélia une as duas pontas dessa rotina em um único sistema:
 | App mobile | React Native (Expo) |
 | Backend | Node.js, Firebase |
 | Inteligência artificial | Groq API |
+| Alertas aos contatos de emergência | Twilio (SMS) |
 | Hardware / geofencing | ESP32, GPS NEO-6M |
 | Landing page | HTML5, CSS3, JavaScript |
 

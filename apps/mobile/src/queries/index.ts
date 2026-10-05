@@ -1,6 +1,8 @@
 import {
+  ESCALATION_WINDOW_MIN,
   localDateOf,
   type AgendaResponse,
+  type AlertEvent,
   type AssistantTurn,
   type CreateContactBody,
   type CreateElderBody,
@@ -111,18 +113,43 @@ export function useLatestExit(elderId: string, enabled: boolean) {
   });
 }
 
+/**
+ * Whether an alert nobody answers will be texted to the emergency contacts, as far as this caregiver
+ * can tell: they chose "me, then the contacts" and the elder has an emergency contact.
+ */
+export function useEscalatesToContacts(elderId: string): boolean {
+  const { data } = useMe();
+  const contacts = useContacts(elderId);
+  const chosen = data?.role === 'caregiver' && data.caregiver.settings.escalation === 'meThenContacts';
+  return chosen && (contacts.data?.items.some((contact) => contact.isEmergency) ?? false);
+}
+
+/**
+ * The latest SOS from the last ESCALATION_WINDOW_MIN that no caregiver has answered yet, so Início
+ * can lead back to it when the push was missed.
+ */
+export function useOpenSos(elderId: string): AlertEvent | null {
+  const events = useEvents(elderId, { types: ['sos'] }, { live: true });
+  const now = useNow();
+  const latest = events.data?.pages[0]?.items[0];
+  if (latest?.type !== 'sos' || latest.payload.acknowledgedAt) return null;
+  return now.getTime() - Date.parse(latest.at) <= ESCALATION_WINDOW_MIN * 60_000 ? latest : null;
+}
+
 export interface EventsFilter {
   from?: LocalDate;
   to?: LocalDate;
   types?: EventType[];
 }
 
-export function useEvents(elderId: string, filter: EventsFilter) {
+/** `live` refetches every 30 s, for screens watching an alert someone else may answer meanwhile. */
+export function useEvents(elderId: string, filter: EventsFilter, { live = false }: { live?: boolean } = {}) {
   return useInfiniteQuery({
     queryKey: queryKeys.events(elderId, filter),
     queryFn: ({ pageParam }) => api.listEvents(elderId, { ...filter, limit: 50, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
+    ...(live ? { refetchInterval: LIVE_REFETCH_MS } : {}),
   });
 }
 
@@ -259,6 +286,14 @@ export function useResolveGeofence(elderId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (body: ResolveGeofenceBody) => api.resolveGeofence(elderId, body),
+    onSuccess: () => refreshElder(client, elderId),
+  });
+}
+
+export function useAcknowledgeAlert(elderId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (eventId: string) => api.acknowledgeAlert(elderId, eventId),
     onSuccess: () => refreshElder(client, elderId),
   });
 }

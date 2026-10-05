@@ -1,8 +1,11 @@
-import { EventSchema, type Event, type EventType, type LocalDate } from '@aurelia/shared';
+import { AlertTypeSchema, EventSchema, type AlertType, type Event, type EventInput, type EventType, type LocalDate } from '@aurelia/shared';
 import { FieldPath, Timestamp, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 
-/** What a caller says happened: the event without the id and the moment it is stored with. */
-export type EventDraft = Event extends infer E ? (E extends Event ? Omit<E, 'id' | 'at' | 'date'> : never) : never;
+/**
+ * What a caller says happened: the event without the id and the moment it is stored with. Payload
+ * fields with a default (an alert's `acknowledgedAt`, …) may be left out; reads fill them in.
+ */
+export type EventDraft = EventInput extends infer E ? (E extends EventInput ? Omit<E, 'id' | 'at' | 'date'> : never) : never;
 
 /** An event ready to store: `at` is the instant, `date` the local date in the elder's timezone. */
 export type EventRecord = EventDraft & { at: Date; date: LocalDate };
@@ -35,16 +38,10 @@ export const eventData = (record: EventRecord): EventData => ({
   payload: { ...record.payload },
 });
 
-function toEvent(snap: FirebaseFirestore.QueryDocumentSnapshot): Event {
-  const data = snap.data() as EventData;
-  return EventSchema.parse({
-    id: snap.id,
-    type: data.type,
-    at: data.at.toDate().toISOString(),
-    date: data.date,
-    payload: data.payload,
-  });
-}
+const parseEvent = (id: string, data: EventData): Event =>
+  EventSchema.parse({ id, type: data.type, at: data.at.toDate().toISOString(), date: data.date, payload: data.payload });
+
+const toEvent = (snap: FirebaseFirestore.QueryDocumentSnapshot): Event => parseEvent(snap.id, snap.data() as EventData);
 
 export const encodeCursor = (at: Timestamp, id: string): string =>
   Buffer.from(JSON.stringify([at.toMillis(), id])).toString('base64url');
@@ -58,6 +55,8 @@ export function decodeCursor(cursor: string): { at: Timestamp; id: string } | nu
     return null;
   }
 }
+
+const isAlert = (type: EventType): type is AlertType => AlertTypeSchema.safeParse(type).success;
 
 export function createEventsRepo(db: Firestore) {
   const col = (elderId: string) => db.collection('elders').doc(elderId).collection('events');
@@ -74,7 +73,7 @@ export function createEventsRepo(db: Firestore) {
 
     async get(elderId: string, eventId: string): Promise<Event | null> {
       const snap = await col(elderId).doc(eventId).get();
-      return snap.exists ? toEvent(snap as FirebaseFirestore.QueryDocumentSnapshot) : null;
+      return snap.exists ? parseEvent(snap.id, snap.data() as EventData) : null;
     },
 
     /**
@@ -97,6 +96,41 @@ export function createEventsRepo(db: Firestore) {
           'payload.resolvedNote': resolution.note,
         });
         return 'resolved';
+      });
+    },
+
+    /**
+     * A caregiver says they are handling an alert (SOS or safe-zone exit). The first one wins: a later
+     * acknowledgement leaves the event as it is, so the others still see who answered first.
+     */
+    async acknowledge(elderId: string, eventId: string, by: { at: Date; name: string }): Promise<Event | null> {
+      const ref = col(elderId).doc(eventId);
+      return db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const data = snap.data() as EventData | undefined;
+        if (!data || !isAlert(data.type)) return null;
+        if (data.payload.acknowledgedAt) return parseEvent(snap.id, data);
+        const acknowledged = { acknowledgedAt: by.at.toISOString(), acknowledgedBy: by.name };
+        tx.update(ref, { 'payload.acknowledgedAt': acknowledged.acknowledgedAt, 'payload.acknowledgedBy': acknowledged.acknowledgedBy });
+        return parseEvent(snap.id, { ...data, payload: { ...data.payload, ...acknowledged } });
+      });
+    },
+
+    /**
+     * Marks an alert as escalated if it still needs it: not acknowledged, not resolved, not escalated
+     * before. Check and write share a transaction, so two job runs can never text the contacts twice.
+     * Returns the alert as it was when claimed, or null when there is nothing to do.
+     */
+    async claimEscalation(elderId: string, eventId: string, at: Date): Promise<Event | null> {
+      const ref = col(elderId).doc(eventId);
+      return db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const data = snap.data() as EventData | undefined;
+        if (!data || !isAlert(data.type)) return null;
+        const { acknowledgedAt, resolvedAt, escalatedAt } = data.payload;
+        if (acknowledgedAt || resolvedAt || escalatedAt) return null;
+        tx.update(ref, { 'payload.escalatedAt': at.toISOString() });
+        return parseEvent(snap.id, data);
       });
     },
 

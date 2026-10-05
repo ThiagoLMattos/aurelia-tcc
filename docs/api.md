@@ -66,6 +66,17 @@ Every `/elders/:elderId/**` route first checks access: a caregiver must be in th
 | `POST /elders/:elderId/sos` | elder | `SosBody` → `201 { eventId }`; urgent push to every caregiver |
 | `POST /elders/:elderId/games` | elder | `GameResultBody` → `201 { eventId }`; a finished game, stored as a `gamePlayed` event (no push) |
 | `POST /elders/:elderId/geofence/resolve` | caregiver | `ResolveGeofenceBody` → updated `geofenceExit` event; does not change the location state |
+| `POST /elders/:elderId/events/:eventId/acknowledge` | caregiver | no body → updated `sos` / `geofenceExit` event with `acknowledgedAt` and `acknowledgedBy`; the first caregiver wins, repeating it is harmless; `404` for any other event |
+
+### Escalation
+
+When at least one of the elder's caregivers has `settings.escalation: 'meThenContacts'`, an `sos` or
+`geofenceExit` that nobody acknowledged (or resolved) within `ESCALATE_AFTER_MIN` (5) minutes is
+texted to every emergency contact, once. A safe-zone exit only escalates while the elder is still
+outside and it is the latest exit; alerts older than `ESCALATION_WINDOW_MIN` (60) are left alone. The
+alert gets `escalatedAt`, the timeline a `contactsAlerted` event (who the SMS reached and who it did
+not), and every caregiver a `contactsAlerted` push. SMS go through Twilio when `SMS_PROVIDER=twilio`;
+the default, `log`, only logs them.
 
 ## Trackers and location
 
@@ -86,9 +97,10 @@ Every `/elders/:elderId/**` route first checks access: a caregiver must be in th
 
 | Endpoint | Who | Notes |
 |---|---|---|
-| `POST /internal/jobs/run` | `X-Jobs-Token` | only mounted when `JOBS_TOKEN` is set; runs the missed-task and device-offline checks; `409` if a run is in progress |
+| `POST /internal/jobs/run` | `X-Jobs-Token` | only mounted when `JOBS_TOKEN` is set; runs the missed-task, device-offline and escalation checks; `409` if a run is in progress |
+| `POST /internal/jobs/escalate` | `X-Jobs-Token` | only the escalation check, for a scheduler that calls it every minute → `{ alertsEscalated }`; `409` if one is in progress |
 
 ## Push `data`
 
 Every push carries `{ type, elderId, eventId? }` (`PushData`), with `type` one of `sos`,
-`geofenceExit`, `geofenceReturn`, `taskMissed`, `taskDone`, `deviceOffline`.
+`geofenceExit`, `geofenceReturn`, `taskMissed`, `taskDone`, `deviceOffline`, `contactsAlerted`.

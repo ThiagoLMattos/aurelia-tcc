@@ -5,6 +5,9 @@
 # The service account needs roles/datastore.user, roles/firebaseauth.admin and, to mint pairing
 # tokens, roles/iam.serviceAccountTokenCreator on itself. With minScale 0 the jobs are called by
 # Cloud Scheduler: POST /api/v1/internal/jobs/run with the X-Jobs-Token header, every 5 minutes.
+# That run also texts unanswered alerts to the emergency contacts, 5 to 10 minutes after them; for
+# 5 to 6, add a second job: POST /api/v1/internal/jobs/escalate, same header, every minute.
+# SMS go through Twilio when SMS_PROVIDER is twilio (otherwise they are only logged).
 #
 #   IMAGE       REGION-docker.pkg.dev/PROJECT_ID/aurelia/api:TAG
 #   PROJECT_ID  the Firebase / Google Cloud project id
@@ -52,6 +55,17 @@ spec:
             - name: JOBS_TOKEN
               valueFrom:
                 secretKeyRef: { name: aurelia-jobs-token, key: latest }
+            # Leave SMS_PROVIDER at log (and drop the three Twilio entries) to run without SMS.
+            - { name: SMS_PROVIDER, value: twilio }
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef: { name: aurelia-twilio-account-sid, key: latest }
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: aurelia-twilio-auth-token, key: latest }
+            - name: TWILIO_FROM
+              valueFrom:
+                secretKeyRef: { name: aurelia-twilio-from, key: latest }
           startupProbe:
             httpGet: { path: /api/v1/health }
             periodSeconds: 3

@@ -194,9 +194,13 @@ export async function seedDemo({ firebase, logger, password, now: realNow = () =
     }
   }
 
-  // Two days ago: an SOS from the park.
+  // Two days ago: an SOS from the park, which the caregiver answers two minutes later.
   const sosAt = instantOf(addDays(today, -2), '16:05', TIMEZONE);
-  steps.push({ at: sosAt, run: async () => void (await services.sos.trigger(await elder(), offset(HOME, 400, 250))) });
+  let sosId = '';
+  steps.push(
+    { at: sosAt, run: async () => void (sosId = (await services.sos.trigger(await elder(), offset(HOME, 400, 250))).id) },
+    { at: new Date(sosAt.getTime() + 2 * MINUTE_MS), run: async () => void (await services.alerts.acknowledge(await elder(), sosId, caregiverId)) },
+  );
 
   // Most mornings she plays a little: the memory game, the colour sequence getting slowly longer, a
   // round of Jogo da Velha against the phone, and a crossword in the afternoon.

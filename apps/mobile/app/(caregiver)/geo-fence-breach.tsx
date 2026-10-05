@@ -5,6 +5,8 @@
  * gestureEnabled: false is set in the layout — do not change.
  * Resolving ("ela está segura") needs a deliberate two-step confirmation (tap link → confirm).
  *
+ * "Estou cuidando disso" acknowledges the exit, so the emergency contacts are not texted for it.
+ *
  * Opened from the push for `geofenceExit` or from the banner on Início. Everything on it comes from
  * the API: how long she has been outside (`locationState.since`), where she was last seen, and
  * who to call (the elder's contacts, emergency ones first).
@@ -26,14 +28,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { ErrorState, FormError, LoadingState } from '@/components';
+import { AlertResponse, ErrorState, FormError, LoadingState } from '@/components';
 import { SafeZoneMap } from '@/components/SafeZoneMap';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
 import { ApiError } from '@/lib/api/client';
 import { friendlyError } from '@/lib/errors';
 import { clockTime, firstName, formatElapsed, formatPhone, formatStopwatch, mapsUrl } from '@/lib/format';
-import { useContacts, useCurrentElder, useLatestExit, useLocation, useNow, useResolveGeofence } from '@/queries';
+import {
+  useAcknowledgeAlert,
+  useContacts,
+  useCurrentElder,
+  useEscalatesToContacts,
+  useLatestExit,
+  useLocation,
+  useNow,
+  useResolveGeofence,
+} from '@/queries';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 // ─── Map ──────────────────────────────────────────────────────────────────────
@@ -101,6 +112,8 @@ export default function GeoFenceBreachScreen() {
   const latestExit = useLatestExit(elder.id, true);
   const contacts = useContacts(elder.id);
   const resolve = useResolveGeofence(elder.id);
+  const acknowledge = useAcknowledgeAlert(elder.id);
+  const escalates = useEscalatesToContacts(elder.id);
   const now = useNow(1000);
   const [resolveError, setResolveError] = useState<string | null>(null);
 
@@ -137,6 +150,13 @@ export default function GeoFenceBreachScreen() {
       },
     );
   }, [name, eventId, resolve, leave]);
+
+  // "Estou cuidando disso": the other caregivers see who, and the emergency contacts are not texted.
+  const handleAcknowledge = useCallback(() => {
+    if (!exit) return;
+    setResolveError(null);
+    acknowledge.mutate(exit.id, { onError: (error) => setResolveError(friendlyError(error)) });
+  }, [exit, acknowledge]);
 
   const handleCall = useCallback((phone: string) => {
     void Linking.openURL(`tel:${phone}`);
@@ -256,6 +276,14 @@ export default function GeoFenceBreachScreen() {
             last
           />
         </View>
+
+        <AlertResponse
+          alert={exit ?? undefined}
+          timezone={elder.timezone}
+          now={now}
+          escalates={escalates}
+          action={{ title: 'Estou cuidando disso', onPress: handleAcknowledge, loading: acknowledge.isPending }}
+        />
 
         {/* Primary action: call the first emergency contact */}
         {primary ? (

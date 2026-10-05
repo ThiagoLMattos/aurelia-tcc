@@ -12,6 +12,7 @@ import {
   memoryAccuracyPct,
   weekDates,
   weekStartOf,
+  type AlertPayload,
   type Event,
   type EventType,
   type LocalDate,
@@ -54,8 +55,8 @@ const FILTERS: { key: FilterKey; label: string; types?: EventType[] }[] = [
   { key: 'all', label: 'Todos' },
   { key: 'done', label: 'Concluídas', types: ['taskDone'] },
   { key: 'missed', label: 'Perdidas', types: ['taskMissed'] },
-  { key: 'zone', label: 'Zona segura', types: ['geofenceExit', 'geofenceReturn'] },
-  { key: 'sos', label: 'SOS', types: ['sos'] },
+  { key: 'zone', label: 'Zona segura', types: ['geofenceExit', 'geofenceReturn', 'contactsAlerted'] },
+  { key: 'sos', label: 'SOS', types: ['sos', 'contactsAlerted'] },
   { key: 'games', label: 'Jogos', types: ['gamePlayed'] },
 ];
 
@@ -78,6 +79,7 @@ const SUCCESS: Tone = { dotBg: Colors.successBg, dotColor: Colors.successText, i
 const WARNING: Tone = { dotBg: Colors.warningBg, dotColor: Colors.warningText, icon: '✕' };
 const DANGER: Tone = { dotBg: Colors.dangerBg, dotColor: Colors.dangerText, icon: '!' };
 const GAME: Tone = { dotBg: Colors.primaryLight, dotColor: Colors.primary, icon: '★' };
+const CONTACTS: Tone = { dotBg: Colors.warningBg, dotColor: Colors.warningText, icon: '✉' };
 
 interface Row {
   label: string;
@@ -93,6 +95,16 @@ interface Presentation {
   /** A link row, for events that carry a position. */
   map?: { lat: number; lng: number };
   note?: string;
+}
+
+/** Who answered an SOS / safe-zone exit, and whether the emergency contacts were texted for it. */
+function alertRows(payload: AlertPayload, timezone: string): Row[] {
+  return [
+    payload.acknowledgedAt
+      ? { label: 'Atendido', value: `${payload.acknowledgedBy ?? 'Cuidador'}, às ${clockTime(payload.acknowledgedAt, timezone)}` }
+      : { label: 'Atendido', value: 'Ninguém respondeu', danger: !payload.escalatedAt },
+    ...(payload.escalatedAt ? [{ label: 'Contatos avisados às', value: clockTime(payload.escalatedAt, timezone), danger: true }] : []),
+  ];
 }
 
 function presentEvent(event: Event, timezone: string): Presentation {
@@ -130,7 +142,7 @@ function presentEvent(event: Event, timezone: string): Presentation {
         tone: DANGER,
         title: 'SOS acionado',
         summary: hasPosition ? 'Com localização' : 'Sem localização',
-        rows: [{ label: 'Acionado às', value: at, danger: true }],
+        rows: [{ label: 'Acionado às', value: at, danger: true }, ...alertRows(event.payload, timezone)],
         map: hasPosition ? { lat, lng } : undefined,
       };
     }
@@ -146,6 +158,7 @@ function presentEvent(event: Event, timezone: string): Presentation {
           payload.resolvedAt
             ? { label: 'Resolvida às', value: clockTime(payload.resolvedAt, timezone) }
             : { label: 'Resolvida às', value: 'Não resolvida', danger: true },
+          ...alertRows(payload, timezone),
         ],
         map: { lat: payload.lat, lng: payload.lng },
         note: payload.resolvedNote ?? undefined,
@@ -172,6 +185,20 @@ function presentEvent(event: Event, timezone: string): Presentation {
           },
         ],
       };
+    case 'contactsAlerted': {
+      const { payload } = event;
+      const alert = payload.alertType === 'sos' ? 'ao SOS' : 'à saída da zona segura';
+      return {
+        tone: CONTACTS,
+        title: payload.sent.length > 0 ? 'Contatos de emergência avisados' : 'Falha ao avisar os contatos',
+        summary: `Ninguém respondeu ${alert} a tempo`,
+        rows: [
+          { label: 'SMS enviado às', value: at },
+          ...(payload.sent.length > 0 ? [{ label: 'Avisados', value: payload.sent.join(', ') }] : []),
+          ...(payload.failed.length > 0 ? [{ label: 'Não foi possível avisar', value: payload.failed.join(', '), danger: true }] : []),
+        ],
+      };
+    }
     case 'devicePaired':
       return {
         tone: SUCCESS,

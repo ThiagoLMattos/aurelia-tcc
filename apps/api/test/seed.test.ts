@@ -33,6 +33,9 @@ describe('demo seed', () => {
 
     const exit = (await timeline(result.elderId)).find((event) => event.type === 'geofenceExit');
     expect(exit?.payload.resolvedAt).toBeTruthy();
+    const sos = (await timeline(result.elderId)).find((event) => event.type === 'sos');
+    expect(sos?.payload).toMatchObject({ acknowledgedBy: 'Cuidador Demo' });
+    expect(count('contactsAlerted')).toBe(0);
 
     const elder = await repos.elders.get(result.elderId);
     expect(elder).toMatchObject({ name: 'Maria Aparecida', phonePairedAt: null });

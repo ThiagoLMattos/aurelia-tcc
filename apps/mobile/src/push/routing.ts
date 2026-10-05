@@ -30,6 +30,7 @@ export function routeForPush(data: PushData, role: AuthRole): PushRoute {
     case 'taskDone':
       return { pathname: '/(caregiver)/(tabs)' };
     case 'geofenceReturn':
+    case 'contactsAlerted':
       return { pathname: '/(caregiver)/(tabs)/history' };
     case 'deviceOffline':
       return { pathname: '/(caregiver)/(tabs)/profile' };

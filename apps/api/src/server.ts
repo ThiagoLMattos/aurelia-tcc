@@ -11,6 +11,7 @@ const { initFirebase } = await import('./firebase');
 const { createLogger } = await import('./logger');
 const { createServices } = await import('./services');
 const { createExpoPushSender } = await import('./push/sender');
+const { createSmsSender } = await import('./sms/sender');
 const { createLlmProvider } = await import('./modules/assistant/provider');
 const { startScheduler } = await import('./jobs/scheduler');
 
@@ -28,6 +29,7 @@ const services = createServices({
   firebase,
   logger,
   push: createExpoPushSender(logger),
+  sms: createSmsSender(config, logger),
   llm: createLlmProvider(config),
 });
 const app = createApp({ config, firebase, logger, services });

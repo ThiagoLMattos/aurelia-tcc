@@ -5,6 +5,7 @@ import type { Notifier } from '../../push/notify';
 import type { DevicesRepo } from '../../repos/devices';
 import type { EldersRepo } from '../../repos/elders';
 import type { EventsService } from '../events/service';
+import type { EscalationJob } from './escalation';
 import type { MissedTasksJob } from './missedTasks';
 
 interface Deps {
@@ -12,6 +13,7 @@ interface Deps {
   devices: DevicesRepo;
   events: EventsService;
   missedTasks: MissedTasksJob;
+  escalation: EscalationJob;
   notifier: Notifier;
   now: Clock;
   logger: Logger;
@@ -23,10 +25,12 @@ export const DEVICE_OFFLINE_AFTER_MIN = 15;
 export interface JobsSummary {
   missedTasks: number;
   devicesOffline: number;
+  alertsEscalated: number;
 }
 
-export function createJobsService({ elders, devices, events, missedTasks, notifier, now, logger }: Deps) {
+export function createJobsService({ elders, devices, events, missedTasks, escalation, notifier, now, logger }: Deps) {
   let running = false;
+  let escalating = false;
 
   async function checkDevicesOffline(at: Date): Promise<number> {
     const cutoff = new Date(at.getTime() - DEVICE_OFFLINE_AFTER_MIN * 60_000);
@@ -65,9 +69,24 @@ export function createJobsService({ elders, devices, events, missedTasks, notifi
       try {
         const missed = await missedTasks.run(at);
         const offline = await checkDevicesOffline(at);
-        return { missedTasks: missed.length, devicesOffline: offline };
+        const escalated = await escalation.run(at);
+        return { missedTasks: missed.length, devicesOffline: offline, alertsEscalated: escalated };
       } finally {
         running = false;
+      }
+    },
+
+    /**
+     * Only the alert escalation, which the scheduler runs every minute so contacts hear about an
+     * unanswered SOS soon after ESCALATE_AFTER_MIN. Null when a previous escalation run is still going.
+     */
+    async escalateAlerts(at: Date = now()): Promise<number | null> {
+      if (escalating) return null;
+      escalating = true;
+      try {
+        return await escalation.run(at);
+      } finally {
+        escalating = false;
       }
     },
   };

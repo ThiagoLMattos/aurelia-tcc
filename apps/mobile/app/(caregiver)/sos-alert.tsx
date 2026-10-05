@@ -1,24 +1,29 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 
-import { Button, Card, ErrorState, LoadingState, Screen } from '@/components';
+import { AlertResponse, Button, Card, ErrorState, FormError, LoadingState, Screen } from '@/components';
 import { friendlyError } from '@/lib/errors';
 import { clockTime, firstName, formatPhone, mapsUrl } from '@/lib/format';
-import { useContacts, useCurrentElder, useEvents } from '@/queries';
+import { useAcknowledgeAlert, useContacts, useCurrentElder, useEscalatesToContacts, useEvents, useNow } from '@/queries';
 import { Colors, Spacing, Typography } from '@/theme';
 
 /**
  * Opened by the SOS push: who asked for help, when, where (if the phone could tell) and the numbers
- * to call, emergency contacts first. Full-screen and not swipe-dismissable; "Estou a caminho" closes
- * it (in v1 that only dismisses, nobody is told).
+ * to call, emergency contacts first. Full-screen and not swipe-dismissable. "Estou a caminho" tells
+ * the API this caregiver is handling it (the other caregivers see who, and the emergency contacts
+ * are not texted), then closes it.
  */
 export default function SosAlertScreen() {
   const router = useRouter();
   const { eventId } = useLocalSearchParams<{ elderId?: string; eventId?: string }>();
   const elder = useCurrentElder();
-  const events = useEvents(elder.id, { types: ['sos'] });
+  const events = useEvents(elder.id, { types: ['sos'] }, { live: true });
   const contacts = useContacts(elder.id);
+  const acknowledge = useAcknowledgeAlert(elder.id);
+  const escalates = useEscalatesToContacts(elder.id);
+  const now = useNow(15_000);
+  const [ackError, setAckError] = useState<string | null>(null);
 
   const sos = useMemo(() => {
     const items = events.data?.pages[0]?.items ?? [];
@@ -36,6 +41,12 @@ export default function SosAlertScreen() {
     else router.replace('/(caregiver)/(tabs)');
   }, [router]);
 
+  const onTheWay = useCallback(() => {
+    if (!sos || sos.payload.acknowledgedAt) return leave();
+    setAckError(null);
+    acknowledge.mutate(sos.id, { onSuccess: leave, onError: (error) => setAckError(friendlyError(error)) });
+  }, [sos, acknowledge, leave]);
+
   const lat = sos?.payload.lat ?? null;
   const lng = sos?.payload.lng ?? null;
 
@@ -49,6 +60,7 @@ export default function SosAlertScreen() {
       </View>
 
       {events.isError ? <ErrorState message={friendlyError(events.error)} onRetry={() => void events.refetch()} /> : null}
+      <AlertResponse alert={sos} timezone={elder.timezone} now={now} escalates={escalates} />
 
       {lat !== null && lng !== null ? (
         <Button title="Abrir localização no mapa" variant="secondary" onPress={() => void Linking.openURL(mapsUrl(lat, lng))} />
@@ -69,7 +81,8 @@ export default function SosAlertScreen() {
         </Card>
       ))}
 
-      <Button title="Estou a caminho" onPress={leave} />
+      <FormError message={ackError} />
+      <Button title={sos?.payload.acknowledgedAt ? 'Fechar' : 'Estou a caminho'} onPress={onTheWay} loading={acknowledge.isPending} />
       <Button title="Ver histórico" variant="ghost" onPress={() => router.replace('/(caregiver)/(tabs)/history')} />
     </Screen>
   );

@@ -8,11 +8,12 @@
  *  2. Account row (the signed-in caregiver)
  *  3. Notifications card (toggles, geo-fence locked) — saved to `PATCH /me`
  *  4. Missed task timeout card (3 chips) — saved to `PATCH /elders/:id`
- *  5. Escalation card (2 radio options) — saved to `PATCH /me`
+ *  5. Escalation card (2 radio options) — saved to `PATCH /me`; with "me, then the contacts" an SOS or
+ *     safe-zone exit nobody answers in ESCALATE_AFTER_MIN is texted to the emergency contacts
  *  6. Sign out + version string
  */
 
-import { MISSED_TASK_TIMEOUT_OPTIONS, type CaregiverSettings, type Escalation } from '@aurelia/shared';
+import { ESCALATE_AFTER_MIN, MISSED_TASK_TIMEOUT_OPTIONS, type CaregiverSettings, type Escalation } from '@aurelia/shared';
 import React, { useCallback } from 'react';
 import {
   Alert,
@@ -34,7 +35,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
 import { firstName, initials } from '@/lib/format';
-import { useCurrentElder, usePatchElder, usePatchMe } from '@/queries';
+import { useContacts, useCurrentElder, usePatchElder, usePatchMe } from '@/queries';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
@@ -96,11 +97,11 @@ function ToggleRow({
 const TIMEOUT_LABELS: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 hora' };
 
 const ESCALATION_OPTIONS: { value: Escalation; label: string; sub: string }[] = [
-  { value: 'meOnly', label: 'Notificar apenas eu', sub: 'Somente você recebe os alertas' },
+  { value: 'meOnly', label: 'Notificar apenas eu', sub: 'Somente os cuidadores recebem os alertas' },
   {
     value: 'meThenContacts',
     label: 'Notificar eu, depois os contatos',
-    sub: 'Os contatos de emergência também entram na lista de quem é avisado',
+    sub: `Se ninguém responder em ${ESCALATE_AFTER_MIN} minutos, os contatos de emergência recebem um SMS`,
   },
 ];
 
@@ -113,6 +114,7 @@ export default function SettingsScreen() {
   const { signOut } = useSession();
   const patchMe = usePatchMe();
   const patchElder = usePatchElder(elder.id);
+  const contacts = useContacts(elder.id);
 
   const saveSettings = useCallback(
     (settings: Partial<CaregiverSettings>) => {
@@ -249,7 +251,7 @@ export default function SettingsScreen() {
         <SectionCard>
           <View style={styles.escalationDesc}>
             <Text style={styles.timeoutDesc}>
-              Quando um evento crítico ocorre (saída da zona segura ou tarefa perdida), quem deve ser notificado?
+              Quando o idoso aciona o SOS ou sai da zona segura, quem deve ser avisado?
             </Text>
           </View>
           {ESCALATION_OPTIONS.map((opt, i, arr) => {
@@ -275,6 +277,18 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             );
           })}
+          {settings.escalation === 'meThenContacts' && contacts.data && !contacts.data.items.some((c) => c.isEmergency) ? (
+            <TouchableOpacity
+              style={styles.escalationWarning}
+              onPress={() => router.push('/(caregiver)/(tabs)/profile')}
+              activeOpacity={0.7}
+              accessibilityRole="link"
+            >
+              <Text style={styles.escalationWarningText}>
+                Nenhum contato de emergência cadastrado: ninguém receberá o SMS. Toque para cadastrar no Perfil.
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </SectionCard>
 
         {/* ── Sign out ── */}
@@ -469,6 +483,18 @@ const styles = StyleSheet.create({
   },
 
   // Escalation
+  escalationWarning: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    padding: Spacing.sm,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.warningBg,
+  },
+  escalationWarningText: {
+    fontSize: Typography.size.sm,
+    color: Colors.warningText,
+    lineHeight: 18,
+  },
   escalationDesc: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
