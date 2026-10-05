@@ -1,5 +1,4 @@
 import { PUSH_CHANNELS } from '@aurelia/shared';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -7,7 +6,8 @@ import { Platform } from 'react-native';
 import { env } from '@/config/env';
 import type { Api } from '@/lib/api/types';
 
-const TOKEN_KEY = 'aurelia.pushToken';
+/** The token handed to the API in this run of the app; see `unregisterPush` for after a restart. */
+let registeredToken: string | null = null;
 
 /** Show pushes that arrive while the app is open, instead of swallowing them. */
 export function configureNotificationHandler(): void {
@@ -66,7 +66,7 @@ export async function registerPush(api: Api): Promise<string | null> {
     if (!(await ensureNotificationPermission())) return null;
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: env.easProjectId });
     await api.registerPushToken(token);
-    await AsyncStorage.setItem(TOKEN_KEY, token);
+    registeredToken = token;
     return token;
   } catch (error) {
     console.warn('[push] não foi possível registrar o token', error);
@@ -74,10 +74,21 @@ export async function registerPush(api: Api): Promise<string | null> {
   }
 }
 
-/** Removes this phone's token from the account that is about to sign out. */
+/**
+ * Removes this phone's token from the account that is about to sign out. The token is not persisted:
+ * after a restart it is asked for again, which gives the same token for this installation. With no
+ * permission (or no push here) nothing was registered, so there is nothing to remove.
+ */
 export async function unregisterPush(api: Api): Promise<void> {
-  const token = await AsyncStorage.getItem(TOKEN_KEY);
+  const token = registeredToken ?? (await currentToken());
   if (!token) return;
   await api.unregisterPushToken(token);
-  await AsyncStorage.removeItem(TOKEN_KEY);
+  registeredToken = null;
+}
+
+async function currentToken(): Promise<string | null> {
+  if (env.apiMode === 'mock' || Platform.OS === 'web' || !Device.isDevice || !env.easProjectId) return null;
+  if (!(await Notifications.getPermissionsAsync()).granted) return null;
+  const { data } = await Notifications.getExpoPushTokenAsync({ projectId: env.easProjectId });
+  return data;
 }
