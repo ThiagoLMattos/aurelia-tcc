@@ -517,7 +517,7 @@ function AureliaCard({
 /** The sentence under "Análise semanal", built from the report's numbers. */
 function generateInsight(name: string, current: WeeklyReport, previous: WeeklyReport | undefined): string {
   const { sessions } = current.games;
-  const games = sessions > 0 ? ` ${name} jogou ${sessions} partida${sessions > 1 ? 's' : ''} de jogos de memória.` : '';
+  const games = sessions > 0 ? ` ${name} jogou ${sessions} partida${sessions > 1 ? 's' : ''} nos jogos do celular.` : '';
   const med = current.adherence.medication.pct;
   if (med === null) {
     let text = `Nenhum medicamento estava previsto esta semana para ${name}.`;
@@ -775,7 +775,7 @@ function GameTile({
   footer,
   delta,
 }: {
-  icon: 'square.grid.2x2.fill' | 'circle.grid.2x2.fill';
+  icon: 'square.grid.2x2.fill' | 'circle.grid.2x2.fill' | 'number' | 'textformat.abc';
   name: string;
   value: string | null;
   caption: string;
@@ -820,7 +820,7 @@ function GamesCard({
   elderName: string;
   weekInProgress: boolean;
 }) {
-  const { memory, sequence } = report;
+  const { memory, sequence, ticTacToe, crossword } = report;
   const sessionsBefore = weekInProgress ? undefined : previous?.sessions;
 
   return (
@@ -866,6 +866,22 @@ function GamesCard({
             footer={plural(sequence.played, 'partida', 'partidas')}
             delta={<GameDelta current={sequence.best} previous={previous?.sequence.best} />}
           />
+          <GameTile
+            icon="number"
+            name={LABELS_PT.game.tictactoe}
+            value={ticTacToe.played > 0 ? plural(ticTacToe.wins, 'vitória', 'vitórias') : null}
+            caption={`em ${plural(ticTacToe.played, 'partida', 'partidas')} contra o celular`}
+            footer={`${plural(ticTacToe.draws, 'empate', 'empates')} · ${plural(ticTacToe.played - ticTacToe.wins - ticTacToe.draws, 'derrota', 'derrotas')}`}
+            delta={null}
+          />
+          <GameTile
+            icon="textformat.abc"
+            name={LABELS_PT.game.crossword}
+            value={crossword.played > 0 ? plural(crossword.words, 'palavra', 'palavras') : null}
+            caption={`encontradas em ${plural(crossword.played, 'cruzadinha', 'cruzadinhas')}`}
+            footer={`${plural(crossword.completed, 'completa', 'completas')} · ${plural(crossword.hints, 'dica', 'dicas')}`}
+            delta={null}
+          />
         </View>
       )}
     </View>
@@ -889,9 +905,11 @@ const games = StyleSheet.create({
   pillUp: { backgroundColor: Colors.successBg },
   pillDown: { backgroundColor: Colors.dangerBg },
   pillText: { fontSize: 11, fontWeight: Typography.weight.semibold },
-  tiles: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.xs },
+  /** Two tiles per row. */
   tile: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '45%',
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 0.5,

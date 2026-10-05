@@ -1,6 +1,6 @@
 import type { DiagnosisStage } from './elder';
 import type { Escalation } from './me';
-import type { GameId } from './game';
+import type { GameId, TicTacToeLevel, TicTacToeOutcome } from './game';
 import type { AgendaStatus } from './agenda';
 import type { RoutineType } from './routine';
 
@@ -31,7 +31,18 @@ export const LABELS_PT = {
   game: {
     memory: 'Jogo da Memória',
     sequence: 'Memória Sequencial',
+    tictactoe: 'Jogo da Velha',
+    crossword: 'Palavras Cruzadas',
   } satisfies Record<GameId, string>,
+  ticTacToeLevel: {
+    easy: 'Fácil',
+    normal: 'Normal',
+  } satisfies Record<TicTacToeLevel, string>,
+  ticTacToeOutcome: {
+    win: 'Venceu',
+    draw: 'Empate',
+    loss: 'O celular venceu',
+  } satisfies Record<TicTacToeOutcome, string>,
   weekdayShort: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
   weekdayLong: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
 } as const;

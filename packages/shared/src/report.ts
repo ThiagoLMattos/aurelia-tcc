@@ -46,6 +46,19 @@ export const GamesReportSchema = z.object({
     /** Longest sequence repeated that week; null when not played. */
     best: z.number().int().nullable(),
   }),
+  ticTacToe: z.object({
+    played: z.number().int().min(0),
+    wins: z.number().int().min(0),
+    draws: z.number().int().min(0),
+  }),
+  crossword: z.object({
+    played: z.number().int().min(0),
+    /** Puzzles finished to the last word. */
+    completed: z.number().int().min(0),
+    /** Words found across all puzzles. */
+    words: z.number().int().min(0),
+    hints: z.number().int().min(0),
+  }),
 });
 export type GamesReport = z.infer<typeof GamesReportSchema>;
 
@@ -127,6 +140,8 @@ export function computeWeeklyReport(input: ComputeWeeklyReportInput): WeeklyRepo
     minutes: 0,
     memory: { played: 0, bestAccuracyPct: null, mostPairs: null },
     sequence: { played: 0, best: null },
+    ticTacToe: { played: 0, wins: 0, draws: 0 },
+    crossword: { played: 0, completed: 0, words: 0, hints: 0 },
   };
   let gameSeconds = 0;
 
@@ -154,9 +169,18 @@ export function computeWeeklyReport(input: ComputeWeeklyReportInput): WeeklyRepo
         games.memory.played += 1;
         games.memory.bestAccuracyPct = Math.max(games.memory.bestAccuracyPct ?? 0, memoryAccuracyPct(result));
         games.memory.mostPairs = Math.max(games.memory.mostPairs ?? 0, result.pairs);
-      } else {
+      } else if (result.game === 'sequence') {
         games.sequence.played += 1;
         games.sequence.best = Math.max(games.sequence.best ?? 0, result.longest);
+      } else if (result.game === 'tictactoe') {
+        games.ticTacToe.played += 1;
+        if (result.outcome === 'win') games.ticTacToe.wins += 1;
+        if (result.outcome === 'draw') games.ticTacToe.draws += 1;
+      } else {
+        games.crossword.played += 1;
+        if (result.words === result.totalWords) games.crossword.completed += 1;
+        games.crossword.words += result.words;
+        games.crossword.hints += result.hints;
       }
     }
   }

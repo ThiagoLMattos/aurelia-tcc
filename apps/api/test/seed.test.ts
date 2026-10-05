@@ -29,7 +29,7 @@ describe('demo seed', () => {
     expect(count('geofenceReturn')).toBe(1);
     expect(count('taskMissed')).toBeGreaterThanOrEqual(2);
     expect(count('taskDone')).toBeGreaterThan(20);
-    expect(count('gamePlayed')).toBe(6);
+    expect(count('gamePlayed')).toBe(8);
 
     const exit = (await timeline(result.elderId)).find((event) => event.type === 'geofenceExit');
     expect(exit?.payload.resolvedAt).toBeTruthy();
