@@ -57,6 +57,8 @@ export interface Api {
   // Me
   getMe(): Promise<MeResponse>;
   patchMe(body: PatchMeBody): Promise<MeResponse>;
+  /** DELETE /me: the caregiver's account and every elder no other caregiver follows. */
+  deleteAccount(): Promise<void>;
   registerPushToken(token: string): Promise<void>;
   unregisterPushToken(token: string): Promise<void>;
 

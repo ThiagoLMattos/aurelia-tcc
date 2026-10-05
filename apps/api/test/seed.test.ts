@@ -80,7 +80,7 @@ describe('demo seed', () => {
   });
 
   it('wipes cleanly when there is nothing to wipe', async () => {
-    await wipeDemo(firebase);
-    await wipeDemo(firebase);
+    await wipeDemo(firebase, createLogger(config));
+    await wipeDemo(firebase, createLogger(config));
   });
 });

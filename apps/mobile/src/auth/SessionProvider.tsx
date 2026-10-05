@@ -16,6 +16,10 @@ export interface SessionValue {
   signInWithPassword(email: string, password: string): Promise<void>;
   signInWithCustomToken(token: string): Promise<void>;
   signOut(): Promise<void>;
+  /** Emails a reset link; resolves whether or not the e-mail has an account. */
+  sendPasswordReset(email: string): Promise<void>;
+  /** Checks the password again, deletes the caregiver's account (DELETE /me), then signs out. */
+  deleteAccount(password: string): Promise<void>;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -59,6 +63,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   }, []);
 
+  const deleteAccount = useCallback(async (password: string) => {
+    await authAdapter.confirmPassword(password);
+    // The push tokens go with the account, so there is nothing to unregister first.
+    await api.deleteAccount();
+    await authAdapter.signOut().catch(() => {});
+    queryClient.clear();
+  }, []);
+
   const value = useMemo<SessionValue>(
     () => ({
       status: state.status,
@@ -68,8 +80,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signInWithPassword: (email, password) => authAdapter.signInWithPassword(email, password),
       signInWithCustomToken: (token) => authAdapter.signInWithCustomToken(token),
       signOut,
+      sendPasswordReset: (email) => authAdapter.sendPasswordReset(email),
+      deleteAccount,
     }),
-    [state, signOut],
+    [state, signOut, deleteAccount],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

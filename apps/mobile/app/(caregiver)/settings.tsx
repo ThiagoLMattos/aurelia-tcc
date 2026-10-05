@@ -10,11 +10,11 @@
  *  4. Missed task timeout card (3 chips) — saved to `PATCH /elders/:id`
  *  5. Escalation card (2 radio options) — saved to `PATCH /me`; with "me, then the contacts" an SOS or
  *     safe-zone exit nobody answers in ESCALATE_AFTER_MIN is texted to the emergency contacts
- *  6. Sign out + version string
+ *  6. Sign out, delete account (asks for the password again; `DELETE /me`) + version string
  */
 
 import { ESCALATE_AFTER_MIN, MISSED_TASK_TIMEOUT_OPTIONS, type CaregiverSettings, type Escalation } from '@aurelia/shared';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -30,7 +30,7 @@ import { useRouter } from 'expo-router';
 
 import { useSession } from '@/auth/SessionProvider';
 import { useMe } from '@/auth/useMe';
-import { ErrorState, LoadingState } from '@/components';
+import { Button, ErrorState, FormError, LoadingState, TextField } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
@@ -111,7 +111,10 @@ export default function SettingsScreen() {
   const me = useMe();
   const elder = useCurrentElder();
   const router = useRouter();
-  const { signOut } = useSession();
+  const { signOut, deleteAccount } = useSession();
+  const [deleting, setDeleting] = useState<'closed' | 'open' | 'busy'>('closed');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const patchMe = usePatchMe();
   const patchElder = usePatchElder(elder.id);
   const contacts = useContacts(elder.id);
@@ -142,6 +145,27 @@ export default function SettingsScreen() {
     );
     if (confirmed) await signOut();
   }, [signOut]);
+
+  // Two steps: the explanation and password first, then a last confirmation. Nothing can be recovered.
+  const handleDeleteAccount = useCallback(async () => {
+    if (!deletePassword) return setDeleteError('Digite sua senha para confirmar.');
+    setDeleteError(null);
+    const confirmed = await confirm(
+      'Excluir conta',
+      'Esta ação não pode ser desfeita. Deseja mesmo excluir sua conta?',
+      'Excluir para sempre',
+      true,
+    );
+    if (!confirmed) return;
+    setDeleting('busy');
+    try {
+      await deleteAccount(deletePassword);
+    } catch (error) {
+      const code = (error as { code?: unknown }).code;
+      setDeleteError(code === 'auth/invalid-credential' || code === 'auth/wrong-password' ? 'Senha incorreta.' : friendlyError(error));
+      setDeleting('open');
+    }
+  }, [deletePassword, deleteAccount]);
 
   const caregiver = me.data?.role === 'caregiver' ? me.data.caregiver : null;
   const settings = caregiver?.settings;
@@ -297,6 +321,39 @@ export default function SettingsScreen() {
           <IconSymbol name="arrow.right.square" size={16} color={Colors.dangerText} />
           <Text style={styles.signOutText}>Sair da conta</Text>
         </TouchableOpacity>
+
+        {/* Delete account */}
+        {deleting === 'closed' ? (
+          <TouchableOpacity onPress={() => setDeleting('open')} style={styles.deleteLinkWrap} accessibilityRole="button">
+            <Text style={styles.deleteLink}>Excluir minha conta</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.deleteCard}>
+            <Text style={styles.deleteTitle}>Excluir minha conta</Text>
+            <Text style={styles.deleteText}>
+              Sua conta é apagada, e com ela os dados de {name}: rotinas, histórico, contatos, rastreadores e o acesso do celular
+              do idoso — a menos que outro cuidador também acompanhe {name}. Isso não pode ser desfeito.
+            </Text>
+            <TextField
+              label="Sua senha"
+              value={deletePassword}
+              onChangeText={setDeletePassword}
+              secureTextEntry
+              autoComplete="current-password"
+            />
+            <FormError message={deleteError} />
+            <Button title="Excluir minha conta" variant="danger" onPress={() => void handleDeleteAccount()} loading={deleting === 'busy'} />
+            <Button
+              title="Cancelar"
+              variant="ghost"
+              onPress={() => {
+                setDeleting('closed');
+                setDeletePassword('');
+                setDeleteError(null);
+              }}
+            />
+          </View>
+        )}
 
         {/* Version */}
         <Text style={styles.version}>Aurélia v1.0.0 · TCC ETEC Bento Quirino</Text>
@@ -583,6 +640,36 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
     color: Colors.dangerText,
+  },
+
+  // Delete account
+  deleteLinkWrap: {
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+  },
+  deleteLink: {
+    fontSize: Typography.size.sm,
+    color: Colors.dangerText,
+    textDecorationLine: 'underline',
+  },
+  deleteCard: {
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dangerText,
+    backgroundColor: Colors.white,
+  },
+  deleteTitle: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.dangerText,
+  },
+  deleteText: {
+    fontSize: Typography.size.sm,
+    color: Colors.textSecondary,
+    lineHeight: 19,
   },
 
   // Version

@@ -30,6 +30,7 @@ Every `/elders/:elderId/**` route first checks access: a caregiver must be in th
 | `PATCH /me` | caregiver | `PatchMeBody` |
 | `POST /me/push-tokens` | any | `PushTokenBody`; elder tokens are stored on the elder |
 | `DELETE /me/push-tokens/:token` | any | |
+| `DELETE /me` | caregiver | `204`; deletes the account and every elder no other caregiver follows (with all its data, trackers and the elder phone's login); a shared elder stays with the other caregivers. The app asks for the password first |
 
 ## Elders
 

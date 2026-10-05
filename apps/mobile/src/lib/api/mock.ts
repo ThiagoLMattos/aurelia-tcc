@@ -307,6 +307,13 @@ export function createMockBackend(): MockBackend {
       identity = null;
       emit();
     },
+    async sendPasswordReset(email) {
+      if (!/^\S+@\S+\.\S+$/.test(email.trim())) throw Object.assign(new Error('invalid email'), { code: 'auth/invalid-email' });
+    },
+    async confirmPassword(password) {
+      const current = identity?.role === 'caregiver' ? caregivers.get(identity.user.uid) : undefined;
+      if (!current || current.password !== password) throw Object.assign(new Error('invalid credential'), { code: 'auth/invalid-credential' });
+    },
     async getIdToken() {
       return identity ? MOCK_TOKEN : null;
     },
@@ -349,6 +356,13 @@ export function createMockBackend(): MockBackend {
         settings: { ...caregiver.record.settings, ...body.settings },
       };
       return api.getMe();
+    },
+    async deleteAccount() {
+      const current = requireCaregiver();
+      caregivers.delete(current.record.id);
+      for (const elderId of current.elderIds) {
+        if (![...caregivers.values()].some((c) => c.elderIds.includes(elderId))) elders.delete(elderId);
+      }
     },
     async registerPushToken() {
       requireIdentity();
