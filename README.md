@@ -61,7 +61,7 @@ API decide se saiu da zona segura e quem avisar. O contrato entre as partes (sch
 | `firebase/` | Regras e índices do Firestore, configuração dos emuladores |
 | `scripts/` | Simulador do rastreador (`npm run simulate:device`) |
 | `deploy/` | Definição do serviço no Cloud Run |
-| `docs/` | API, protocolo do rastreador, deploy, build do app e roteiro da apresentação |
+| `docs/` | Referência da API e protocolo do rastreador |
 
 ## Como rodar o projeto
 
@@ -132,7 +132,7 @@ os dois lados.
 O Aurélia une as duas pontas dessa rotina em um único sistema:
 
 - **App do idoso**: interface simplificada, com lembretes de medicação e rotina guiados por
-  uma assistente de IA que conversa por voz.
+  uma assistente de IA que responde em voz alta.
 - **Painel do cuidador**: histórico de atividades, alertas em tempo real e gestão de contatos
   de emergência.
 - **Módulo de geolocalização**: hardware com ESP32 e GPS que cria uma "zona segura" ao redor
