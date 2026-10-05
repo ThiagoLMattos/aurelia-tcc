@@ -138,3 +138,16 @@ starts from empty Auth and Firestore emulators.
 2. In the root `.env` set `USE_EMULATORS=false`, `FIREBASE_PROJECT_ID=<your project id>` and
    `GOOGLE_APPLICATION_CREDENTIALS=./apps/api/service-account.json`.
 3. `npm run dev:api`.
+
+## Running in production
+
+`npm run build -w @aurelia/api` bundles the API (and `@aurelia/shared`) into `dist/server.mjs`;
+`npm run start:prod -w @aurelia/api` runs it with plain Node. The root `Dockerfile` does the same inside
+an image. Environment variables are listed in `.env.example`; the Cloud Run service is `deploy/cloud-run.yaml`. Behind a proxy
+set `TRUST_PROXY` (Cloud Run: `1`) so the per-IP rate limits see each client's address.
+
+## Demo data
+
+`npm run seed:demo -- --project demo-aurelia --emulators` (or `--project <id> --yes` for a real project)
+creates the demo caregiver and Maria with a week of history, a tracker and a fresh pairing code. It
+wipes only that account first and never runs without `--project`.

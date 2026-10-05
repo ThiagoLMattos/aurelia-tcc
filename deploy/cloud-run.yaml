@@ -1,0 +1,58 @@
+# Cloud Run service for the Aurélia API (Knative format).
+#
+# Replace the placeholders below, then deploy with:
+#   gcloud run services replace deploy/cloud-run.yaml --region REGION
+# The service account needs roles/datastore.user, roles/firebaseauth.admin and, to mint pairing
+# tokens, roles/iam.serviceAccountTokenCreator on itself. With minScale 0 the jobs are called by
+# Cloud Scheduler: POST /api/v1/internal/jobs/run with the X-Jobs-Token header, every 5 minutes.
+#
+#   IMAGE       REGION-docker.pkg.dev/PROJECT_ID/aurelia/api:TAG
+#   PROJECT_ID  the Firebase / Google Cloud project id
+#   SA_EMAIL    aurelia-api@PROJECT_ID.iam.gserviceaccount.com
+#   LLM_MODEL_ID  the Groq model id the assistant uses
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: aurelia-api
+  labels:
+    cloud.googleapis.com/location: REGION
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scale to zero between uses. The jobs run from Cloud Scheduler instead of the in-process timer.
+        autoscaling.knative.dev/minScale: '0'
+        autoscaling.knative.dev/maxScale: '3'
+    spec:
+      serviceAccountName: SA_EMAIL
+      containerConcurrency: 40
+      timeoutSeconds: 60
+      containers:
+        - image: IMAGE
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: '1'
+              memory: 512Mi
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: FIREBASE_PROJECT_ID, value: PROJECT_ID }
+            - { name: USE_EMULATORS, value: 'false' }
+            - { name: LLM_PROVIDER, value: groq }
+            - { name: LLM_MODEL, value: LLM_MODEL_ID }
+            # One proxy (Google's front end) sits in front of the container; needed for per-IP rate limits.
+            - { name: TRUST_PROXY, value: '1' }
+            - { name: SCHEDULER_ENABLED, value: 'false' }
+            # The mobile app is not a browser; leave empty unless a web client is added.
+            - { name: CORS_ORIGINS, value: '' }
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef: { name: aurelia-groq-api-key, key: latest }
+            - name: JOBS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: aurelia-jobs-token, key: latest }
+          startupProbe:
+            httpGet: { path: /api/v1/health }
+            periodSeconds: 3
+            failureThreshold: 10

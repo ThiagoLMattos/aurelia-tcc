@@ -20,36 +20,102 @@ Trabalho de Conclusão de Curso (TCC) desenvolvido na ETEC Bento Quirino.
 
 ---
 
+## Arquitetura
+
+```mermaid
+flowchart LR
+  subgraph Phones
+    C["App do cuidador<br/>(Expo)"]
+    E["App do idoso<br/>(Expo)"]
+  end
+  T["Rastreador<br/>ESP32 + GPS"]
+  API["API<br/>Express, Cloud Run"]
+  FB[("Firebase<br/>Auth + Firestore")]
+  LLM["Groq<br/>(assistente)"]
+  PUSH["Expo Push"]
+  SCH["Cloud Scheduler"]
+
+  C -- "HTTPS + token" --> API
+  E -- "HTTPS + token" --> API
+  T -- "POST /device/location<br/>id + segredo" --> API
+  API --> FB
+  API --> LLM
+  API -- "alertas" --> PUSH
+  PUSH --> C
+  PUSH --> E
+  SCH -- "a cada 5 min" --> API
+```
+
+Os apps falam **só com a API**; apenas ela lê e escreve no Firestore (as regras do Firestore negam todo
+o resto). O idoso entra no celular com um código gerado pelo cuidador; o rastreador manda a posição e a
+API decide se saiu da zona segura e quem avisar. O contrato entre as partes (schemas zod) está em
+`packages/shared`.
+
 ## Estrutura do monorepo
 
 | Pasta | Conteúdo |
 | --- | --- |
 | `apps/mobile` | App Expo (SDK 54) com as áreas do cuidador e do idoso |
-| `apps/api` | API Node.js (Express + Firebase Admin) |
+| `apps/api` | API Node.js (Express + Firebase Admin), scripts de seed e de build |
 | `packages/shared` | Contrato compartilhado (schemas zod, tipos e helpers) |
-| `firebase/` | Regras do Firestore e configuração dos emuladores |
+| `firebase/` | Regras e índices do Firestore, configuração dos emuladores |
+| `scripts/` | Simulador do rastreador (`npm run simulate:device`) |
+| `deploy/` | Definição do serviço no Cloud Run |
+| `docs/` | API, protocolo do rastreador, deploy, build do app e roteiro da apresentação |
 
 ## Como rodar o projeto
 
 ### Pré-requisitos
 
 - [Node.js](https://nodejs.org/) 22 ou superior
+- Java 11 ou superior (só para os emuladores do Firebase e `npm run test:api`)
 - Expo Go no celular ou emulador configurado
 
-### Passo a passo
+### Instalação
 
 ```bash
 git clone https://github.com/ThiagoLMattos/aurelia-tcc.git
 cd aurelia-tcc
 npm install          # uma única vez, na raiz
-npm run dev:mobile   # app (Expo)
-npm run dev:api      # API
-npm run emulators    # emuladores do Firebase (Auth + Firestore)
 ```
 
-Copie `.env.example` para `.env` e preencha os valores para rodar a API e o app.
+### 1. Só o app, sem servidor (modo demonstração)
 
-Outros comandos na raiz: `npm run typecheck`, `npm run lint`, `npm test` (pacotes shared e mobile, e os cenários do simulador) e `npm run test:api` (API, sobe os emuladores; precisa de Java 11+). Para simular o rastreador sem hardware: `npm run simulate:device -- --help` (protocolo em `docs/device-protocol.md`). Detalhes em `apps/api/README.md` e `apps/mobile/README.md` (modo demonstração sem backend, rodar no celular, push).
+Crie `apps/mobile/.env` com `EXPO_PUBLIC_API_MODE=mock` e rode `npm run dev:mobile`. O app usa um servidor
+em memória; entre com `demo@aurelia.app` / `demo1234`. Detalhes em `apps/mobile/README.md`.
+
+### 2. API local com os emuladores
+
+```bash
+cp .env.example .env     # na raiz; ajuste: FIREBASE_PROJECT_ID=demo-aurelia, USE_EMULATORS=true, LLM_PROVIDER=fake
+npm run emulators        # terminal 1: Auth + Firestore
+npm run dev:api          # terminal 2: API em http://localhost:3000/api/v1
+npm run seed:demo -- --project demo-aurelia --emulators   # terminal 3: dados de demonstração
+```
+
+O seed imprime o login do cuidador, um código de pareamento e o id e segredo do rastreador. Com isso dá para
+chamar a API (veja `docs/api.md`) e simular o rastreador sem hardware:
+`npm run simulate:device -- --help`. O app não conecta nos emuladores (ele usa o Firebase Auth de verdade);
+para rodar o app com a API de verdade, use um projeto Firebase próprio (próximo item).
+
+### 3. App + API em um projeto Firebase
+
+Preencha `.env` (API) e `apps/mobile/.env` (app) com as chaves do seu projeto, como em `.env.example`, e rode
+`npm run dev:api` e `npm run dev:mobile`. No celular, `EXPO_PUBLIC_API_URL` precisa apontar para o IP do
+computador na rede local.
+
+### Testes e verificações
+
+`npm run typecheck`, `npm run lint`, `npm test` (shared, mobile e cenários do simulador) e `npm run test:api`
+(API, sobe os emuladores). O CI (`.github/workflows/ci.yml`) roda tudo isso em cada pull request.
+
+### Referências
+
+- Referência da API: [`docs/api.md`](docs/api.md) · Protocolo do rastreador: [`docs/device-protocol.md`](docs/device-protocol.md)
+- API em produção: `Dockerfile` e `deploy/cloud-run.yaml` (variáveis em `.env.example`)
+- Build do app: perfis em `apps/mobile/eas.json`
+
+Mais detalhes em `apps/api/README.md` e `apps/mobile/README.md`.
 
 ---
 
@@ -92,9 +158,9 @@ O Aurélia une as duas pontas dessa rotina em um único sistema:
 
 | Nome | Responsabilidade |
 | --- | --- |
-| Pedro Isaías | Desenvolvedor do Aurélia |
-| Pyetro Fabrício | Desenvolvedor do Aurélia |
-| Thiago Mattos | Desenvolvedor do Aurélia |
+| Pedro Isaías | Desenvolvedor do Aurélia: API (`apps/api`) |
+| Pyetro Fabrício | Desenvolvedor do Aurélia: área do idoso no app e firmware do rastreador (ESP32) |
+| Thiago Mattos | Desenvolvedor do Aurélia: área do cuidador no app e integração rastreador ↔ API ↔ app |
 | Simone Lacerda | Orientadora |
 | Tiago Jesus | Coorientador |
 

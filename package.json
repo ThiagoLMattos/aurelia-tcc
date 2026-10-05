@@ -17,6 +17,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspace=@aurelia/shared --workspace=@aurelia/mobile --if-present && npm run test:scripts",
     "test:api": "firebase emulators:exec --config firebase/firebase.json --project demo-aurelia \"npm test -w @aurelia/api\"",
+    "seed:demo": "npm run seed:demo -w @aurelia/api --",
     "simulate:device": "tsx scripts/simulate-device.ts",
     "test:scripts": "vitest run --root scripts"
   },

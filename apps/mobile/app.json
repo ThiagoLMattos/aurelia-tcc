@@ -9,12 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "app.aurelia.tcc",
       "supportsTablet": true,
       "infoPlist": {
         "NSContactsUsageDescription": "Precisamos acessar seus contatos para exibi-los na tela de telefone."
       }
     },
     "android": {
+      "package": "app.aurelia.tcc",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

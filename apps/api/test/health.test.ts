@@ -2,7 +2,7 @@ import { HealthResponseSchema } from '@aurelia/shared';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
-import { buildApp, expectApiError } from './helpers';
+import { bearer, buildApp, buildServices, createCaregiver, expectApiError } from './helpers';
 
 const app = buildApp();
 
@@ -33,5 +33,19 @@ describe('unknown routes and malformed input', () => {
   it('rejects bodies over 100kb', async () => {
     const response = await request(app).post('/api/v1/auth/signup').send({ name: 'x'.repeat(120_000) });
     expectApiError(response, 400, 'VALIDATION_ERROR');
+  });
+});
+
+describe('unexpected failures', () => {
+  it('answers 500 INTERNAL without leaking the cause or a stack trace', async () => {
+    const caregiver = await createCaregiver();
+    const services = buildServices();
+    services.me.getMe = async () => {
+      throw new Error('boom at /srv/app/secret-path.ts with password hunter2');
+    };
+    const response = await request(buildApp({ services })).get('/api/v1/me').set(bearer(caregiver.token));
+    expectApiError(response, 500, 'INTERNAL');
+    const text = JSON.stringify(response.body);
+    for (const leaked of ['boom', 'secret-path', 'hunter2', 'stack', ' at ']) expect(text).not.toContain(leaked);
   });
 });
