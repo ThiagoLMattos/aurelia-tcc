@@ -6,6 +6,7 @@ export const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
   'req.headers["x-device-secret"]',
+  'req.headers["x-jobs-token"]',
   'req.body.password',
   'res.headers["set-cookie"]',
   'password',

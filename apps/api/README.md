@@ -51,7 +51,7 @@ sends nothing, and only `server.ts` wires the real one.
 refuses to start while a previous run is still going. `server.ts` schedules it every 5 minutes with
 `node-cron` (set `SCHEDULER_ENABLED=false` to turn that off). The scheduler never runs in tests.
 
-If the API is deployed with scale-to-zero (e.g. Cloud Run) an in-process timer cannot be relied on.
+If the API is deployed with scale-to-zero (Cloud Run, Render's free plan) an in-process timer cannot be relied on.
 Set `JOBS_TOKEN` (16+ characters) and have an external scheduler call
 `POST /api/v1/internal/jobs/run` with the header `X-Jobs-Token`; the route is not mounted without a
 token, and answers `409` if a run is already in progress.
@@ -143,8 +143,9 @@ starts from empty Auth and Firestore emulators.
 
 `npm run build -w @aurelia/api` bundles the API (and `@aurelia/shared`) into `dist/server.mjs`;
 `npm run start:prod -w @aurelia/api` runs it with plain Node. The root `Dockerfile` does the same inside
-an image. Environment variables are listed in `.env.example`; the Cloud Run service is `deploy/cloud-run.yaml`. Behind a proxy
-set `TRUST_PROXY` (Cloud Run: `1`) so the per-IP rate limits see each client's address.
+an image. Environment variables are listed in `.env.example`; the Render service is `render.yaml` (free plan, credentials
+from `FIREBASE_SERVICE_ACCOUNT`, jobs called by an external cron) and the Cloud Run one `deploy/cloud-run.yaml`. Behind a
+proxy set `TRUST_PROXY` (Render, Cloud Run: `1`) so the per-IP rate limits see each client's address.
 
 ## Demo data
 

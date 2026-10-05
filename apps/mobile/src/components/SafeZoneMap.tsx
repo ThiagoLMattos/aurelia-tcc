@@ -3,8 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, Marker } from 'react-native-maps';
 
 import { regionFor } from '@/lib/mapRegion';
+import { nativeMapAvailable } from '@/lib/nativeMap';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
 
+import { MapFallback } from './MapFallback';
 import type { SafeZoneMapProps } from './SafeZoneMap.types';
 
 export type { SafeZoneMapProps } from './SafeZoneMap.types';
@@ -14,10 +16,15 @@ const STATUS_LABEL = { inside: 'dentro da zona segura', outside: 'fora da zona s
 
 /**
  * A real map with the safe-zone circle and the elder's last position. Apple Maps on iOS, Google Maps on
- * Android (an Android build needs `GOOGLE_MAPS_API_KEY`; Expo Go has its own). When the zone or the
- * position changes (a new report every 30 s, a new centre or radius), the map moves to show both again.
+ * Android (an Android build needs `GOOGLE_MAPS_API_KEY`; Expo Go has its own; without one, the text
+ * fallback with a "Google Maps" button). When the zone or the position changes (a new report every 30 s,
+ * a new centre or radius), the map moves to show both again.
  */
-export function SafeZoneMap({ zone, position, status, elderName, height = 220, onPressCoordinate, style }: SafeZoneMapProps) {
+export function SafeZoneMap(props: SafeZoneMapProps) {
+  return nativeMapAvailable ? <NativeMap {...props} /> : <MapFallback {...props} />;
+}
+
+function NativeMap({ zone, position, status, elderName, height = 220, onPressCoordinate, style }: SafeZoneMapProps) {
   const ref = useRef<MapView>(null);
   const region = useMemo(() => regionFor(zone, position), [zone, position]);
   const firstRegion = useRef(region);

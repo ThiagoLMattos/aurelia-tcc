@@ -26,11 +26,12 @@ describe('logging', () => {
       .post('/api/v1/auth/signup')
       .send({ name: 'Log Teste', email: 'log@example.com', password: 'super-secret-password', extra: true });
     await request(app).get('/api/v1/me').set(bearer('leaked.token.value'));
+    await request(app).post('/api/v1/internal/jobs/escalate').set('X-Jobs-Token', 'jobs-token-that-must-not-leak');
 
     const output = logs.output();
     expect(output).toContain('"/api/v1/me"');
     expect(output).toContain('[Redacted]');
-    for (const secret of [caregiver.token, 'device-secret-value', 'super-secret-password', 'leaked.token.value']) {
+    for (const secret of [caregiver.token, 'device-secret-value', 'super-secret-password', 'leaked.token.value', 'jobs-token-that-must-not-leak']) {
       expect(output).not.toContain(secret);
     }
   });

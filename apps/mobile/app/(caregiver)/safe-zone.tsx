@@ -9,6 +9,7 @@ import { SafeZoneMap } from '@/components/SafeZoneMap';
 import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
+import { nativeMapAvailable } from '@/lib/nativeMap';
 import { useCurrentElder, usePatchElder } from '@/queries';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
 
@@ -51,7 +52,7 @@ export default function SafeZoneScreen() {
   const save = () => {
     const parsed = SafeZoneSchema.safeParse({ ...center, radiusM });
     if (!parsed.success) {
-      setError('Defina o centro da zona: use sua localização atual ou toque no mapa.');
+      setError(nativeMapAvailable ? 'Defina o centro da zona: use sua localização atual ou toque no mapa.' : 'Defina o centro da zona: use sua localização atual.');
       return;
     }
     setError(null);
@@ -70,8 +71,9 @@ export default function SafeZoneScreen() {
     <Screen scroll>
       <ScreenHeader title="Zona segura" />
       <Text style={styles.lead}>
-        Use sua localização atual como centro (estando na casa de {firstName(elder.name)}, por exemplo) e depois toque no
-        mapa para ajustar o ponto, se precisar. Você será avisado quando ela sair do raio escolhido.
+        Use sua localização atual como centro (estando na casa de {firstName(elder.name)}, por exemplo)
+        {nativeMapAvailable ? ' e depois toque no mapa para ajustar o ponto, se precisar' : ''}. Você será avisado
+        quando ela sair do raio escolhido.
       </Text>
 
       <Card style={styles.previewCard}>
