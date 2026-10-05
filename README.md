@@ -49,7 +49,7 @@ npm run emulators    # emuladores do Firebase (Auth + Firestore)
 
 Copie `.env.example` para `.env` e preencha os valores para rodar a API e o app.
 
-Outros comandos na raiz: `npm run typecheck`, `npm run lint`, `npm test`.
+Outros comandos na raiz: `npm run typecheck`, `npm run lint`, `npm test` (pacote shared) e `npm run test:api` (API, sobe os emuladores; precisa de Java 11+). Detalhes em `apps/api/README.md`.
 
 ---
 

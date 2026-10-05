@@ -1,30 +1,26 @@
-import express from 'express';
-import cors from 'cors';
-import diaryRoutes from './interfaces/routes/diaryRoute';
-import sosRoutes from './interfaces/routes/sosRoutes';
-import communicationRoutes from './interfaces/routes/communicationRoutes';
-import taskRoutes from './interfaces/routes/taskRoutes';
-import medicationRoutes from './interfaces/routes/medicationRoutes';
+import { resolve } from 'node:path';
 
+import dotenv from 'dotenv';
 
-const app = express();
+// The single .env lives at the repository root (see .env.example).
+dotenv.config({ path: resolve(import.meta.dirname, '../../../.env'), quiet: true });
 
-app.use(cors());
-app.use(express.json());
+const { createApp } = await import('./app');
+const { loadConfig } = await import('./config');
+const { initFirebase } = await import('./firebase');
+const { createLogger } = await import('./logger');
 
-app.get('/health', (req, res) => {
-   res.status(200).json({ status: 'ok', message: 'Aurelia API está rodando' });
-});
+let config;
+try {
+  config = loadConfig();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+}
 
-app.use('/api', taskRoutes);
-app.use('/api', diaryRoutes);
-app.use('/api', sosRoutes);
-app.use('/api', communicationRoutes);
-app.use('/api', medicationRoutes);
+const logger = createLogger(config);
+const app = createApp({ config, firebase: initFirebase(config), logger });
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-   console.log(`Servidor da Aurélia rodando na porta ${PORT}`);
-    
+app.listen(config.PORT, () => {
+  logger.info({ port: config.PORT, emulators: config.USE_EMULATORS }, 'Aurélia API listening');
 });
