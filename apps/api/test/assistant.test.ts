@@ -2,7 +2,7 @@ import type { AssistantReply } from '@aurelia/shared';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
-import type { LlmProvider, LlmRequest } from '../src/modules/assistant/provider';
+import { groqCompletionParams, type LlmProvider, type LlmRequest } from '../src/modules/assistant/provider';
 import { bearer, buildApp, createScenario, elderToken as elderTokenFor, expectApiError, fixedClock, repos } from './helpers';
 
 // Wednesday 2026-03-11, noon in São Paulo.
@@ -159,5 +159,27 @@ describe('POST /elders/:elderId/assistant/messages', () => {
       expect(response.body.error.message).toContain('assistente');
       expect(JSON.stringify(response.body)).not.toContain('secret-details');
     }
+  });
+});
+
+describe('Groq request', () => {
+  const history = [{ role: 'user' as const, content: 'Como foi a semana?' }];
+
+  it('asks a gpt-oss model to think briefly, keeps the thinking out of the reply and leaves room for the answer', () => {
+    expect(groqCompletionParams('openai/gpt-oss-120b', 'sistema', history)).toEqual({
+      model: 'openai/gpt-oss-120b',
+      temperature: 0.4,
+      messages: [{ role: 'system', content: 'sistema' }, ...history],
+      max_completion_tokens: 2_000,
+      reasoning_effort: 'low',
+      include_reasoning: false,
+    });
+  });
+
+  it('sends no reasoning options to other models', () => {
+    const params = groqCompletionParams('qwen/qwen3.8-27b', 'sistema', history);
+    expect(params).toMatchObject({ max_completion_tokens: 600 });
+    expect(params).not.toHaveProperty('reasoning_effort');
+    expect(params).not.toHaveProperty('include_reasoning');
   });
 });

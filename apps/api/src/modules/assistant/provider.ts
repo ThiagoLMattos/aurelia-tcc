@@ -16,17 +16,31 @@ export interface LlmProvider {
   generate(request: LlmRequest): Promise<string>;
 }
 
+/** Reasoning models on Groq (`openai/gpt-oss-*`): they think before answering, and the thinking is billed as output. */
+const isReasoningModel = (model: string) => model.startsWith('openai/gpt-oss');
+
+/**
+ * The chat request for `model`. A reasoning model is told to think briefly and not to send its
+ * thinking back, and gets a larger cap: the thinking counts against `max_completion_tokens`, and a
+ * cap sized for the reply alone could leave the answer cut off or empty. The prompt keeps replies short.
+ */
+export function groqCompletionParams(model: string, system: string, messages: LlmMessage[]) {
+  return {
+    model,
+    temperature: 0.4,
+    messages: [{ role: 'system' as const, content: system }, ...messages],
+    ...(isReasoningModel(model)
+      ? { max_completion_tokens: 2_000, reasoning_effort: 'low' as const, include_reasoning: false }
+      : { max_completion_tokens: 600 }),
+  };
+}
+
 export function createGroqProvider({ apiKey, model }: { apiKey: string; model: string }): LlmProvider {
   const client = new Groq({ apiKey });
   return {
     async generate({ system, messages, signal }) {
       const completion = await client.chat.completions.create(
-        {
-          model,
-          temperature: 0.4,
-          max_completion_tokens: 600,
-          messages: [{ role: 'system', content: system }, ...messages],
-        },
+        groqCompletionParams(model, system, messages),
         signal ? { signal } : undefined,
       );
       return completion.choices[0]?.message.content ?? '';
