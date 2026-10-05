@@ -167,3 +167,31 @@ describe('WP3 contract details', () => {
     expect(SosBodySchema.safeParse({ lat: -23.5 }).success).toBe(false);
   });
 });
+
+describe('games', () => {
+  it('GameResultBody takes the fields of its own game and comes out as the stored payload', async () => {
+    const { GameResultBodySchema } = await import('../src');
+    expect(GameResultBodySchema.parse({ game: 'memory', pairs: 6, moves: 9, durationSec: 120 })).toEqual({
+      game: 'memory',
+      pairs: 6,
+      moves: 9,
+      durationSec: 120,
+    });
+    expect(GameResultBodySchema.parse({ game: 'sequence', longest: 0, durationSec: 15 })).toEqual({
+      game: 'sequence',
+      longest: 0,
+      durationSec: 15,
+    });
+    expect(GameResultBodySchema.safeParse({ game: 'memory', pairs: 6, durationSec: 120 }).success).toBe(false);
+    expect(GameResultBodySchema.safeParse({ game: 'memory', pairs: 6, moves: 5, durationSec: 120 }).success).toBe(false);
+    expect(GameResultBodySchema.safeParse({ game: 'sequence', longest: 3, moves: 4, durationSec: 30 }).success).toBe(false);
+    expect(GameResultBodySchema.safeParse({ game: 'sequence', longest: 3, durationSec: 0 }).success).toBe(false);
+    expect(GameResultBodySchema.safeParse({ game: 'chess', durationSec: 30 }).success).toBe(false);
+  });
+
+  it('memoryAccuracyPct is the share of turns that found a pair', async () => {
+    const { memoryAccuracyPct } = await import('../src');
+    expect(memoryAccuracyPct({ pairs: 6, moves: 6 })).toBe(100);
+    expect(memoryAccuracyPct({ pairs: 6, moves: 9 })).toBe(67);
+  });
+});

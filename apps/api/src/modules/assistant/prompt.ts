@@ -62,6 +62,8 @@ function summariseEvent(event: Event): Record<string, unknown> {
       return { ...base, distanceM: event.payload.distanceM, resolved: event.payload.resolvedAt !== null };
     case 'deviceOffline':
       return { ...base, lastSeenAt: event.payload.lastSeenAt };
+    case 'gamePlayed':
+      return { ...base, ...event.payload };
     default:
       return base;
   }

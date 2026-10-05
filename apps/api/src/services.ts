@@ -11,6 +11,7 @@ import { createContactsService } from './modules/contacts/service';
 import { createDevicesService } from './modules/devices/service';
 import { createEldersService } from './modules/elders/service';
 import { createEventsService } from './modules/events/service';
+import { createGamesService } from './modules/games/service';
 import { createJobsService } from './modules/jobs/service';
 import { createLocationService } from './modules/location/service';
 import { createMissedTasksJob } from './modules/jobs/missedTasks';
@@ -74,6 +75,7 @@ export function createServices({
       now,
     }),
     sos: createSosService({ events, notifier }),
+    games: createGamesService({ events }),
     devices,
     location: createLocationService({
       location: repos.location,

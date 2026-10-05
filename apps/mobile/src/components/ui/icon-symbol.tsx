@@ -57,6 +57,11 @@ const MAPPING = {
   'figure.walk': 'directions-walk',
   'star.fill': 'star',
 
+  // ── Games ─────────────────────────────────────────────────────────────────
+  'puzzlepiece.fill': 'extension',
+  'square.grid.2x2.fill': 'grid-view',
+  'circle.grid.2x2.fill': 'apps',
+
   // ── Misc ──────────────────────────────────────────────────────────────────
   'gear': 'settings',
   'arrow.right.circle.fill': 'arrow-forward',

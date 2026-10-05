@@ -64,6 +64,7 @@ Every `/elders/:elderId/**` route first checks access: a caregiver must be in th
 | `GET /elders/:elderId/events?from=&to=&types=&limit=&cursor=` | caregiver | `EventsPage`, newest first |
 | `GET /elders/:elderId/reports/weekly?weekStart=` | caregiver | `WeeklyReport` |
 | `POST /elders/:elderId/sos` | elder | `SosBody` → `201 { eventId }`; urgent push to every caregiver |
+| `POST /elders/:elderId/games` | elder | `GameResultBody` → `201 { eventId }`; a finished game, stored as a `gamePlayed` event (no push) |
 | `POST /elders/:elderId/geofence/resolve` | caregiver | `ResolveGeofenceBody` → updated `geofenceExit` event; does not change the location state |
 
 ## Trackers and location

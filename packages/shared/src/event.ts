@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { DoneBySchema } from './agenda';
+import { GamePlayedPayloadSchema } from './game';
 import { IdSchema, IsoDateTimeSchema, LatSchema, LngSchema, LocalDateSchema, LocalTimeSchema } from './primitives';
 
 export const EventTypeSchema = z.enum([
@@ -11,6 +12,7 @@ export const EventTypeSchema = z.enum([
   'geofenceReturn',
   'deviceOffline',
   'devicePaired',
+  'gamePlayed',
 ]);
 export type EventType = z.infer<typeof EventTypeSchema>;
 
@@ -51,6 +53,7 @@ export const EventSchema = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('geofenceReturn'), payload: GeofenceReturnPayloadSchema }),
   z.object({ ...base, type: z.literal('deviceOffline'), payload: DeviceOfflinePayloadSchema }),
   z.object({ ...base, type: z.literal('devicePaired'), payload: DevicePairedPayloadSchema }),
+  z.object({ ...base, type: z.literal('gamePlayed'), payload: GamePlayedPayloadSchema }),
 ]);
 export type Event = z.infer<typeof EventSchema>;
 

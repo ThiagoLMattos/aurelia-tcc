@@ -12,11 +12,13 @@
 import {
   addDays,
   haversineMeters,
+  LABELS_PT,
   localTimeOf,
   minutesOfDay,
   weekStartOf,
   type AgendaItem,
   type AgendaStatus,
+  type GamesReport,
   type LocalDate,
   type LocationResponse,
   type RoutineType,
@@ -514,11 +516,13 @@ function AureliaCard({
 
 /** The sentence under "Análise semanal", built from the report's numbers. */
 function generateInsight(name: string, current: WeeklyReport, previous: WeeklyReport | undefined): string {
+  const { sessions } = current.games;
+  const games = sessions > 0 ? ` ${name} jogou ${sessions} partida${sessions > 1 ? 's' : ''} de jogos de memória.` : '';
   const med = current.adherence.medication.pct;
   if (med === null) {
     let text = `Nenhum medicamento estava previsto esta semana para ${name}.`;
     if (current.geofenceExits > 0) text += ` Houve ${current.geofenceExits} saída${current.geofenceExits > 1 ? 's' : ''} da zona segura.`;
-    return text;
+    return text + games;
   }
 
   let text =
@@ -546,7 +550,7 @@ function generateInsight(name: string, current: WeeklyReport, previous: WeeklyRe
   if (current.sosCount > 0) {
     text += ` O botão SOS foi acionado ${current.sosCount} vez${current.sosCount > 1 ? 'es' : ''}.`;
   }
-  return text;
+  return text + games;
 }
 
 const pctLabel = (pct: number | null) => (pct === null ? '—' : `${pct}%`);
@@ -587,7 +591,8 @@ function RelatoriosView({ elderId, elderName, today, refreshControl }: { elderId
       `Aderência a medicamentos: ${pctLabel(report.data.adherence.medication.pct)}\n` +
       `Aderência geral: ${pctLabel(report.data.adherence.all.pct)}\n` +
       `Saídas da zona segura: ${report.data.geofenceExits}\n` +
-      `SOS acionados: ${report.data.sosCount}\n\n` +
+      `SOS acionados: ${report.data.sosCount}\n` +
+      `Jogos: ${report.data.games.sessions} partida${report.data.games.sessions === 1 ? '' : 's'} (${report.data.games.minutes} min)\n\n` +
       `${insight}`;
     try {
       await Share.share({ message: msg, title: `Relatório Aurélia ${label}` });
@@ -688,6 +693,8 @@ function RelatoriosView({ elderId, elderName, today, refreshControl }: { elderId
         </View>
       ) : null}
 
+      <GamesCard report={data.games} previous={prev?.games} elderName={elderName} weekInProgress={isCurrent} />
+
       {/* ── Day-by-day chart ── */}
       <View style={styles.rCard}>
         <Text style={styles.rCardTitle}>Dia a dia</Text>
@@ -720,6 +727,11 @@ function RelatoriosView({ elderId, elderName, today, refreshControl }: { elderId
                       <Text style={styles.rBadgeText}>SOS</Text>
                     </View>
                   )}
+                  {day.games > 0 && (
+                    <View style={extra.badgeGame}>
+                      <Text style={styles.rBadgeText}>{day.games} jogo{day.games > 1 ? 's' : ''}</Text>
+                    </View>
+                  )}
                 </View>
               </View>
               <Text style={styles.rDayCount}>{day.done}/{total}</Text>
@@ -738,6 +750,169 @@ function RelatoriosView({ elderId, elderName, today, refreshControl }: { elderId
     </ScrollView>
   );
 }
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+/** "▲ +2" / "▼ −1" / "= igual" against last week; nothing when last week has no number to compare. */
+function GameDelta({ current, previous, suffix = '' }: { current: number | null; previous: number | null | undefined; suffix?: string }) {
+  if (current === null || previous === null || previous === undefined) return null;
+  const diff = current - previous;
+  if (diff === 0) return <Text style={games.deltaFlat}>= igual à semana anterior</Text>;
+  const up = diff > 0;
+  return (
+    <Text style={[games.delta, up ? styles.rDeltaUp : styles.rDeltaDown]}>
+      {`${up ? '▲ +' : '▼ −'}${Math.abs(diff)}${suffix} vs. semana anterior`}
+    </Text>
+  );
+}
+
+/** One game's best result of the week, or a quiet placeholder when it was not played. */
+function GameTile({
+  icon,
+  name,
+  value,
+  caption,
+  footer,
+  delta,
+}: {
+  icon: 'square.grid.2x2.fill' | 'circle.grid.2x2.fill';
+  name: string;
+  value: string | null;
+  caption: string;
+  footer: string;
+  delta: React.ReactNode;
+}) {
+  const played = value !== null;
+  return (
+    <View style={[games.tile, !played && games.tileIdle]} accessible accessibilityLabel={played ? `${name}: ${value}, ${caption}. ${footer}.` : `${name}: não jogado nesta semana.`}>
+      <View style={games.tileHead}>
+        <IconSymbol name={icon} size={14} color={played ? Colors.primary : Colors.textMuted} />
+        <Text style={[games.tileName, !played && games.muted]} numberOfLines={1}>{name}</Text>
+      </View>
+      {played ? (
+        <>
+          <Text style={games.tileValue}>{value}</Text>
+          <Text style={games.tileCaption}>{caption}</Text>
+          {delta}
+          <View style={games.tileFooter}>
+            <Text style={games.tileFooterText}>{footer}</Text>
+          </View>
+        </>
+      ) : (
+        <Text style={[games.tileCaption, games.idleText]}>Não jogado nesta semana</Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * The week's memory games: how often and how long, then the best result of each game. The count is
+ * compared with last week only once the week is over; mid-week it would always look like a drop.
+ */
+function GamesCard({
+  report,
+  previous,
+  elderName,
+  weekInProgress,
+}: {
+  report: GamesReport;
+  previous: GamesReport | undefined;
+  elderName: string;
+  weekInProgress: boolean;
+}) {
+  const { memory, sequence } = report;
+  const sessionsBefore = weekInProgress ? undefined : previous?.sessions;
+
+  return (
+    <View style={styles.rCard}>
+      <View style={games.header}>
+        <View style={games.badge}>
+          <IconSymbol name="puzzlepiece.fill" size={18} color={Colors.primary} />
+        </View>
+        <View style={games.headerText}>
+          <Text style={games.title}>Jogos da semana</Text>
+          <Text style={games.subtitle}>
+            {report.sessions === 0 ? 'Nenhuma partida' : `${plural(report.sessions, 'partida', 'partidas')} · ${report.minutes} min jogando`}
+          </Text>
+        </View>
+        {sessionsBefore !== undefined && report.sessions !== sessionsBefore ? (
+          <View style={[games.pill, report.sessions > sessionsBefore ? games.pillUp : games.pillDown]}>
+            <Text style={[games.pillText, report.sessions > sessionsBefore ? styles.rDeltaUp : styles.rDeltaDown]}>
+              {`${report.sessions > sessionsBefore ? '▲ +' : '▼ −'}${Math.abs(report.sessions - sessionsBefore)} partidas`}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {report.sessions === 0 ? (
+        <View style={games.empty}>
+          <Text style={games.emptyText}>{`Quando ${elderName} jogar no celular, os resultados aparecem aqui.`}</Text>
+        </View>
+      ) : (
+        <View style={games.tiles}>
+          <GameTile
+            icon="square.grid.2x2.fill"
+            name={LABELS_PT.game.memory}
+            value={memory.played > 0 ? `${memory.bestAccuracyPct}%` : null}
+            caption="melhor taxa de acertos"
+            footer={`${plural(memory.played, 'partida', 'partidas')} · até ${memory.mostPairs} pares`}
+            delta={<GameDelta current={memory.bestAccuracyPct} previous={previous?.memory.bestAccuracyPct} suffix=" p.p." />}
+          />
+          <GameTile
+            icon="circle.grid.2x2.fill"
+            name={LABELS_PT.game.sequence}
+            value={sequence.played > 0 ? plural(sequence.best ?? 0, 'cor', 'cores') : null}
+            caption="maior sequência lembrada"
+            footer={plural(sequence.played, 'partida', 'partidas')}
+            delta={<GameDelta current={sequence.best} previous={previous?.sequence.best} />}
+          />
+        </View>
+      )}
+    </View>
+  );
+}
+
+const games = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  badge: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: { flex: 1, gap: 1 },
+  title: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.textPrimary },
+  subtitle: { fontSize: 12, color: Colors.textSecondary },
+  pill: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
+  pillUp: { backgroundColor: Colors.successBg },
+  pillDown: { backgroundColor: Colors.dangerBg },
+  pillText: { fontSize: 11, fontWeight: Typography.weight.semibold },
+  tiles: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
+  tile: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    gap: 2,
+  },
+  tileIdle: { backgroundColor: Colors.white, borderStyle: 'dashed' },
+  tileHead: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: Spacing.xs },
+  tileName: { flex: 1, fontSize: 11, fontWeight: Typography.weight.semibold, color: Colors.textSecondary },
+  muted: { color: Colors.textMuted },
+  tileValue: { fontSize: Typography.size.xl, fontWeight: Typography.weight.bold, color: Colors.primary },
+  tileCaption: { fontSize: 11, color: Colors.textSecondary },
+  idleText: { color: Colors.textMuted, marginTop: Spacing.xs },
+  delta: { fontSize: 10, fontWeight: Typography.weight.semibold, marginTop: 2 },
+  deltaFlat: { fontSize: 10, color: Colors.textSecondary, marginTop: 2 },
+  tileFooter: { marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 0.5, borderTopColor: Colors.border },
+  tileFooterText: { fontSize: 11, color: Colors.textPrimary },
+  empty: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: Spacing.md },
+  emptyText: { fontSize: 12, color: Colors.textSecondary, textAlign: 'center' },
+});
 
 // Dev state switcher — dev builds in mock mode only: with no tracker and no scheduler behind the
 // mock, this is how a demo reaches the "missed" and "outside" states.
@@ -952,6 +1127,7 @@ const extra = StyleSheet.create({
   chipNeutral: { backgroundColor: Colors.progressBg },
   chipNeutralText: { color: Colors.textSecondary },
   reportLine: { fontSize: Typography.size.sm, color: Colors.textPrimary },
+  badgeGame: { backgroundColor: Colors.primaryLight, borderRadius: Radius.full, paddingHorizontal: 5, paddingVertical: 1 },
 });
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ import { randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { addDays, instantOf, localDateOf, weekdayOf, type CreateRoutineBody } from '@aurelia/shared';
+import { addDays, instantOf, localDateOf, weekdayOf, type CreateRoutineBody, type GamePlayedPayload } from '@aurelia/shared';
 import type { Logger } from 'pino';
 
 import type { Clock } from '../src/clock';
@@ -197,6 +197,22 @@ export async function seedDemo({ firebase, logger, password, now: realNow = () =
   // Two days ago: an SOS from the park.
   const sosAt = instantOf(addDays(today, -2), '16:05', TIMEZONE);
   steps.push({ at: sosAt, run: async () => void (await services.sos.trigger(await elder(), offset(HOME, 400, 250))) });
+
+  // Most mornings she plays a little: the memory game, and the colour sequence getting slowly longer.
+  const games: [number, string, GamePlayedPayload][] = [
+    [-6, '10:20', { game: 'memory', pairs: 3, moves: 5, durationSec: 95 }],
+    [-5, '10:05', { game: 'sequence', longest: 3, durationSec: 70 }],
+    [-4, '10:30', { game: 'memory', pairs: 6, moves: 11, durationSec: 240 }],
+    [-3, '10:15', { game: 'sequence', longest: 4, durationSec: 85 }],
+    [-3, '10:25', { game: 'memory', pairs: 6, moves: 9, durationSec: 210 }],
+    [-1, '10:10', { game: 'sequence', longest: 5, durationSec: 110 }],
+  ];
+  for (const [daysAgo, time, result] of games) {
+    steps.push({
+      at: instantOf(addDays(today, daysAgo), time, TIMEZONE),
+      run: async () => void (await services.games.record(await elder(), result)),
+    });
+  }
 
   // Yesterday afternoon: she walks to the bakery, leaves the safe zone, and comes back.
   const walkDay = addDays(today, -1);

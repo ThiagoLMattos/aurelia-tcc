@@ -23,6 +23,7 @@ import { authRoutes } from './modules/auth/routes';
 import { contactsRoutes } from './modules/contacts/routes';
 import { elderRoutes, eldersRoutes } from './modules/elders/routes';
 import { eventsRoutes } from './modules/events/routes';
+import { gamesRoutes } from './modules/games/routes';
 import { meRoutes } from './modules/me/routes';
 import { pairRoutes, pairingManagementRoutes } from './modules/pairing/routes';
 import { reportsRoutes } from './modules/reports/routes';
@@ -102,6 +103,7 @@ export function createApp({ config, firebase, logger, now, limits, services: giv
   elderScope.use('/events', eventsRoutes(services.events));
   elderScope.use('/reports', reportsRoutes(services.reports));
   elderScope.use('/sos', sosRoutes(services.sos));
+  elderScope.use('/games', gamesRoutes(services.games));
   elderScope.use('/devices', devicesRoutes(services.devices));
   elderScope.use('/', elderLocationRoutes(services.location));
   elderScope.use('/assistant', assistantRoutes(services.assistant, limits?.assistantPerHour ?? 30));

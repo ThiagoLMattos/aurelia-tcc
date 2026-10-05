@@ -12,6 +12,9 @@ const exit = (at: string, date: string, id = at): Event => ({
 });
 const ret = (at: string, date: string, id = at): Event => ({ id, at, date, type: 'geofenceReturn', payload: { lat: 0, lng: 0 } });
 const sos = (at: string, date: string): Event => ({ id: at, at, date, type: 'sos', payload: { lat: null, lng: null } });
+const game = (at: string, date: string, payload: Extract<Event, { type: 'gamePlayed' }>['payload']): Event => ({
+  id: at, at, date, type: 'gamePlayed', payload,
+});
 
 const report = (over: Partial<Parameters<typeof computeWeeklyReport>[0]> = {}) =>
   computeWeeklyReport({ weekStart: WEEK, routines: [], occurrences: [], events: [], now: NOW, timezone: TZ, ...over });
@@ -81,6 +84,34 @@ describe('computeWeeklyReport', () => {
     const r = report({ events: [ret('2024-01-02T13:00:00.000Z', '2024-01-02'), sos('2024-01-09T13:00:00.000Z', '2024-01-09')] });
     expect(r.minutesOutside).toBe(0);
     expect(r.sosCount).toBe(0);
+  });
+
+  it('sums the games of the week and keeps the best result of each', () => {
+    const r = report({
+      events: [
+        game('2024-01-02T13:00:00.000Z', '2024-01-02', { game: 'memory', pairs: 6, moves: 12, durationSec: 200 }),
+        game('2024-01-02T14:00:00.000Z', '2024-01-02', { game: 'memory', pairs: 3, moves: 4, durationSec: 60 }),
+        game('2024-01-04T13:00:00.000Z', '2024-01-04', { game: 'sequence', longest: 5, durationSec: 90 }),
+        game('2024-01-05T13:00:00.000Z', '2024-01-05', { game: 'sequence', longest: 3, durationSec: 50 }),
+        game('2024-01-09T13:00:00.000Z', '2024-01-09', { game: 'sequence', longest: 9, durationSec: 50 }), // other week
+      ],
+    });
+    expect(r.games).toEqual({
+      sessions: 4,
+      minutes: 7,
+      memory: { played: 2, bestAccuracyPct: 75, mostPairs: 6 },
+      sequence: { played: 2, best: 5 },
+    });
+    expect(r.days.map((d) => d.games)).toEqual([0, 2, 0, 1, 1, 0, 0]);
+  });
+
+  it('reports no games as zero sessions and null bests', () => {
+    expect(report().games).toEqual({
+      sessions: 0,
+      minutes: 0,
+      memory: { played: 0, bestAccuracyPct: null, mostPairs: null },
+      sequence: { played: 0, best: null },
+    });
   });
 
   it('normalises weekStart to the Monday of its week', () => {

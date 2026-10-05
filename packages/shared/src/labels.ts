@@ -1,5 +1,6 @@
 import type { DiagnosisStage } from './elder';
 import type { Escalation } from './me';
+import type { GameId } from './game';
 import type { AgendaStatus } from './agenda';
 import type { RoutineType } from './routine';
 
@@ -27,6 +28,10 @@ export const LABELS_PT = {
     meOnly: 'Somente eu',
     meThenContacts: 'Eu e depois os contatos',
   } satisfies Record<Escalation, string>,
+  game: {
+    memory: 'Jogo da Memória',
+    sequence: 'Memória Sequencial',
+  } satisfies Record<GameId, string>,
   weekdayShort: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
   weekdayLong: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
 } as const;

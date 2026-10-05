@@ -15,6 +15,8 @@ import type {
   Event,
   EventsPage,
   EventType,
+  GameResultBody,
+  GameResultResponse,
   LocalDate,
   LocationResponse,
   MeResponse,
@@ -87,6 +89,9 @@ export interface Api {
   getWeeklyReport(elderId: string, weekStart?: LocalDate): Promise<WeeklyReport>;
   sendSos(elderId: string, body?: SosBody): Promise<SosResponse>;
   resolveGeofence(elderId: string, body?: ResolveGeofenceBody): Promise<Event>;
+
+  // Games
+  sendGameResult(elderId: string, body: GameResultBody): Promise<GameResultResponse>;
 
   // Trackers and location
   createDevice(elderId: string, body: CreateDeviceBody): Promise<CreateDeviceResponse>;
