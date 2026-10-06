@@ -65,6 +65,14 @@
         {
           "locationWhenInUsePermission": "O Aurélia usa a sua localização atual só para marcar o centro da zona segura."
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "O Aurélia usa o microfone só enquanto você segura o botão para falar com a assistente.",
+          "speechRecognitionPermission": "O Aurélia transforma o que você fala em texto para a assistente responder.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox", "com.google.android.tts"]
+        }
       ]
     ],
     "experiments": {
