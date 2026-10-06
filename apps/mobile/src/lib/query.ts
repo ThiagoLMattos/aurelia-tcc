@@ -12,8 +12,21 @@ function shouldRetry(failureCount: number, error: unknown): boolean {
   return true;
 }
 
-export const queryClient = new QueryClient({
-  queryCache: new QueryCache({ onError: noteIfRevoked }),
+/**
+ * A caregiver taken off the elder by another caregiver gets 403 from every elder screen. Asking
+ * `GET /me` again lets the layout notice the elder is gone and go back to onboarding.
+ */
+function refreshAccessOnForbidden(error: unknown) {
+  if (error instanceof ApiError && error.code === 'FORBIDDEN') void queryClient.invalidateQueries({ queryKey: queryKeys.me });
+}
+
+export const queryClient: QueryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => {
+      noteIfRevoked(error);
+      refreshAccessOnForbidden(error);
+    },
+  }),
   mutationCache: new MutationCache({ onError: noteIfRevoked }),
   defaultOptions: {
     queries: { staleTime: 30_000, retry: shouldRetry },

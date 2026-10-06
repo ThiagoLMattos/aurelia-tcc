@@ -55,6 +55,19 @@ export function createPairingCodesRepo(db: Firestore) {
       }
     },
 
+    /** The elder's code of this kind that is still waiting to be used, if any. */
+    async findActive(elderId: string, kind: PairingCodeKind, now: Date): Promise<{ code: string; expiresAt: Date } | null> {
+      const snaps = await col.where('elderId', '==', elderId).get();
+      for (const snap of snaps.docs) {
+        const data = snap.data() as PairingCodeData;
+        const expiresAt = toDate(data.expiresAt);
+        if ((data.kind ?? 'elderPhone') === kind && data.usedAt === null && expiresAt.getTime() > now.getTime()) {
+          return { code: snap.id, expiresAt };
+        }
+      }
+      return null;
+    },
+
     /**
      * Marks the code used, atomically. Returns the elder id, or null when the code does not exist,
      * is of another kind, is expired or was already used (callers must not tell these apart).

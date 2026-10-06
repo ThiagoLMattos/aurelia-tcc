@@ -8,9 +8,11 @@ const clock = fixedClock('2026-03-11T15:00:00.000Z');
 // The join limiter is per IP and every test shares one, so only the brute-force test uses a tight limit.
 const app = buildApp({ now: clock, limits: { joinPer15Min: 1000 } });
 
-const invite = async (token: string, elderId: string) => {
-  const response = await request(app).post(`/api/v1/elders/${elderId}/caregiver-invites`).set(bearer(token));
-  expect(response.status).toBe(201);
+const invite = async (token: string, elderId: string, renew = false) => {
+  const response = await request(app)
+    .post(`/api/v1/elders/${elderId}/caregiver-invites${renew ? '?renew=true' : ''}`)
+    .set(bearer(token));
+  expect([200, 201]).toContain(response.status);
   return response.body as { code: string; expiresAt: string };
 };
 const join = (token: string, code: string, target = app) => request(target).post('/api/v1/me/elders').set(bearer(token)).send({ code });
@@ -45,11 +47,21 @@ describe('inviting another caregiver', () => {
     );
   });
 
-  it('is single use, replaced by a newer invite, and never signs a phone in', async () => {
+  it('keeps the invite already sent until it is renewed, used or expired', async () => {
+    const { caregiver, elderId } = await createScenario();
+    const bruno = await createCaregiver();
+    const first = await invite(caregiver.token, elderId);
+    expect(await invite(caregiver.token, elderId)).toEqual(first);
+    expect((await join(bruno.token, first.code)).status).toBe(201);
+    expect((await invite(caregiver.token, elderId)).code).not.toBe(first.code);
+  });
+
+  it('is single use, replaced by a renewed invite, and never signs a phone in', async () => {
     const { caregiver, elderId } = await createScenario();
     const [bruno, carla] = await Promise.all([createCaregiver(), createCaregiver()]);
     const first = await invite(caregiver.token, elderId);
-    const second = await invite(caregiver.token, elderId);
+    const second = await invite(caregiver.token, elderId, true);
+    expect(second.code).not.toBe(first.code);
     expectApiError(await join(bruno.token, first.code), 404, 'NOT_FOUND');
 
     expectApiError(await request(app).post('/api/v1/auth/pair').send({ code: second.code }), 404, 'NOT_FOUND');

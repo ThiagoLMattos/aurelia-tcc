@@ -42,7 +42,7 @@ Every `/elders/:elderId/**` route first checks access: a caregiver must be in th
 | `PATCH /elders/:elderId` | caregiver | `PatchElderBody` |
 | `POST /elders/:elderId/pairing-codes` | caregiver | `PairingCodeResponse` (15 min) |
 | `DELETE /elders/:elderId/session` | caregiver | unpair the elder phone |
-| `POST /elders/:elderId/caregiver-invites` | caregiver | `PairingCodeResponse` (48 h) for another caregiver to type in `POST /me/elders`; replaces the elder's earlier unused invite. It never signs a phone in |
+| `POST /elders/:elderId/caregiver-invites?renew=` | caregiver | `PairingCodeResponse` (48 h) for another caregiver to type in `POST /me/elders`: the invite still waiting to be used (`200`), or a new one (`201`) when there is none or `renew=true` (which cancels the old one). It never signs a phone in |
 | `GET /elders/:elderId/caregivers` | caregiver | `ElderCaregiversResponse`: who follows the elder (id, name, email) |
 | `DELETE /elders/:elderId/caregivers/:caregiverId` | caregiver | `204`; any caregiver of the elder can remove another or leave; `409` for the last one |
 

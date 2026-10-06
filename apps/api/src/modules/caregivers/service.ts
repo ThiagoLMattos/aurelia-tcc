@@ -29,14 +29,21 @@ const invalidInvite = () => new AppError('NOT_FOUND', 'Convite inválido ou expi
 /** Several caregivers per elder: invites, the list of who follows the elder, and leaving / removing. */
 export function createCaregiversService({ elders, users, codes, now }: Deps) {
   return {
-    /** A code another caregiver types to follow this elder. A new one replaces the elder's earlier unused invite. */
-    async issueInvite(elder: ElderDoc, caregiverUid: string): Promise<PairingCodeResponse> {
+    /**
+     * A code another caregiver types to follow this elder. Returns the invite still waiting to be used,
+     * unless `renew` asks for a new one (which cancels it). `created` says which happened.
+     */
+    async issueInvite(elder: ElderDoc, caregiverUid: string, renew = false): Promise<PairingCodeResponse & { created: boolean }> {
       const current = now();
+      if (!renew) {
+        const active = await codes.findActive(elder.id, 'caregiverInvite', current);
+        if (active) return { code: active.code, expiresAt: active.expiresAt.toISOString(), created: false };
+      }
       const expiresAt = new Date(current.getTime() + CAREGIVER_INVITE_TTL_HOURS * 60 * 60_000);
       for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
         const code = generatePairingCode();
         if (await codes.issue(elder.id, code, caregiverUid, current, expiresAt, 'caregiverInvite')) {
-          return { code, expiresAt: expiresAt.toISOString() };
+          return { code, expiresAt: expiresAt.toISOString(), created: true };
         }
       }
       throw new Error('could not generate a free invite code');

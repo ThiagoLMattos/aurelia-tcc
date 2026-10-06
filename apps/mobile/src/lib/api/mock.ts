@@ -412,9 +412,13 @@ export function createMockBackend(): MockBackend {
       if (!caregiver.elderIds.includes(found.elderId)) caregiver.elderIds.push(found.elderId);
       return entry.elder;
     },
-    async issueCaregiverInvite(elderId) {
+    async issueCaregiverInvite(elderId, renew = false) {
       elderFor(elderId, { caregiverOnly: true });
-      for (const [code, invite] of invites) if (invite.elderId === elderId) invites.delete(code);
+      for (const [code, invite] of invites) {
+        if (invite.elderId !== elderId) continue;
+        if (!renew && invite.expiresAt > Date.now()) return { code, expiresAt: new Date(invite.expiresAt).toISOString() };
+        invites.delete(code);
+      }
       const code = randomCode();
       const expiresAt = Date.now() + CAREGIVER_INVITE_TTL_HOURS * 3_600_000;
       invites.set(code, { elderId, expiresAt });

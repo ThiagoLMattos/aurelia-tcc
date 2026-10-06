@@ -18,7 +18,7 @@ import {
   type ResolveGeofenceBody,
 } from '@aurelia/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useMe } from '@/auth/useMe';
 import { api } from '@/lib/backend';
@@ -44,8 +44,13 @@ export function useNow(intervalMs = 60_000): Date {
 export function useCurrentElder(): Elder {
   const { data } = useMe();
   const elder = data?.role === 'caregiver' ? data.elders[0] : undefined;
-  if (!elder) throw new Error('useCurrentElder used before the caregiver has an elder');
-  return elder;
+  const last = useRef<Elder | undefined>(undefined);
+  if (elder) last.current = elder;
+  // Right after the caregiver leaves the elder (or is removed), `GET /me` lists none for the moment
+  // these screens take to unmount; keep showing the last one instead of failing.
+  const current = elder ?? last.current;
+  if (!current) throw new Error('useCurrentElder used before the caregiver has an elder');
+  return current;
 }
 
 /** The elder on an elder phone: `GET /me` for a paired phone returns exactly one. The elder layout mounts screens only once it has loaded. */
@@ -307,7 +312,7 @@ export function useIssuePairingCode(elderId: string) {
 }
 
 export function useIssueCaregiverInvite(elderId: string) {
-  return useMutation({ mutationFn: () => api.issueCaregiverInvite(elderId) });
+  return useMutation({ mutationFn: (renew: boolean) => api.issueCaregiverInvite(elderId, renew) });
 }
 
 /** Removing someone else refreshes the list; removing yourself (leaving) changes what `GET /me` returns too. */

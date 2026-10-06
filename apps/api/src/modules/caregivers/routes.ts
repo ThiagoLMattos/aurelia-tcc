@@ -1,4 +1,11 @@
-import { CaregiverParamsSchema, JoinElderBodySchema, type CaregiverParams, type JoinElderBody } from '@aurelia/shared';
+import {
+  CaregiverInviteQuerySchema,
+  CaregiverParamsSchema,
+  JoinElderBodySchema,
+  type CaregiverInviteQuery,
+  type CaregiverParams,
+  type JoinElderBody,
+} from '@aurelia/shared';
 import { Router } from 'express';
 
 import { loadedElder } from '../../auth/requireElderAccess';
@@ -28,8 +35,10 @@ export function caregiversRoutes(service: CaregiversService): Router {
   const router = Router({ mergeParams: true });
   const caregiverOnly = requireRole('caregiver');
 
-  router.post('/caregiver-invites', caregiverOnly, async (req, res) => {
-    res.status(201).json(await service.issueInvite(loadedElder(res), req.auth!.uid));
+  router.post('/caregiver-invites', caregiverOnly, validate({ query: CaregiverInviteQuerySchema }), async (req, res) => {
+    const { renew } = req.query as unknown as CaregiverInviteQuery;
+    const { created, ...invite } = await service.issueInvite(loadedElder(res), req.auth!.uid, renew);
+    res.status(created ? 201 : 200).json(invite);
   });
 
   router.get('/caregivers', caregiverOnly, async (_req, res) => {

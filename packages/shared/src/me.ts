@@ -61,6 +61,18 @@ export type PushTokenBody = z.infer<typeof PushTokenBodySchema>;
 export const PushTokenParamsSchema = z.object({ token: z.string().min(1) });
 export type PushTokenParams = z.infer<typeof PushTokenParamsSchema>;
 
+/**
+ * POST /elders/:elderId/caregiver-invites. Without `renew` the elder's invite still waiting to be used
+ * is returned as is, so opening the invite screen again never cancels a code already sent.
+ */
+export const CaregiverInviteQuerySchema = z.object({
+  renew: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
+});
+export type CaregiverInviteQuery = z.infer<typeof CaregiverInviteQuerySchema>;
+
 /** POST /me/elders: a caregiver joins an elder with an invite another caregiver of that elder issued. */
 export const JoinElderBodySchema = z.strictObject({ code: PairingCodeSchema });
 export type JoinElderBody = z.infer<typeof JoinElderBodySchema>;

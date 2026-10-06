@@ -48,8 +48,11 @@ export function createEndpoints(client: ApiClient): Api {
     unpairElderPhone: (elderId) => request('DELETE', `${elderPath(elderId)}/session`),
 
     joinElder: (body) => request('POST', '/me/elders', { body, schema: ElderSchema }),
-    issueCaregiverInvite: (elderId) =>
-      request('POST', `${elderPath(elderId)}/caregiver-invites`, { schema: PairingCodeResponseSchema }),
+    issueCaregiverInvite: (elderId, renew = false) =>
+      request('POST', `${elderPath(elderId)}/caregiver-invites`, {
+        query: { renew: renew ? 'true' : undefined },
+        schema: PairingCodeResponseSchema,
+      }),
     listCaregivers: (elderId) => request('GET', `${elderPath(elderId)}/caregivers`, { schema: ElderCaregiversResponseSchema }),
     removeCaregiver: (elderId, caregiverId) =>
       request('DELETE', `${elderPath(elderId)}/caregivers/${encodeURIComponent(caregiverId)}`),

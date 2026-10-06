@@ -74,7 +74,8 @@ export interface Api {
   // Caregivers of an elder
   /** POST /me/elders: follow the elder another caregiver invited this one to. */
   joinElder(body: JoinElderBody): Promise<Elder>;
-  issueCaregiverInvite(elderId: string): Promise<PairingCodeResponse>;
+  /** The invite still waiting to be used, or a new one (cancelling it) when `renew` is set or there is none. */
+  issueCaregiverInvite(elderId: string, renew?: boolean): Promise<PairingCodeResponse>;
   listCaregivers(elderId: string): Promise<ElderCaregiversResponse>;
   /** Removes another caregiver from the elder, or this one (leaving). */
   removeCaregiver(elderId: string, caregiverId: string): Promise<void>;

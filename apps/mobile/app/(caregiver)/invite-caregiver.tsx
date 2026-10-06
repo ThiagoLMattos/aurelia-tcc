@@ -1,12 +1,20 @@
-import { CAREGIVER_INVITE_TTL_HOURS } from '@aurelia/shared';
+import { CAREGIVER_INVITE_TTL_HOURS, LABELS_PT } from '@aurelia/shared';
 import { useEffect, useRef } from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, ErrorState, LoadingState, Screen, ScreenHeader } from '@/components';
+import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
 import { useCurrentElder, useIssueCaregiverInvite, useNow } from '@/queries';
 import { Colors, Spacing, Typography } from '@/theme';
+
+/** "terça, 14:30", in the phone's time zone (the invite is for the person holding it). */
+function expiryLabel(iso: string): string {
+  const date = new Date(iso);
+  const weekday = LABELS_PT.weekdayLong[date.getDay()]?.toLowerCase() ?? '';
+  return `${weekday}, ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
 
 /** Issues an invite for another caregiver (family member, carer) and lets the caregiver send it. */
 export default function InviteCaregiverScreen() {
@@ -19,16 +27,26 @@ export default function InviteCaregiverScreen() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    issue.mutate();
+    // The invite already sent (if any) stays valid; only "Gerar novo convite" replaces it.
+    issue.mutate(false);
   }, [issue]);
 
   const expired = issue.data !== undefined && Date.parse(issue.data.expiresAt) <= now.getTime();
 
-  function send(code: string) {
+  /** A new invite cancels the one already sent, so ask first while that one still works. */
+  async function renew() {
+    if (issue.data && !expired) {
+      const ok = await confirm('Gerar novo convite', 'O convite atual deixará de valer. Quem ainda não entrou vai precisar do novo código.', 'Gerar', true);
+      if (!ok) return;
+    }
+    issue.mutate(true);
+  }
+
+  function send(code: string, expiresAt: string) {
     void Share.share({
       message:
         `Convite para acompanhar ${name} no Aurélia: instale o app, crie sua conta de cuidador e, em "Quem você cuida?", ` +
-        `toque em "Tenho um código de convite" e digite ${code}. O código vale por ${CAREGIVER_INVITE_TTL_HOURS} horas.`,
+        `toque em "Tenho um código de convite" e digite ${code}. O código vale até ${expiryLabel(expiresAt)}.`,
     });
   }
 
@@ -40,28 +58,28 @@ export default function InviteCaregiverScreen() {
       </Text>
 
       {issue.isPending && !issue.data ? <LoadingState message="Gerando convite…" /> : null}
-      {issue.isError ? <ErrorState message={friendlyError(issue.error)} onRetry={() => issue.mutate()} /> : null}
+      {issue.isError ? <ErrorState message={friendlyError(issue.error)} onRetry={() => issue.mutate(false)} /> : null}
 
       {issue.data ? (
         <Card style={styles.codeCard}>
           <Text accessibilityLabel={`Código ${issue.data.code.split('').join(' ')}`} style={[styles.code, expired && styles.expired]}>
             {issue.data.code}
           </Text>
-          <Text style={styles.timer}>{expired ? 'Convite expirado' : `Vale por ${CAREGIVER_INVITE_TTL_HOURS} horas`}</Text>
+          <Text style={styles.timer}>{expired ? 'Convite expirado' : `Vale até ${expiryLabel(issue.data.expiresAt)}`}</Text>
         </Card>
       ) : null}
 
       <View style={styles.actions}>
-        {issue.data && !expired ? <Button title="Enviar convite" onPress={() => send(issue.data.code)} /> : null}
+        {issue.data && !expired ? <Button title="Enviar convite" onPress={() => send(issue.data.code, issue.data.expiresAt)} /> : null}
         <Button
           title="Gerar novo convite"
           variant={expired ? 'primary' : 'secondary'}
           loading={issue.isPending && issue.data !== undefined}
-          onPress={() => issue.mutate()}
+          onPress={() => void renew()}
         />
       </View>
       <Text style={styles.hint}>
-        O convite só pode ser usado uma vez. Gerar um novo cancela o anterior. Você pode remover um cuidador a qualquer momento em Perfil.
+        O convite vale por {CAREGIVER_INVITE_TTL_HOURS} horas e só pode ser usado uma vez. Gerar um novo cancela o anterior. Você pode remover um cuidador a qualquer momento em Perfil.
       </Text>
     </Screen>
   );
