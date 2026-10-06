@@ -15,6 +15,11 @@ export const GAMES_SECTION: Section = {
 
 const SOUND_OF: Record<'tap' | 'success' | 'miss' | 'win', SoundName> = { tap: 'tap', success: 'success', miss: 'miss', win: 'celebrate' };
 
+/** A game starts: "ready… go". */
+export function startFeedback(): void {
+  playSound('start');
+}
+
 /**
  * A sound, and a light buzz on phones that have it. `sound` replaces the kind's usual sound (the
  * sequence pads each play their own note).

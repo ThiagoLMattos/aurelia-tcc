@@ -14,7 +14,8 @@ import {
   TIC_TAC_TOE_LEVELS,
   type TicTacToeState,
 } from '@/elder/games/ticTacToe';
-import { GameOverCard, GAMES_SECTION, tapFeedback } from '@/elder/games/ui';
+import { GameOverCard, GAMES_SECTION, startFeedback, tapFeedback } from '@/elder/games/ui';
+import { playSound } from '@/sound';
 import { BigButton, ElderHeader } from '@/elder/ui';
 import { useElderSelf } from '@/queries';
 import { PatientColors, PatientTypography, Shadow } from '@/theme';
@@ -45,7 +46,9 @@ export default function TicTacToeScreen() {
 
   function finish(next: TicTacToeState, played: TicTacToeLevel) {
     if (!next.outcome) return;
-    tapFeedback(next.outcome === 'win' ? 'win' : next.outcome === 'loss' ? 'miss' : 'tap');
+    if (next.outcome === 'win') tapFeedback('win');
+    else if (next.outcome === 'loss') tapFeedback('miss', 'gameOver');
+    else tapFeedback('tap', 'draw');
     recordGame(elder.id, { game: 'tictactoe', level: played, outcome: next.outcome, durationSec: elapsedSeconds(startedAt.current) });
   }
 
@@ -53,6 +56,7 @@ export default function TicTacToeScreen() {
     if (!game || !level || game.outcome || game.turn !== 'phone') return;
     const timer = setTimeout(() => {
       const next = playPhone(game, level);
+      playSound('placeO');
       setGame(next);
       finish(next, level);
     }, PHONE_DELAY_MS);
@@ -64,6 +68,7 @@ export default function TicTacToeScreen() {
     setLevel(next);
     setGame(newTicTacToeGame());
     startedAt.current = Date.now();
+    startFeedback();
   }
 
   function play(index: number) {
@@ -71,8 +76,8 @@ export default function TicTacToeScreen() {
     const next = playElder(game, index);
     if (next === game) return;
     setGame(next);
+    tapFeedback('tap', 'placeX');
     if (next.outcome) finish(next, level);
-    else tapFeedback();
   }
 
   return (

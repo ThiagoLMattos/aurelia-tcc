@@ -14,7 +14,7 @@ import {
   SEQUENCE_PADS,
   type SequenceState,
 } from '@/elder/games/sequence';
-import { GameOverCard, GAMES_SECTION, tapFeedback } from '@/elder/games/ui';
+import { GameOverCard, GAMES_SECTION, startFeedback, tapFeedback } from '@/elder/games/ui';
 import { BigButton, ElderHeader } from '@/elder/ui';
 import { useElderSelf } from '@/queries';
 import { playSound, type SoundName } from '@/sound';
@@ -80,7 +80,11 @@ export default function SequenceGameScreen() {
         });
         later(on + LIT_MS, () => setLit(null));
       });
-      later(LEAD_IN_MS + game.sequence.length * (LIT_MS + GAP_MS), () => setGame((s) => s && finishShowing(s)));
+      later(LEAD_IN_MS + game.sequence.length * (LIT_MS + GAP_MS), () => {
+        setGame((s) => s && finishShowing(s));
+        // Now it is the elder's turn: a soft bell says so.
+        playSound('yourTurn');
+      });
     }
     if (game.phase === 'cleared') later(CLEARED_PAUSE_MS, () => setGame((s) => s && nextRound(s)));
     if (game.phase === 'retry') later(RETRY_PAUSE_MS, () => setGame((s) => s && replay(s)));
@@ -94,6 +98,7 @@ export default function SequenceGameScreen() {
   function start() {
     recorded.current = false;
     startedAt.current = Date.now();
+    startFeedback();
     setGame(newSequenceGame());
   }
 
@@ -103,14 +108,14 @@ export default function SequenceGameScreen() {
     setLit(pad);
     setTimeout(() => setLit((current) => (current === pad ? null : current)), TAP_MS);
     if (next.phase === 'over') {
-      tapFeedback('miss');
+      tapFeedback('miss', 'gameOver');
       record(next);
     } else if (next.phase === 'retry') {
       tapFeedback('miss');
     } else {
       // Each pad sings its own note; the round's last right press is followed by the success chime.
       tapFeedback('tap', PAD_SOUNDS[pad] ?? 'tap');
-      if (next.phase === 'cleared') setTimeout(() => playSound('success'), TAP_MS);
+      if (next.phase === 'cleared') setTimeout(() => playSound('levelUp'), TAP_MS);
     }
     setGame(next);
   }

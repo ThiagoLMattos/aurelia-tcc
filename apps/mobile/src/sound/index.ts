@@ -5,16 +5,28 @@ import { useSyncExternalStore } from 'react';
 /** Made by scripts/make-sounds.mjs. */
 const SOURCES = {
   tap: require('../../assets/sounds/tap.wav'),
-  flip: require('../../assets/sounds/flip.wav'),
   success: require('../../assets/sounds/success.wav'),
   miss: require('../../assets/sounds/miss.wav'),
   celebrate: require('../../assets/sounds/celebrate.wav'),
   send: require('../../assets/sounds/send.wav'),
   receive: require('../../assets/sounds/receive.wav'),
+  sosSent: require('../../assets/sounds/sosSent.wav'),
+  start: require('../../assets/sounds/start.wav'),
+  gameOver: require('../../assets/sounds/gameOver.wav'),
+  flip: require('../../assets/sounds/flip.wav'),
+  flipBack: require('../../assets/sounds/flipBack.wav'),
+  match: require('../../assets/sounds/match.wav'),
   pad0: require('../../assets/sounds/pad0.wav'),
   pad1: require('../../assets/sounds/pad1.wav'),
   pad2: require('../../assets/sounds/pad2.wav'),
   pad3: require('../../assets/sounds/pad3.wav'),
+  yourTurn: require('../../assets/sounds/yourTurn.wav'),
+  levelUp: require('../../assets/sounds/levelUp.wav'),
+  placeX: require('../../assets/sounds/placeX.wav'),
+  placeO: require('../../assets/sounds/placeO.wav'),
+  draw: require('../../assets/sounds/draw.wav'),
+  key: require('../../assets/sounds/key.wav'),
+  hint: require('../../assets/sounds/hint.wav'),
 } as const;
 
 export type SoundName = keyof typeof SOURCES;
@@ -34,6 +46,8 @@ export function initSounds(): Promise<void> {
     try {
       enabled = (await AsyncStorage.getItem(STORAGE_KEY)) !== 'off';
       listeners.forEach((listener) => listener());
+      // Loaded up front: a sound created on first use starts late (a sequence note after its light).
+      for (const name of Object.keys(SOURCES) as SoundName[]) playerFor(name);
       await applyEffectsAudioMode();
     } catch {
       // Sound is a nicety: without storage or an audio session the app just stays quiet or on.
@@ -47,15 +61,20 @@ export function applyEffectsAudioMode(): Promise<void> {
   return setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' });
 }
 
-/** Plays a short effect; never throws and never waits. Players are created on first use and reused. */
+function playerFor(name: SoundName): AudioPlayer {
+  let player = players.get(name);
+  if (!player) {
+    player = createAudioPlayer(SOURCES[name]);
+    players.set(name, player);
+  }
+  return player;
+}
+
+/** Plays a short effect; never throws and never waits. Each sound has one player, loaded at start-up. */
 export function playSound(name: SoundName): void {
   if (!enabled) return;
   try {
-    let player = players.get(name);
-    if (!player) {
-      player = createAudioPlayer(SOURCES[name]);
-      players.set(name, player);
-    }
+    const player = playerFor(name);
     void player.seekTo(0).catch(() => undefined);
     player.play();
   } catch {

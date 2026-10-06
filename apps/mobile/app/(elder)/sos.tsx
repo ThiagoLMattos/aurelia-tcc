@@ -10,6 +10,7 @@ import type { SosStatus } from '@/elder/sos';
 import { dialable } from '@/elder/phones';
 import { formatPhone } from '@/lib/format';
 import { useContacts, useElderSelf } from '@/queries';
+import { playSound } from '@/sound';
 import { PatientColors, PatientTypography } from '@/theme';
 
 const SECTION: Section = {
@@ -49,6 +50,11 @@ export default function SosElderScreen() {
     raised.current = true;
     raiseSos(elder.id);
   }, [elder.id]);
+
+  // A calm chord when the family has been told: help is on the way.
+  useEffect(() => {
+    if (status === 'sent') playSound('sosSent');
+  }, [status]);
 
   const emergency = useMemo<Contact[]>(() => (contacts.data?.items ?? []).filter((c) => c.isEmergency), [contacts.data]);
   const [first, ...others] = emergency;

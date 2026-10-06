@@ -17,13 +17,16 @@ import {
 } from '@/elder/games/memory';
 import { recordGame } from '@/elder/games/recordGame';
 import { elapsedSeconds } from '@/elder/games/results';
-import { GameOverCard, GAMES_SECTION, tapFeedback } from '@/elder/games/ui';
+import { GameOverCard, GAMES_SECTION, startFeedback, tapFeedback } from '@/elder/games/ui';
+import { playSound } from '@/sound';
 import { BigButton, ElderHeader } from '@/elder/ui';
 import { useElderSelf } from '@/queries';
 import { PatientColors, PatientTypography, Shadow } from '@/theme';
 
 /** How long a pair that does not match stays face up: enough to look at both pictures calmly. */
 const MISMATCH_MS = 1_500;
+/** The pause between a card's flip sound and the pair's match/miss sound. */
+const PAIR_RESULT_MS = 250;
 
 const LEVELS = Object.entries(MEMORY_LEVELS) as [MemoryLevel, (typeof MEMORY_LEVELS)[MemoryLevel]][];
 
@@ -40,7 +43,10 @@ export default function MemoryGameScreen() {
 
   useEffect(() => {
     if (!game || !isShowingMismatch(game)) return;
-    const timer = setTimeout(() => setGame((current) => current && hideMismatch(current)), MISMATCH_MS);
+    const timer = setTimeout(() => {
+      playSound('flipBack');
+      setGame((current) => current && hideMismatch(current));
+    }, MISMATCH_MS);
     return () => clearTimeout(timer);
   }, [game]);
 
@@ -48,6 +54,7 @@ export default function MemoryGameScreen() {
     setLevel(next);
     setGame(newMemoryGame(MEMORY_LEVELS[next].pairs));
     startedAt.current = Date.now();
+    startFeedback();
   }
 
   function flip(index: number) {
@@ -56,13 +63,15 @@ export default function MemoryGameScreen() {
     if (next === game) return;
     setGame(next);
     if (isMemoryFinished(next)) {
-      tapFeedback('win');
+      tapFeedback('tap', 'flip');
+      setTimeout(() => tapFeedback('win'), PAIR_RESULT_MS);
       recordGame(elder.id, { game: 'memory', pairs: MEMORY_LEVELS[level].pairs, moves: next.moves, durationSec: elapsedSeconds(startedAt.current) });
     } else {
+      // Every card is heard turning over; a pair's result follows a beat later.
       const matched = next.cards.filter((card) => card.matched).length > game.cards.filter((card) => card.matched).length;
-      if (matched) tapFeedback('success');
-      else if (isShowingMismatch(next)) tapFeedback('miss');
-      else tapFeedback('tap', 'flip');
+      tapFeedback('tap', 'flip');
+      if (matched) setTimeout(() => tapFeedback('success', 'match'), PAIR_RESULT_MS);
+      else if (isShowingMismatch(next)) setTimeout(() => tapFeedback('miss'), PAIR_RESULT_MS);
     }
   }
 
