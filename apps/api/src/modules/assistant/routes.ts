@@ -1,7 +1,13 @@
-import { AssistantMessageBodySchema, type AssistantMessageBody } from '@aurelia/shared';
+import {
+  AssistantMemoryParamsSchema,
+  AssistantMessageBodySchema,
+  type AssistantMemoryParams,
+  type AssistantMessageBody,
+} from '@aurelia/shared';
 import { Router } from 'express';
 
 import { loadedElder } from '../../auth/requireElderAccess';
+import { requireRole } from '../../auth/requireRole';
 import { createRateLimiter } from '../../http/rateLimit';
 import { validate } from '../../http/validate';
 import type { AssistantService } from './service';
@@ -18,6 +24,16 @@ export function assistantRoutes(service: AssistantService, perHour: number): Rou
 
   router.post('/messages', validate({ body: AssistantMessageBodySchema }), limiter, async (req, res) => {
     res.json(await service.reply(loadedElder(res), req.auth!.role, req.body as AssistantMessageBody));
+  });
+
+  /** What Aurélia remembers from the elder's conversations, so the family can see and remove it. */
+  router.get('/memories', requireRole('caregiver'), async (_req, res) => {
+    res.json(await service.listMemories(loadedElder(res)));
+  });
+
+  router.delete('/memories/:memoryId', requireRole('caregiver'), validate({ params: AssistantMemoryParamsSchema }), async (req, res) => {
+    await service.forget(loadedElder(res), (req.params as unknown as AssistantMemoryParams).memoryId);
+    res.status(204).end();
   });
 
   return router;

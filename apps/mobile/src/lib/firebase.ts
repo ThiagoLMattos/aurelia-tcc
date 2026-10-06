@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth, getReactNativePersistence, initializeAuth, type Auth } from 'firebase/auth';
+import { connectAuthEmulator, getAuth, getReactNativePersistence, initializeAuth, type Auth } from 'firebase/auth';
 import { Platform } from 'react-native';
 
 import { env } from '@/config/env';
@@ -24,6 +24,10 @@ export function getFirebaseAuth(): Auth {
       // Fast refresh runs this module again after Auth was already initialised.
       auth = getAuth(app);
     }
+  }
+  // Local development against `npm run emulators` (the API then runs with USE_EMULATORS=true).
+  if (env.authEmulatorHost && !auth.emulatorConfig) {
+    connectAuthEmulator(auth, `http://${env.authEmulatorHost}`, { disableWarnings: true });
   }
   return auth;
 }

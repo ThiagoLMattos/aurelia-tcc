@@ -1,6 +1,7 @@
 import type {
   AgendaItem,
   AgendaResponse,
+  AssistantMemoriesResponse,
   AssistantMessageBody,
   AssistantReply,
   Contact,
@@ -115,4 +116,7 @@ export interface Api {
 
   // Assistant
   sendAssistantMessage(elderId: string, body: AssistantMessageBody): Promise<AssistantReply>;
+  /** What Aurélia remembers from the elder's conversations, newest first (caregivers only). */
+  listMemories(elderId: string): Promise<AssistantMemoriesResponse>;
+  forgetMemory(elderId: string, memoryId: string): Promise<void>;
 }

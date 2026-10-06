@@ -1,6 +1,7 @@
 import {
   AgendaItemSchema,
   AgendaResponseSchema,
+  AssistantMemoriesResponseSchema,
   AssistantReplySchema,
   ContactSchema,
   ContactsResponseSchema,
@@ -95,5 +96,8 @@ export function createEndpoints(client: ApiClient): Api {
 
     sendAssistantMessage: (elderId, body) =>
       request('POST', `${elderPath(elderId)}/assistant/messages`, { body, schema: AssistantReplySchema }),
+    listMemories: (elderId) => request('GET', `${elderPath(elderId)}/assistant/memories`, { schema: AssistantMemoriesResponseSchema }),
+    forgetMemory: (elderId, memoryId) =>
+      request('DELETE', `${elderPath(elderId)}/assistant/memories/${encodeURIComponent(memoryId)}`),
   };
 }

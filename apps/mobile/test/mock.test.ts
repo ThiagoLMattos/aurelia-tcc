@@ -94,6 +94,21 @@ describe('mock backend: caregivers', () => {
   });
 });
 
+describe('mock backend: Aurélia memory', () => {
+  it('shows the demo elder’s memories to the caregiver and forgets one on request', async () => {
+    const { api, auth } = createMockBackend();
+    await auth.signInWithPassword(MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD);
+    const me = await api.getMe();
+    const elderId = me.role === 'caregiver' ? (me.elders[0]?.id ?? '') : '';
+    const { items } = await api.listMemories(elderId);
+    expect(items.length).toBeGreaterThan(0);
+    await api.forgetMemory(elderId, items[0]?.id ?? '');
+    expect((await api.listMemories(elderId)).items).toHaveLength(items.length - 1);
+    await expect(api.forgetMemory(elderId, 'missing')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect((await api.patchElder(elderId, { about: 'Gosta de samba.' })).about).toBe('Gosta de samba.');
+  });
+});
+
 describe('mock backend: onboarding and pairing', () => {
   it('lets a caregiver with no elder create one and then see it in /me', async () => {
     const { api, auth } = createMockBackend();

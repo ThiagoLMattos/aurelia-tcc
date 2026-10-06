@@ -23,6 +23,7 @@ export function toElderResponse(doc: ElderDoc): Elder {
       consecutiveInside: state.consecutiveInside,
     },
     phonePaired: doc.phonePairedAt !== null,
+    about: doc.about,
     createdAt: doc.createdAt.toISOString(),
   };
 }
