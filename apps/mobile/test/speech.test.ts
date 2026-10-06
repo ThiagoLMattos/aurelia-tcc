@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { chooseVoice, nextVoice, rankVoices, speakable, type VoiceInfo } from '@/elder/speech';
+import { rankVoices, speakable, splitForSpeech, type VoiceInfo } from '@/elder/speech';
 
 const voice = (identifier: string, language = 'pt-BR', quality = 'Default', name = identifier): VoiceInfo => ({ identifier, name, quality, language });
 
@@ -32,20 +32,18 @@ describe('rankVoices', () => {
   });
 });
 
-describe('chooseVoice and nextVoice', () => {
-  const ranked = rankVoices(IPHONE);
-
-  it('keeps the saved voice while the phone still has it', () => {
-    expect(chooseVoice(ranked, 'com.apple.eloquence.pt-BR.Eddy')?.identifier).toBe('com.apple.eloquence.pt-BR.Eddy');
-    expect(chooseVoice(ranked, 'gone')?.identifier).toBe(ranked[0]?.identifier);
-    expect(chooseVoice([], null)).toBeNull();
+describe('splitForSpeech', () => {
+  it('keeps the first sentence alone so she starts talking sooner, then groups the rest', () => {
+    expect(splitForSpeech('Bom dia, Maria! Dormiu bem? Hoje está um dia bonito. Vamos tomar o café?')).toEqual([
+      'Bom dia, Maria!',
+      'Dormiu bem? Hoje está um dia bonito. Vamos tomar o café?',
+    ]);
   });
 
-  it('walks through the voices and wraps around', () => {
-    expect(nextVoice(ranked, ranked[0]!.identifier)?.identifier).toBe(ranked[1]?.identifier);
-    expect(nextVoice(ranked, ranked.at(-1)!.identifier)?.identifier).toBe(ranked[0]?.identifier);
-    expect(nextVoice(ranked, null)?.identifier).toBe(ranked[0]?.identifier);
-    expect(nextVoice([], null)).toBeNull();
+  it('cuts a very long sentence at its commas and never returns empty pieces', () => {
+    const long = `${'a'.repeat(150)}, ${'b'.repeat(150)}.`;
+    expect(splitForSpeech(long, 220)).toEqual([`${'a'.repeat(150)},`, `${'b'.repeat(150)}.`]);
+    expect(splitForSpeech('   ')).toEqual([]);
   });
 });
 

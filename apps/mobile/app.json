@@ -73,7 +73,8 @@
           "speechRecognitionPermission": "O Aurélia transforma o que você fala em texto para a assistente responder.",
           "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox", "com.google.android.tts"]
         }
-      ]
+      ],
+      "./plugins/with-sherpa-onnx"
     ],
     "experiments": {
       "typedRoutes": true,

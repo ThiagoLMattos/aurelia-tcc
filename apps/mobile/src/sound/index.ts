@@ -34,12 +34,17 @@ export function initSounds(): Promise<void> {
     try {
       enabled = (await AsyncStorage.getItem(STORAGE_KEY)) !== 'off';
       listeners.forEach((listener) => listener());
-      await setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' });
+      await applyEffectsAudioMode();
     } catch {
       // Sound is a nicety: without storage or an audio session the app just stays quiet or on.
     }
   })();
   return ready;
+}
+
+/** The audio session for the effects; Aurélia's voice switches away from it while she speaks. */
+export function applyEffectsAudioMode(): Promise<void> {
+  return setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' });
 }
 
 /** Plays a short effect; never throws and never waits. Players are created on first use and reused. */

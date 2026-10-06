@@ -1,8 +1,7 @@
 /**
- * Aurélia's voice: which of the phone's text-to-speech voices she uses, and how text is cleaned before
- * being read. Phones ship several Portuguese voices of very different quality (iPhones a basic
- * "compact" one, plus enhanced/premium ones once downloaded; Android Google voices, some synthesised on
- * the server). The best one is picked automatically, and "OUTRA VOZ" walks through the rest.
+ * Aurélia's voice. She speaks with Dii, an open-source Brazilian neural voice that runs on the elder's
+ * phone (see dii.ts). Until Dii is downloaded, or on a phone where it cannot run, the phone's own
+ * text-to-speech is used, with the best Portuguese voice it has.
  */
 
 export interface VoiceInfo {
@@ -42,18 +41,6 @@ export function rankVoices(voices: readonly VoiceInfo[]): VoiceInfo[] {
     .sort((a, b) => voiceScore(b) - voiceScore(a) || a.identifier.localeCompare(b.identifier));
 }
 
-/** The voice to use: the saved choice while the phone still has it, else the best one. */
-export function chooseVoice(ranked: readonly VoiceInfo[], saved: string | null): VoiceInfo | null {
-  return ranked.find((voice) => voice.identifier === saved) ?? ranked[0] ?? null;
-}
-
-/** The voice after `current`, wrapping around: what "OUTRA VOZ" switches to. */
-export function nextVoice(ranked: readonly VoiceInfo[], current: string | null): VoiceInfo | null {
-  if (ranked.length === 0) return null;
-  const index = ranked.findIndex((voice) => voice.identifier === current);
-  return ranked[(index + 1) % ranked.length] ?? null;
-}
-
 /**
  * The text as it should be heard: no emoji (read out as "rosto sorridente"), no markdown marks, no
  * links, and list bullets turned into pauses.
@@ -69,6 +56,26 @@ export function speakable(text: string): string {
     .trim();
 }
 
+/**
+ * Splits text into pieces of whole sentences, at most `max` characters when possible, so the first one
+ * can be spoken while the next is being prepared. A sentence longer than `max` is cut at commas.
+ */
+export function splitForSpeech(text: string, max = 220): string[] {
+  const sentences = text.split(/(?<=[.!?…])\s+/).flatMap((sentence) =>
+    sentence.length <= max ? [sentence] : sentence.split(/(?<=[,;:])\s+/),
+  );
+  const pieces: string[] = [];
+  for (const sentence of sentences.map((s) => s.trim()).filter(Boolean)) {
+    const last = pieces.at(-1);
+    // The first piece stays a single sentence: the sooner it is ready, the sooner she starts talking.
+    if (last !== undefined && pieces.length > 1 && last.length + 1 + sentence.length <= max) pieces[pieces.length - 1] = `${last} ${sentence}`;
+    else pieces.push(sentence);
+  }
+  return pieces;
+}
+
 export const SPEECH_LANGUAGE = LANGUAGE;
-/** A little slower than normal: easier to follow, still natural. */
+/** The phone's voices: a little slower than normal, easier to follow. */
 export const SPEECH_RATE = 0.9;
+/** Dii's pace: the family picked 0.75, calm and clear for older listeners. */
+export const DII_SPEED = 0.75;

@@ -1,67 +1,68 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
-import { chooseVoice, nextVoice, rankVoices, SPEECH_LANGUAGE, SPEECH_RATE, speakable, type VoiceInfo } from './speech';
+import { diiStatus, prepareDii, speakWithDii, stopDii, subscribeDii, type DiiStatus } from './dii';
+import { rankVoices, SPEECH_LANGUAGE, SPEECH_RATE, speakable } from './speech';
 
-const STORAGE_KEY = 'aurelia.voice';
-const SAMPLE = 'Olá! Esta é a minha nova voz. Gostou?';
-
-async function loadVoices(): Promise<VoiceInfo[]> {
+/** The phone's best Portuguese voice, for when Dii is not on the phone yet. */
+async function bestPhoneVoice(): Promise<string | undefined> {
   try {
-    const voices = await Speech.getAvailableVoicesAsync();
-    if (voices.length > 0) return voices;
-    // Android's speech engine can answer empty while it is still starting.
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return await Speech.getAvailableVoicesAsync();
+    return rankVoices(await Speech.getAvailableVoicesAsync())[0]?.identifier;
   } catch {
-    return [];
+    return undefined;
   }
 }
 
-/** Speaks as Aurélia, in the chosen (or best) voice; `changeVoice` moves to the next one and says a sample. */
+function speakWithPhone(text: string, voice: string | undefined) {
+  const words = speakable(text);
+  if (!words) return;
+  Speech.speak(words, {
+    language: SPEECH_LANGUAGE,
+    voice,
+    rate: SPEECH_RATE,
+    // iOS: its own audio session, so the microphone and the sound effects never leave her muffled.
+    useApplicationAudioSession: false,
+  });
+}
+
+/** Dii's download and readiness, for a "preparing the voice" note. */
+export function useDiiStatus(): DiiStatus {
+  return useSyncExternalStore(subscribeDii, diiStatus);
+}
+
+/**
+ * Speaks as Aurélia: with Dii once it is on the phone, else with the phone's best Portuguese voice.
+ * `stop` silences both.
+ */
 export function useAureliaVoice() {
-  const [ranked, setRanked] = useState<VoiceInfo[]>([]);
-  const [voice, setVoice] = useState<VoiceInfo | null>(null);
-  const voiceRef = useRef<string | undefined>(undefined);
+  const phoneVoice = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const [voices, saved] = await Promise.all([loadVoices(), AsyncStorage.getItem(STORAGE_KEY).catch(() => null)]);
-      if (!alive) return;
-      const best = rankVoices(voices);
-      const chosen = chooseVoice(best, saved);
-      voiceRef.current = chosen?.identifier;
-      setRanked(best);
-      setVoice(chosen);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const speak = useCallback((text: string) => {
-    const words = speakable(text);
-    if (!words) return;
-    Speech.stop();
-    Speech.speak(words, {
-      language: SPEECH_LANGUAGE,
-      voice: voiceRef.current,
-      rate: SPEECH_RATE,
-      // iOS: its own audio session, so the microphone and the sound effects never leave her muffled.
-      useApplicationAudioSession: false,
+    void prepareDii();
+    void bestPhoneVoice().then((voice) => {
+      phoneVoice.current = voice;
     });
   }, []);
 
-  const changeVoice = useCallback(() => {
-    const next = nextVoice(ranked, voiceRef.current ?? null);
-    if (!next) return;
-    voiceRef.current = next.identifier;
-    setVoice(next);
-    void AsyncStorage.setItem(STORAGE_KEY, next.identifier).catch(() => undefined);
-    speak(SAMPLE);
-  }, [ranked, speak]);
+  const stop = useCallback(() => {
+    stopDii();
+    Speech.stop();
+  }, []);
 
-  return { speak, changeVoice, voice, canChange: ranked.length > 1 };
+  const speak = useCallback(
+    (text: string) => {
+      stop();
+      if (diiStatus().state !== 'ready') {
+        speakWithPhone(text, phoneVoice.current);
+        return;
+      }
+      speakWithDii(text).catch((error: unknown) => {
+        console.warn('[dii] speaking failed, using the phone voice:', error);
+        speakWithPhone(text, phoneVoice.current);
+      });
+    },
+    [stop],
+  );
+
+  return { speak, stop };
 }

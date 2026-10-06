@@ -137,7 +137,8 @@ O Aurélia une as duas pontas dessa rotina em um único sistema:
 
 - **App do idoso**: interface simplificada, com lembretes de medicação e rotina guiados por
   uma assistente de IA com quem o idoso conversa por voz (segura o botão, fala, e ela responde em voz alta,
-  na melhor voz em português do celular). Botões e jogos têm sons suaves, pensados para quem ouve menos.
+  com uma voz neural brasileira gerada no próprio celular). Botões e jogos têm sons suaves, pensados para
+  quem ouve menos.
 - **Painel do cuidador**: histórico de atividades, alertas em tempo real, gestão de contatos
   de emergência e um resumo diário escrito pela assistente. Vários cuidadores da família podem
   acompanhar o mesmo idoso, por convite.
@@ -157,9 +158,20 @@ O Aurélia une as duas pontas dessa rotina em um único sistema:
 | App mobile | React Native (Expo) |
 | Backend | Node.js, Firebase |
 | Inteligência artificial | Groq API |
+| Voz da assistente | Voz "Dii" (Piper/VITS) com sherpa-onnx, no próprio celular |
 | Alertas aos contatos de emergência | Twilio (SMS) |
 | Hardware / geofencing | ESP32, GPS NEO-6M |
 | Landing page | HTML5, CSS3, JavaScript |
+
+### Voz da Aurélia
+
+A Aurélia fala com a voz **Dii**, uma voz neural em português do Brasil criada pela
+[TigreGotico](https://tigregotico.pt) (modelo [OpenVoiceOS/pipertts_pt-BR_dii](https://huggingface.co/OpenVoiceOS/pipertts_pt-BR_dii)),
+licenciada em [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/): uso não comercial, com
+crédito e sem modificações, como neste trabalho acadêmico. O modelo não faz parte do repositório nem do
+APK: o celular do idoso baixa o arquivo original (~67 MB, empacotado pelo projeto
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)) uma vez, depois do pareamento, e a fala é gerada no
+aparelho. Até lá, a Aurélia usa a voz do próprio celular.
 
 ## Equipe
 
