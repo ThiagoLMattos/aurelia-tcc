@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { useSession } from '@/auth/SessionProvider';
-import { Button, FormError, Screen, TextField } from '@/components';
+import { Button, FormError, Logo, Screen, TextField } from '@/components';
 import { friendlyError } from '@/lib/errors';
 import { validateForm } from '@/lib/forms';
 import { Colors, Typography } from '@/theme';
@@ -59,6 +59,7 @@ export default function LoginScreen() {
 
   return (
     <Screen scroll centered>
+      <Logo />
       <Text style={styles.title}>Entrar</Text>
       <TextField
         label="E-mail"
@@ -89,7 +90,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: Typography.size.xl, fontWeight: Typography.weight.bold, color: Colors.textPrimary },
+  title: { fontSize: Typography.size.xl, fontWeight: Typography.weight.bold, color: Colors.textPrimary, textAlign: 'center' },
   link: { textAlign: 'center', color: Colors.primary, fontSize: Typography.size.md, fontWeight: Typography.weight.semibold },
   secondaryLink: { fontWeight: Typography.weight.regular },
   notice: { color: Colors.successText, backgroundColor: Colors.successBg, padding: 12, borderRadius: 10, fontSize: Typography.size.base, lineHeight: 20 },

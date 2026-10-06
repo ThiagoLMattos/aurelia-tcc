@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { useSession } from '@/auth/SessionProvider';
-import { Button, FormError, Screen, TextField } from '@/components';
+import { Button, FormError, Logo, Screen, TextField } from '@/components';
 import { api } from '@/lib/backend';
 import { friendlyError } from '@/lib/errors';
 import { validateForm } from '@/lib/forms';
@@ -36,6 +36,7 @@ export default function PairScreen() {
 
   return (
     <Screen role="elder" scroll centered>
+      <Logo size={96} />
       <Text style={[styles.title, { color: palette.elder.primary }]}>Parear este celular</Text>
       <Text style={styles.help}>Peça ao seu cuidador o código que aparece no aplicativo dele e digite aqui.</Text>
       <TextField
