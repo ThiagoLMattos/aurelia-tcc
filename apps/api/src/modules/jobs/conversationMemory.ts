@@ -1,4 +1,4 @@
-import { ASSISTANT_CONVERSATION_IDLE_MIN, localDateOf } from '@aurelia/shared';
+import { ASSISTANT_CONVERSATION_IDLE_MIN, ASSISTANT_MEMORIES_KEPT, localDateOf } from '@aurelia/shared';
 import type { Logger } from 'pino';
 
 import type { Clock } from '../../clock';
@@ -40,7 +40,10 @@ export function createConversationMemoryJob({ elders, memories, assistant, now, 
             const summary = await assistant.summarizeConversation(elder, conversation);
             const date = localDateOf(conversation.startedAt, elder.timezone);
             await memories.keepSummary(elder.id, conversation, summary ? { date, summary } : null);
-            if (summary) kept += 1;
+            if (summary) {
+              kept += 1;
+              await memories.trimMemories(elder.id, ASSISTANT_MEMORIES_KEPT);
+            }
           } catch (error) {
             const attempts = conversation.attempts + 1;
             logger.warn({ err: error, elderId: elder.id, attempts }, 'conversation summary failed');

@@ -106,7 +106,8 @@ The prompt includes the elder's `about` ("Sobre", written by the caregivers in `
 and the latest `ASSISTANT_MEMORIES_IN_PROMPT` (12) memories, in both modes. Each exchange on the elder's
 phone is added to the elder's current conversation; a conversation quiet for
 `ASSISTANT_CONVERSATION_IDLE_MIN` (10) minutes is summarised by the jobs run into a memory of up to three
-sentences (or none, when there was nothing to remember) and then deleted. A caregiver's own questions
+sentences (or none, when there was nothing to remember) and then deleted. Each elder keeps the newest
+`ASSISTANT_MEMORIES_KEPT` (200) memories. A caregiver's own questions
 are never kept.
 
 ### Daily summary
