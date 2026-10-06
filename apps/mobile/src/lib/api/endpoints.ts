@@ -5,6 +5,7 @@ import {
   ContactSchema,
   ContactsResponseSchema,
   CreateDeviceResponseSchema,
+  ElderCaregiversResponseSchema,
   ElderDetailResponseSchema,
   ElderSchema,
   EventSchema,
@@ -45,6 +46,13 @@ export function createEndpoints(client: ApiClient): Api {
     patchElder: (elderId, body) => request('PATCH', elderPath(elderId), { body, schema: ElderSchema }),
     issuePairingCode: (elderId) => request('POST', `${elderPath(elderId)}/pairing-codes`, { schema: PairingCodeResponseSchema }),
     unpairElderPhone: (elderId) => request('DELETE', `${elderPath(elderId)}/session`),
+
+    joinElder: (body) => request('POST', '/me/elders', { body, schema: ElderSchema }),
+    issueCaregiverInvite: (elderId) =>
+      request('POST', `${elderPath(elderId)}/caregiver-invites`, { schema: PairingCodeResponseSchema }),
+    listCaregivers: (elderId) => request('GET', `${elderPath(elderId)}/caregivers`, { schema: ElderCaregiversResponseSchema }),
+    removeCaregiver: (elderId, caregiverId) =>
+      request('DELETE', `${elderPath(elderId)}/caregivers/${encodeURIComponent(caregiverId)}`),
 
     listRoutines: (elderId) => request('GET', `${elderPath(elderId)}/routines`, { schema: RoutinesResponseSchema }),
     createRoutine: (elderId, body) => request('POST', `${elderPath(elderId)}/routines`, { body, schema: RoutineSchema }),

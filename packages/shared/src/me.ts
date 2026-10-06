@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { PairingCodeSchema } from './auth';
 import { ElderSchema } from './elder';
 import { IdSchema, IsoDateTimeSchema } from './primitives';
 
@@ -59,3 +60,22 @@ export type PushTokenBody = z.infer<typeof PushTokenBodySchema>;
 
 export const PushTokenParamsSchema = z.object({ token: z.string().min(1) });
 export type PushTokenParams = z.infer<typeof PushTokenParamsSchema>;
+
+/** POST /me/elders: a caregiver joins an elder with an invite another caregiver of that elder issued. */
+export const JoinElderBodySchema = z.strictObject({ code: PairingCodeSchema });
+export type JoinElderBody = z.infer<typeof JoinElderBodySchema>;
+
+/** One of the caregivers following an elder, as the others see them. */
+export const ElderCaregiverSchema = z.object({
+  id: IdSchema,
+  name: z.string(),
+  email: z.string(),
+});
+export type ElderCaregiver = z.infer<typeof ElderCaregiverSchema>;
+
+/** GET /elders/:elderId/caregivers */
+export const ElderCaregiversResponseSchema = z.object({ items: z.array(ElderCaregiverSchema) });
+export type ElderCaregiversResponse = z.infer<typeof ElderCaregiversResponseSchema>;
+
+export const CaregiverParamsSchema = z.object({ elderId: IdSchema, caregiverId: IdSchema });
+export type CaregiverParams = z.infer<typeof CaregiverParamsSchema>;

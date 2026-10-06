@@ -83,6 +83,10 @@ export function useContacts(elderId: string) {
   return useQuery({ queryKey: queryKeys.contacts(elderId), queryFn: () => api.listContacts(elderId) });
 }
 
+export function useCaregivers(elderId: string) {
+  return useQuery({ queryKey: queryKeys.caregivers(elderId), queryFn: () => api.listCaregivers(elderId) });
+}
+
 export function useLocation(elderId: string) {
   return useQuery({
     queryKey: queryKeys.location(elderId),
@@ -300,6 +304,22 @@ export function useAcknowledgeAlert(elderId: string) {
 
 export function useIssuePairingCode(elderId: string) {
   return useMutation({ mutationFn: () => api.issuePairingCode(elderId) });
+}
+
+export function useIssueCaregiverInvite(elderId: string) {
+  return useMutation({ mutationFn: () => api.issueCaregiverInvite(elderId) });
+}
+
+/** Removing someone else refreshes the list; removing yourself (leaving) changes what `GET /me` returns too. */
+export function useRemoveCaregiver(elderId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (caregiverId: string) => api.removeCaregiver(elderId, caregiverId),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: queryKeys.caregivers(elderId) });
+      await client.invalidateQueries({ queryKey: queryKeys.me });
+    },
+  });
 }
 
 export function useUnpairElderPhone(elderId: string) {

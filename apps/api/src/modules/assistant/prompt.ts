@@ -78,6 +78,21 @@ function summariseEvent(event: Event): Record<string, unknown> {
   }
 }
 
+/** Whether the day has anything to summarise: a routine due today, or something on today's timeline. */
+export function hasSomethingToday(ctx: PromptContext): boolean {
+  const today = localDateOf(ctx.now, ctx.elder.timezone);
+  return agendaFor(ctx, today).length > 0 || ctx.events.some((event) => event.date === today && event.type !== 'dailySummary');
+}
+
+/** The request behind "Insights da Aurélia": one short paragraph, plain text, read on a lock screen. */
+export function dailySummaryRequest(elderName: string): string {
+  return [
+    `Escreva para os cuidadores o resumo do dia de hoje de ${elderName}, em no máximo 3 frases curtas:`,
+    'o que foi feito, o que ficou para trás e qualquer alerta (SOS, saída da área segura, rastreador sem sinal).',
+    'Se fizer sentido, termine com uma sugestão prática para amanhã. Sem títulos, listas, emojis ou markdown.',
+  ].join(' ');
+}
+
 /** Spec §7. Caregiver mode is grounded in a compact JSON summary of the week; elder mode in today's agenda only. */
 export function buildSystemPrompt(role: 'caregiver' | 'elder', ctx: PromptContext): string {
   const { elder, now } = ctx;

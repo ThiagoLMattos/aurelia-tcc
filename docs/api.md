@@ -30,6 +30,7 @@ Every `/elders/:elderId/**` route first checks access: a caregiver must be in th
 | `PATCH /me` | caregiver | `PatchMeBody` |
 | `POST /me/push-tokens` | any | `PushTokenBody`; elder tokens are stored on the elder |
 | `DELETE /me/push-tokens/:token` | any | |
+| `POST /me/elders` | caregiver, 10/15 min/IP | `JoinElderBody` → `201 Elder`; joins the elder another caregiver invited them to; a bad, expired or used invite is `404` |
 | `DELETE /me` | caregiver | `204`; deletes the account and every elder no other caregiver follows (with all its data, trackers and the elder phone's login); a shared elder stays with the other caregivers. The app asks for the password first |
 
 ## Elders
@@ -41,6 +42,9 @@ Every `/elders/:elderId/**` route first checks access: a caregiver must be in th
 | `PATCH /elders/:elderId` | caregiver | `PatchElderBody` |
 | `POST /elders/:elderId/pairing-codes` | caregiver | `PairingCodeResponse` (15 min) |
 | `DELETE /elders/:elderId/session` | caregiver | unpair the elder phone |
+| `POST /elders/:elderId/caregiver-invites` | caregiver | `PairingCodeResponse` (48 h) for another caregiver to type in `POST /me/elders`; replaces the elder's earlier unused invite. It never signs a phone in |
+| `GET /elders/:elderId/caregivers` | caregiver | `ElderCaregiversResponse`: who follows the elder (id, name, email) |
+| `DELETE /elders/:elderId/caregivers/:caregiverId` | caregiver | `204`; any caregiver of the elder can remove another or leave; `409` for the last one |
 
 ## Routines, agenda, contacts
 
@@ -94,14 +98,23 @@ the default, `log`, only logs them.
 |---|---|---|
 | `POST /elders/:elderId/assistant/messages` | both | `AssistantMessageBody` → `{ reply }`; 30/hour/elder; `503` when the model fails or takes over 15 s |
 
+### Daily summary
+
+"Insights da Aurélia": from `DAILY_SUMMARY_TIME` (20:00, elder's time), the jobs run asks the model for
+a short summary of the elder's day, once per elder per day, when at least one caregiver has
+`settings.notifyAssistantInsights` on and the day had a routine due or something on the timeline. It
+is stored as a `dailySummary` event and pushed (type `dailySummary`) to those caregivers. A failed
+attempt is retried on the next run.
+
 ## Operations
 
 | Endpoint | Who | Notes |
 |---|---|---|
-| `POST /internal/jobs/run` | `X-Jobs-Token` | only mounted when `JOBS_TOKEN` is set; runs the missed-task, device-offline and escalation checks; `409` if a run is in progress |
+| `POST /internal/jobs/run` | `X-Jobs-Token` | only mounted when `JOBS_TOKEN` is set; runs the missed-task, device-offline and escalation checks and the daily summaries; `409` if a run is in progress |
 | `POST /internal/jobs/escalate` | `X-Jobs-Token` | only the escalation check, for a scheduler that calls it every minute → `{ alertsEscalated }`; `409` if one is in progress |
 
 ## Push `data`
 
 Every push carries `{ type, elderId, eventId? }` (`PushData`), with `type` one of `sos`,
-`geofenceExit`, `geofenceReturn`, `taskMissed`, `taskDone`, `deviceOffline`, `contactsAlerted`.
+`geofenceExit`, `geofenceReturn`, `taskMissed`, `taskDone`, `deviceOffline`, `contactsAlerted`,
+`dailySummary`.

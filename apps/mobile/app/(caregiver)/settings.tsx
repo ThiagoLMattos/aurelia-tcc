@@ -13,7 +13,7 @@
  *  6. Sign out, delete account (asks for the password again; `DELETE /me`) + version string
  */
 
-import { ESCALATE_AFTER_MIN, MISSED_TASK_TIMEOUT_OPTIONS, type CaregiverSettings, type Escalation } from '@aurelia/shared';
+import { DAILY_SUMMARY_TIME, ESCALATE_AFTER_MIN, MISSED_TASK_TIMEOUT_OPTIONS, type CaregiverSettings, type Escalation } from '@aurelia/shared';
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
@@ -235,7 +235,7 @@ export default function SettingsScreen() {
           />
           <ToggleRow
             label="Insights da Aurélia"
-            sublabel="Análises e sugestões automáticas da IA"
+            sublabel={`Todo dia às ${DAILY_SUMMARY_TIME}, um resumo do dia de ${name} escrito pela Aurélia`}
             value={settings.notifyAssistantInsights}
             onValueChange={(v) => saveSettings({ notifyAssistantInsights: v })}
             last

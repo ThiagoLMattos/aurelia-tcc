@@ -2,6 +2,7 @@ import {
   computeAgenda,
   computeWeeklyReport,
   addDays,
+  CAREGIVER_INVITE_TTL_HOURS,
   DEFAULT_CAREGIVER_SETTINGS,
   ESCALATE_AFTER_MIN,
   ESCALATION_WINDOW_MIN,
@@ -131,6 +132,7 @@ export function createMockBackend(): MockBackend {
   const caregivers = new Map<string, MockCaregiver>();
   const elders = new Map<string, MockElder>();
   const codes = new Map<string, { elderId: string; expiresAt: number }>();
+  const invites = new Map<string, { elderId: string; expiresAt: number }>();
   const listeners = new Set<(identity: AuthIdentity | null) => void>();
   let identity: AuthIdentity | null = null;
 
@@ -399,6 +401,41 @@ export function createMockBackend(): MockBackend {
     async unpairElderPhone(elderId) {
       const entry = elderFor(elderId, { caregiverOnly: true });
       entry.elder = { ...entry.elder, phonePaired: false };
+    },
+
+    async joinElder(body) {
+      const caregiver = requireCaregiver();
+      const found = invites.get(body.code);
+      if (!found || found.expiresAt < Date.now()) fail('NOT_FOUND', 'Convite inválido ou expirado. Peça um novo a quem convidou você.');
+      invites.delete(body.code);
+      const entry = elders.get(found.elderId) ?? fail('NOT_FOUND', 'Convite inválido ou expirado. Peça um novo a quem convidou você.');
+      if (!caregiver.elderIds.includes(found.elderId)) caregiver.elderIds.push(found.elderId);
+      return entry.elder;
+    },
+    async issueCaregiverInvite(elderId) {
+      elderFor(elderId, { caregiverOnly: true });
+      for (const [code, invite] of invites) if (invite.elderId === elderId) invites.delete(code);
+      const code = randomCode();
+      const expiresAt = Date.now() + CAREGIVER_INVITE_TTL_HOURS * 3_600_000;
+      invites.set(code, { elderId, expiresAt });
+      return { code, expiresAt: new Date(expiresAt).toISOString() };
+    },
+    async listCaregivers(elderId) {
+      elderFor(elderId, { caregiverOnly: true });
+      return {
+        items: [...caregivers.values()]
+          .filter((c) => c.elderIds.includes(elderId))
+          .map(({ record }) => ({ id: record.id, name: record.name, email: record.email })),
+      };
+    },
+    async removeCaregiver(elderId, caregiverId) {
+      const entry = elderFor(elderId, { caregiverOnly: true });
+      const following = [...caregivers.values()].filter((c) => c.elderIds.includes(elderId));
+      const target = following.find((c) => c.record.id === caregiverId) ?? fail('NOT_FOUND', 'Cuidador não encontrado.');
+      if (following.length === 1) {
+        fail('CONFLICT', `Não é possível sair: você é o único cuidador de ${entry.elder.name}. Para encerrar, exclua sua conta.`);
+      }
+      target.elderIds = target.elderIds.filter((id) => id !== elderId);
     },
 
     async listRoutines(elderId) {

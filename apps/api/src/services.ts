@@ -7,6 +7,7 @@ import { noopPushSender, type PushSender } from './push/sender';
 import { createLogSmsSender, type SmsSender } from './sms/sender';
 import { createAccountService } from './modules/account/service';
 import { createAlertsService } from './modules/alerts/service';
+import { createCaregiversService } from './modules/caregivers/service';
 import { createAssistantService } from './modules/assistant/service';
 import { createAgendaService } from './modules/agenda/service';
 import { createAuthService } from './modules/auth/service';
@@ -19,6 +20,7 @@ import { createJobsService } from './modules/jobs/service';
 import { createLocationService } from './modules/location/service';
 import { createMissedTasksJob } from './modules/jobs/missedTasks';
 import { createEscalationJob } from './modules/jobs/escalation';
+import { createDailySummaryJob } from './modules/jobs/dailySummary';
 import { createMeService } from './modules/me/service';
 import { createPairingService } from './modules/pairing/service';
 import { createReportsService } from './modules/reports/service';
@@ -75,6 +77,17 @@ export function createServices({
     logger,
   });
 
+  const assistant = createAssistantService({
+    llm,
+    routines: repos.routines,
+    occurrences: repos.occurrences,
+    events: repos.events,
+    now,
+    logger,
+    ...(assistantTimeoutMs ? { timeoutMs: assistantTimeoutMs } : {}),
+  });
+  const dailySummary = createDailySummaryJob({ elders: repos.elders, users: repos.users, assistant, events, notifier, now, logger });
+
   return {
     repos,
     events,
@@ -83,6 +96,7 @@ export function createServices({
     me: createMeService(repos),
     account: createAccountService({ firebase, logger }),
     elders: createEldersService({ elders: repos.elders, devices: repos.devices, now }),
+    caregivers: createCaregiversService({ elders: repos.elders, users: repos.users, codes: repos.pairingCodes, now }),
     pairing: createPairingService({ auth: firebase.auth, elders: repos.elders, codes: repos.pairingCodes, now, logger }),
     routines: createRoutinesService({ routines: repos.routines, now }),
     agenda: createAgendaService({ routines: repos.routines, occurrences: repos.occurrences, events, notifier, now }),
@@ -105,18 +119,21 @@ export function createServices({
       notifier,
       now,
     }),
-    assistant: createAssistantService({
-      llm,
-      routines: repos.routines,
-      occurrences: repos.occurrences,
-      events: repos.events,
+    assistant,
+    jobs: createJobsService({
+      elders: repos.elders,
+      devices: repos.devices,
+      events,
+      missedTasks,
+      escalation,
+      dailySummary,
+      notifier,
       now,
       logger,
-      ...(assistantTimeoutMs ? { timeoutMs: assistantTimeoutMs } : {}),
     }),
-    jobs: createJobsService({ elders: repos.elders, devices: repos.devices, events, missedTasks, escalation, notifier, now, logger }),
     missedTasks,
     escalation,
+    dailySummary,
   };
 }
 

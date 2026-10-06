@@ -22,6 +22,7 @@ import { createSmsSender, type SmsSender } from './sms/sender';
 import { agendaRoutes } from './modules/agenda/routes';
 import { authRoutes } from './modules/auth/routes';
 import { alertsRoutes } from './modules/alerts/routes';
+import { caregiversRoutes, joinElderRoutes } from './modules/caregivers/routes';
 import { contactsRoutes } from './modules/contacts/routes';
 import { elderRoutes, eldersRoutes } from './modules/elders/routes';
 import { eventsRoutes } from './modules/events/routes';
@@ -42,6 +43,7 @@ export interface AppDeps {
   limits?: {
     signupPerHour?: number;
     pairPer15Min?: number;
+    joinPer15Min?: number;
     deviceLocationWindowMs?: number;
     deviceLocationPerWindow?: number;
     assistantPerHour?: number;
@@ -94,6 +96,7 @@ export function createApp({ config, firebase, logger, now, limits, services: giv
     }),
   );
   if (config.JOBS_TOKEN) api.use('/internal/jobs', jobsRoutes(services.jobs, config.JOBS_TOKEN));
+  api.use('/me/elders', requireAuth, joinElderRoutes(services.caregivers, limits?.joinPer15Min ?? 10));
   api.use('/me', requireAuth, meRoutes(services.me, services.account));
   api.use('/elders', requireAuth, eldersRoutes(services.elders));
 
@@ -101,6 +104,7 @@ export function createApp({ config, firebase, logger, now, limits, services: giv
   const elderScope = express.Router({ mergeParams: true });
   elderScope.use('/', elderRoutes(services.elders));
   elderScope.use('/', pairingManagementRoutes(services.pairing));
+  elderScope.use('/', caregiversRoutes(services.caregivers));
   elderScope.use('/routines', routinesRoutes(services.routines));
   elderScope.use('/agenda', agendaRoutes(services.agenda));
   elderScope.use('/contacts', contactsRoutes(services.contacts));

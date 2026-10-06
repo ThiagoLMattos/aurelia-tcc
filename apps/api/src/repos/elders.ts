@@ -149,6 +149,58 @@ export function createEldersRepo(db: Firestore) {
       return updateIfExists(id, fields);
     },
 
+    /**
+     * Adds a caregiver to the elder and the elder to the caregiver's `elderIds`, atomically. Joining
+     * an elder already followed changes nothing. Returns false when the elder or the caregiver is missing.
+     */
+    addCaregiver(elderId: string, caregiverId: string): Promise<boolean> {
+      const elderRef = col.doc(elderId);
+      const userRef = db.collection('users').doc(caregiverId);
+      return db.runTransaction(async (tx) => {
+        const [elder, user] = await Promise.all([tx.get(elderRef), tx.get(userRef)]);
+        if (!elder.exists || !user.exists) return false;
+        tx.update(elderRef, { caregiverIds: FieldValue.arrayUnion(caregiverId) });
+        tx.update(userRef, { elderIds: FieldValue.arrayUnion(elderId) });
+        return true;
+      });
+    },
+
+    /**
+     * Takes a caregiver off the elder, atomically, unless they are its last one (an elder always has
+     * someone; the last caregiver deletes their account instead).
+     */
+    removeCaregiver(elderId: string, caregiverId: string): Promise<'removed' | 'notFound' | 'last'> {
+      const elderRef = col.doc(elderId);
+      const userRef = db.collection('users').doc(caregiverId);
+      return db.runTransaction(async (tx) => {
+        const elder = await tx.get(elderRef);
+        const ids = (elder.data()?.caregiverIds as string[] | undefined) ?? [];
+        if (!elder.exists || !ids.includes(caregiverId)) return 'notFound';
+        if (ids.length === 1) return 'last';
+        const user = await tx.get(userRef);
+        tx.update(elderRef, { caregiverIds: FieldValue.arrayRemove(caregiverId) });
+        if (user.exists) tx.update(userRef, { elderIds: FieldValue.arrayRemove(elderId) });
+        return 'removed';
+      });
+    },
+
+    /**
+     * Reserves the elder's daily summary for `date`, atomically, so two job runs never write it twice.
+     * Returns false when that date's summary was already claimed.
+     */
+    claimDailySummary(elderId: string, date: string): Promise<boolean> {
+      const ref = col.doc(elderId);
+      return db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists || snap.data()?.dailySummaryDate === date) return false;
+        tx.update(ref, { dailySummaryDate: date });
+        return true;
+      });
+    },
+
+    /** Gives a claim back after the summary failed, so the next run tries again. */
+    releaseDailySummary: (elderId: string) => updateIfExists(elderId, { dailySummaryDate: null }),
+
     /** A new phone replaces the previous one, so the old push tokens go too. */
     markPaired: (id: string, now: Date) =>
       updateIfExists(id, { phonePairedAt: Timestamp.fromDate(now), pushTokens: [] }),

@@ -1,4 +1,4 @@
-import { CreateElderBodySchema, DiagnosisStageSchema, LABELS_PT, type DiagnosisStage } from '@aurelia/shared';
+import { CreateElderBodySchema, DiagnosisStageSchema, JoinElderBodySchema, LABELS_PT, type DiagnosisStage } from '@aurelia/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -11,10 +11,55 @@ import { brDateToIso, maskBrDate, validateForm } from '@/lib/forms';
 import { queryKeys } from '@/lib/query';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
 
+/** Joining an elder another caregiver already follows, with the invite they sent. */
+function JoinWithInvite({ onCancel }: { onCancel: () => void }) {
+  const queryClient = useQueryClient();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit() {
+    setError(null);
+    const parsed = JoinElderBodySchema.safeParse({ code });
+    if (!parsed.success) {
+      setError('O código tem 6 letras e números.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.joinElder(parsed.data);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.me });
+    } catch (joinError) {
+      setError(friendlyError(joinError));
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <Text style={styles.title}>Entrar com um convite</Text>
+      <Text style={styles.help}>Digite o código que outro cuidador enviou para você.</Text>
+      <TextField
+        label="Código do convite"
+        value={code}
+        onChangeText={(text) => setCode(text.toUpperCase())}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        maxLength={6}
+        placeholder="ABC234"
+      />
+      <FormError message={error} />
+      <Button title="Entrar" onPress={submit} loading={submitting} />
+      <Button title="Voltar" variant="ghost" onPress={onCancel} />
+    </>
+  );
+}
+
 /** Shown to a caregiver who has no elder yet; the tabs unlock as soon as `GET /me` lists one. */
 export default function CreateElderScreen() {
   const queryClient = useQueryClient();
   const { signOut } = useSession();
+  const [joining, setJoining] = useState(false);
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [stage, setStage] = useState<DiagnosisStage>('early');
@@ -41,6 +86,14 @@ export default function CreateElderScreen() {
       setSubmitError(friendlyError(error));
       setSubmitting(false);
     }
+  }
+
+  if (joining) {
+    return (
+      <Screen scroll centered>
+        <JoinWithInvite onCancel={() => setJoining(false)} />
+      </Screen>
+    );
   }
 
   return (
@@ -78,6 +131,7 @@ export default function CreateElderScreen() {
 
       <FormError message={submitError} />
       <Button title="Continuar" onPress={submit} loading={submitting} />
+      <Button title="Tenho um código de convite" variant="secondary" onPress={() => setJoining(true)} />
       <Button title="Sair" variant="ghost" onPress={() => void signOut()} />
     </Screen>
   );
