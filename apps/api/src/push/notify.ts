@@ -13,7 +13,11 @@ interface Deps {
   logger: Logger;
 }
 
-type Recipient = 'all' | 'notifyMissedTask' | 'notifyConfirmations';
+type Recipient = 'all' | 'notifyMissedTask' | 'notifyConfirmations' | 'notifyAssistantInsights';
+
+/** A push body longer than this is cut; the whole text is in Histórico. */
+const MAX_BODY_CHARS = 180;
+const clip = (text: string) => (text.length <= MAX_BODY_CHARS ? text : `${text.slice(0, MAX_BODY_CHARS - 1).trimEnd()}…`);
 
 const SEND_TIMEOUT_MS = 10_000;
 
@@ -105,6 +109,15 @@ export function createNotifier({ sender, users, elders, logger }: Deps) {
         title: 'Rastreador sem sinal',
         body: `O rastreador "${label}" de ${elder.name} parou de enviar a localização.`,
         data: { type: 'deviceOffline', elderId, eventId },
+        channelId: 'reminders',
+        priority: 'default',
+      })),
+
+    dailySummary: (elder: ElderDoc, eventId: string, text: string) =>
+      deliver(elder, 'notifyAssistantInsights', (elderId) => ({
+        title: `O dia de ${elder.name}`,
+        body: clip(text),
+        data: { type: 'dailySummary', elderId, eventId },
         channelId: 'reminders',
         priority: 'default',
       })),

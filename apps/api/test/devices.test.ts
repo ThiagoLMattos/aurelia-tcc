@@ -308,7 +308,12 @@ describe('POST /internal/jobs/run', () => {
   it('runs the jobs and summarises them', async () => {
     const response = await request(app).post(path).set('X-Jobs-Token', 'test-jobs-token-0123456789');
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ missedTasks: expect.any(Number), devicesOffline: expect.any(Number), alertsEscalated: expect.any(Number) });
+    expect(response.body).toEqual({
+      missedTasks: expect.any(Number),
+      devicesOffline: expect.any(Number),
+      alertsEscalated: expect.any(Number),
+      dailySummaries: expect.any(Number),
+    });
   });
 
   it('is not mounted without a token configured', async () => {

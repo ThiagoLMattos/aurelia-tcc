@@ -35,7 +35,7 @@ const services = createServices({
 const app = createApp({ config, firebase, logger, services });
 
 const server = app.listen(config.PORT, () => {
-  logger.info({ port: config.PORT, emulators: config.USE_EMULATORS }, 'Aurélia API listening');
+  logger.info({ port: config.PORT, emulators: config.USE_EMULATORS, sms: config.SMS_PROVIDER }, 'Aurélia API listening');
 });
 
 const scheduler = config.SCHEDULER_ENABLED ? startScheduler(services.jobs, logger) : null;

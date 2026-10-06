@@ -14,6 +14,7 @@ export const EventTypeSchema = z.enum([
   'devicePaired',
   'gamePlayed',
   'contactsAlerted',
+  'dailySummary',
 ]);
 export type EventType = z.infer<typeof EventTypeSchema>;
 
@@ -69,6 +70,9 @@ export const ContactsAlertedPayloadSchema = z.object({
   failed: z.array(z.string()),
 });
 
+/** Aurélia's summary of the elder's day, for the caregivers who turned on "Insights da Aurélia". */
+export const DailySummaryPayloadSchema = z.object({ text: z.string().min(1) });
+
 export const EventSchema = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('taskDone'), payload: TaskDonePayloadSchema }),
   z.object({ ...base, type: z.literal('taskMissed'), payload: TaskMissedPayloadSchema }),
@@ -79,6 +83,7 @@ export const EventSchema = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('devicePaired'), payload: DevicePairedPayloadSchema }),
   z.object({ ...base, type: z.literal('gamePlayed'), payload: GamePlayedPayloadSchema }),
   z.object({ ...base, type: z.literal('contactsAlerted'), payload: ContactsAlertedPayloadSchema }),
+  z.object({ ...base, type: z.literal('dailySummary'), payload: DailySummaryPayloadSchema }),
 ]);
 export type Event = z.infer<typeof EventSchema>;
 /** An SOS or safe-zone exit: the events a caregiver acknowledges and that may escalate to the contacts. */

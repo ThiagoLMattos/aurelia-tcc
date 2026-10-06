@@ -137,8 +137,9 @@ O Aurélia une as duas pontas dessa rotina em um único sistema:
 
 - **App do idoso**: interface simplificada, com lembretes de medicação e rotina guiados por
   uma assistente de IA que responde em voz alta.
-- **Painel do cuidador**: histórico de atividades, alertas em tempo real e gestão de contatos
-  de emergência.
+- **Painel do cuidador**: histórico de atividades, alertas em tempo real, gestão de contatos
+  de emergência e um resumo diário escrito pela assistente. Vários cuidadores da família podem
+  acompanhar o mesmo idoso, por convite.
 - **Módulo de geolocalização**: hardware com ESP32 e GPS que cria uma "zona segura" ao redor
   de casa e dispara um alerta imediato ao cuidador caso ela seja rompida.
 

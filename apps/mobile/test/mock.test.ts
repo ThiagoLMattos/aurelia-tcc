@@ -69,6 +69,31 @@ describe('mock backend: password and account', () => {
   });
 });
 
+describe('mock backend: caregivers', () => {
+  it('lets an invited caregiver join, be listed, and be removed, but never the last one', async () => {
+    const { api, auth } = createMockBackend();
+    await auth.signInWithPassword(MOCK_DEMO_EMAIL, MOCK_DEMO_PASSWORD);
+    const me = await api.getMe();
+    const elderId = me.role === 'caregiver' ? (me.elders[0]?.id ?? '') : '';
+    const { code } = await api.issueCaregiverInvite(elderId);
+    await auth.signOut();
+
+    await api.signup({ name: 'Bruno', email: 'bruno@example.com', password: 'abcdefgh' });
+    await auth.signInWithPassword('bruno@example.com', 'abcdefgh');
+    await expect(api.joinElder({ code: 'ZZZZZZ' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect((await api.joinElder({ code })).id).toBe(elderId);
+    await expect(api.joinElder({ code })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const { items } = await api.listCaregivers(elderId);
+    expect(items.map((c) => c.name)).toEqual(['Cuidador Demo', 'Bruno']);
+
+    const bruno = items[1]?.id ?? '';
+    const demo = items[0]?.id ?? '';
+    await api.removeCaregiver(elderId, demo);
+    await expect(api.removeCaregiver(elderId, bruno)).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect((await api.listCaregivers(elderId)).items.map((c) => c.name)).toEqual(['Bruno']);
+  });
+});
+
 describe('mock backend: onboarding and pairing', () => {
   it('lets a caregiver with no elder create one and then see it in /me', async () => {
     const { api, auth } = createMockBackend();

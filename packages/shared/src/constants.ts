@@ -9,6 +9,8 @@ export const GEOFENCE_HYSTERESIS_M = 15;
 export const GEOFENCE_CONFIRM_READINGS = 2;
 
 export const PAIRING_CODE_TTL_MIN = 15;
+/** An invite for another caregiver is usually sent by message and opened later, so it lasts longer. */
+export const CAREGIVER_INVITE_TTL_HOURS = 48;
 
 export const MAX_EMERGENCY_CONTACTS = 5;
 
@@ -19,3 +21,9 @@ export const MAX_EMERGENCY_CONTACTS = 5;
 export const ESCALATE_AFTER_MIN = 5;
 /** Alerts older than this are never escalated (a late job run must not text about yesterday's SOS). */
 export const ESCALATION_WINDOW_MIN = 60;
+
+/**
+ * From this local time on, Aurélia writes the day's summary for the caregivers who turned on
+ * "Insights da Aurélia" (one per elder per day, only on days with something to tell).
+ */
+export const DAILY_SUMMARY_TIME = '20:00';

@@ -41,6 +41,7 @@ export default function CaregiverLayout() {
         <Stack.Screen name="sos-alert" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
         <Stack.Screen name="settings" options={{ presentation: 'card' }} />
         <Stack.Screen name="pair-elder" options={{ presentation: 'card' }} />
+        <Stack.Screen name="invite-caregiver" options={{ presentation: 'card' }} />
         <Stack.Screen name="safe-zone" options={{ presentation: 'card' }} />
         <Stack.Screen name="location" options={{ presentation: 'card' }} />
         <Stack.Screen name="tracker" options={{ presentation: 'card' }} />

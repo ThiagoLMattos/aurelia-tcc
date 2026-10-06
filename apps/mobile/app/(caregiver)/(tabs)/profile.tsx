@@ -6,6 +6,7 @@
  *  2. Elder card (avatar, name, age, stage, tracker status) with inline edit
  *  3. Personal details card
  *  4. Elder's phone (pair / unpair)
+ *  4b. Caregivers (who follows the elder, invite, remove / leave)
  *  5. Safe zone and tracker rows (open their own screens)
  *  6. Contacts (emergency switch, call, delete, add)
  */
@@ -17,6 +18,7 @@ import {
   PatchElderBodySchema,
   type Contact,
   type DiagnosisStage,
+  type ElderCaregiver,
   type Elder,
   type ElderDetailResponse,
 } from '@aurelia/shared';
@@ -35,6 +37,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { useMe } from '@/auth/useMe';
 import { Button, ErrorState, FormError, LoadingState, TextField } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
@@ -42,6 +45,7 @@ import { friendlyError } from '@/lib/errors';
 import { ageOf, firstName, formatElapsed, formatPhone, initials } from '@/lib/format';
 import { brDateToIso, maskBrDate, validateForm } from '@/lib/forms';
 import {
+  useCaregivers,
   useContacts,
   useCreateContact,
   useCurrentElder,
@@ -51,6 +55,7 @@ import {
   usePatchContact,
   usePatchElder,
   useRoutines,
+  useRemoveCaregiver,
   useUnpairElderPhone,
 } from '@/queries';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
@@ -135,6 +140,87 @@ function ContactRow({
         </TouchableOpacity>
       </View>
     </View>
+  );
+}
+
+// ─── Caregivers ───────────────────────────────────────────────────────────────
+
+/** Everyone who follows the elder. Any of them can invite someone, remove someone else, or leave. */
+function CaregiversSection({ elder }: { elder: Elder }) {
+  const router = useRouter();
+  const me = useMe();
+  const caregivers = useCaregivers(elder.id);
+  const remove = useRemoveCaregiver(elder.id);
+  const myId = me.data?.role === 'caregiver' ? me.data.caregiver.id : null;
+  const name = firstName(elder.name);
+  const items = caregivers.data?.items ?? [];
+
+  async function handleRemove(person: ElderCaregiver) {
+    const leaving = person.id === myId;
+    const ok = leaving
+      ? await confirm(
+          'Deixar de acompanhar',
+          `Você não vai mais ver nem receber alertas de ${name}. Para voltar, precisará de um novo convite.`,
+          'Sair',
+          true,
+        )
+      : await confirm('Remover cuidador', `${person.name} não vai mais acompanhar ${name} nem receber os alertas.`, 'Remover', true);
+    if (!ok) return;
+    remove.mutate(person.id, { onError: (error) => Alert.alert(leaving ? 'Não foi possível sair' : 'Não foi possível remover', friendlyError(error)) });
+  }
+
+  if (caregivers.isPending) return <LoadingState />;
+  if (caregivers.isError) return <ErrorState message={friendlyError(caregivers.error)} onRetry={() => void caregivers.refetch()} />;
+
+  return (
+    <>
+      {items.map((person, i) => {
+        const isMe = person.id === myId;
+        return (
+          <React.Fragment key={person.id}>
+            <View style={styles.contactRow}>
+              <View style={styles.contactAvatar}>
+                <Text style={styles.contactAvatarText}>{initials(person.name)}</Text>
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactName}>{isMe ? `${person.name} (você)` : person.name}</Text>
+                <Text style={styles.contactRole}>{person.email}</Text>
+              </View>
+              {items.length > 1 ? (
+                isMe ? (
+                  <TouchableOpacity onPress={() => void handleRemove(person)} disabled={remove.isPending} accessibilityRole="button">
+                    <Text style={extra.leaveText}>Sair</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.removeContactBtn}
+                    onPress={() => void handleRemove(person)}
+                    disabled={remove.isPending}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel={`Remover ${person.name}`}
+                  >
+                    <IconSymbol name="trash" size={14} color={Colors.dangerText} />
+                  </TouchableOpacity>
+                )
+              ) : null}
+            </View>
+            {i < items.length - 1 && <View style={styles.contactDivider} />}
+          </React.Fragment>
+        );
+      })}
+      {items.length === 1 ? (
+        <Text style={extra.explain}>Só você acompanha {name}. Convide outra pessoa da família para dividir os cuidados.</Text>
+      ) : null}
+      <TouchableOpacity
+        style={styles.addContactBtn}
+        onPress={() => router.push('/(caregiver)/invite-caregiver')}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+      >
+        <IconSymbol name="plus.circle.fill" size={18} color={Colors.primary} />
+        <Text style={styles.addContactBtnText}>Convidar cuidador</Text>
+      </TouchableOpacity>
+    </>
   );
 }
 
@@ -441,6 +527,12 @@ export default function PerfilScreen() {
           )}
         </SectionCard>
 
+        {/* ── Caregivers ── */}
+        <SectionTitle title="Cuidadores" />
+        <SectionCard>
+          <CaregiversSection elder={elder} />
+        </SectionCard>
+
         {/* ── Safe zone & tracker ── */}
         <SectionTitle title="Localização" />
         <SectionCard>
@@ -535,6 +627,7 @@ const extra = StyleSheet.create({
   navRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
   navTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.textPrimary },
   navValue: { fontSize: Typography.size.sm, color: Colors.textSecondary, marginTop: 2 },
+  leaveText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.dangerText },
 });
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

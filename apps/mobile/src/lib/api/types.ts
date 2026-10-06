@@ -11,12 +11,14 @@ import type {
   CreateElderBody,
   CreateRoutineBody,
   Elder,
+  ElderCaregiversResponse,
   ElderDetailResponse,
   Event,
   EventsPage,
   EventType,
   GameResultBody,
   GameResultResponse,
+  JoinElderBody,
   LocalDate,
   LocationResponse,
   MeResponse,
@@ -68,6 +70,15 @@ export interface Api {
   patchElder(elderId: string, body: PatchElderBody): Promise<Elder>;
   issuePairingCode(elderId: string): Promise<PairingCodeResponse>;
   unpairElderPhone(elderId: string): Promise<void>;
+
+  // Caregivers of an elder
+  /** POST /me/elders: follow the elder another caregiver invited this one to. */
+  joinElder(body: JoinElderBody): Promise<Elder>;
+  /** The invite still waiting to be used, or a new one (cancelling it) when `renew` is set or there is none. */
+  issueCaregiverInvite(elderId: string, renew?: boolean): Promise<PairingCodeResponse>;
+  listCaregivers(elderId: string): Promise<ElderCaregiversResponse>;
+  /** Removes another caregiver from the elder, or this one (leaving). */
+  removeCaregiver(elderId: string, caregiverId: string): Promise<void>;
 
   // Routines
   listRoutines(elderId: string): Promise<RoutinesResponse>;

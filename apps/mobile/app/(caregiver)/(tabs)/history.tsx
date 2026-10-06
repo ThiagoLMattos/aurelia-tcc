@@ -80,6 +80,7 @@ const WARNING: Tone = { dotBg: Colors.warningBg, dotColor: Colors.warningText, i
 const DANGER: Tone = { dotBg: Colors.dangerBg, dotColor: Colors.dangerText, icon: '!' };
 const GAME: Tone = { dotBg: Colors.primaryLight, dotColor: Colors.primary, icon: '★' };
 const CONTACTS: Tone = { dotBg: Colors.warningBg, dotColor: Colors.warningText, icon: '✉' };
+const INSIGHT: Tone = { dotBg: Colors.primaryLight, dotColor: Colors.primary, icon: '✦' };
 
 interface Row {
   label: string;
@@ -199,6 +200,14 @@ function presentEvent(event: Event, timezone: string): Presentation {
         ],
       };
     }
+    case 'dailySummary':
+      return {
+        tone: INSIGHT,
+        title: 'Resumo do dia',
+        summary: 'Escrito pela Aurélia',
+        rows: [{ label: 'Escrito às', value: at }],
+        note: event.payload.text,
+      };
     case 'devicePaired':
       return {
         tone: SUCCESS,

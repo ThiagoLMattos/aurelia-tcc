@@ -2,9 +2,12 @@ import { Timestamp, type Firestore } from 'firebase-admin/firestore';
 
 import { isAlreadyExistsError, toDate } from './convert';
 
+/** `elderPhone` signs the elder's phone in; `caregiverInvite` adds another caregiver to the elder. */
+export type PairingCodeKind = 'elderPhone' | 'caregiverInvite';
+
 interface PairingCodeData {
   elderId: string;
-  kind: 'elderPhone';
+  kind: PairingCodeKind;
   createdBy: string;
   createdAt: Timestamp;
   expiresAt: Timestamp;
@@ -17,18 +20,26 @@ export function createPairingCodesRepo(db: Firestore) {
 
   return {
     /**
-     * Stores `code` for the elder and deletes the elder's earlier unused codes in the same batch.
-     * Returns false when the code is already taken (the caller picks another).
+     * Stores `code` for the elder and deletes the elder's earlier unused codes of the same kind in the
+     * same batch. Returns false when the code is already taken (the caller picks another).
      */
-    async issue(elderId: string, code: string, createdBy: string, now: Date, expiresAt: Date): Promise<boolean> {
+    async issue(
+      elderId: string,
+      code: string,
+      createdBy: string,
+      now: Date,
+      expiresAt: Date,
+      kind: PairingCodeKind = 'elderPhone',
+    ): Promise<boolean> {
       const previous = await col.where('elderId', '==', elderId).get();
       const batch = db.batch();
       for (const snap of previous.docs) {
-        if ((snap.data() as PairingCodeData).usedAt === null) batch.delete(snap.ref);
+        const data = snap.data() as PairingCodeData;
+        if (data.usedAt === null && (data.kind ?? 'elderPhone') === kind) batch.delete(snap.ref);
       }
       batch.create(col.doc(code), {
         elderId,
-        kind: 'elderPhone',
+        kind,
         createdBy,
         createdAt: Timestamp.fromDate(now),
         expiresAt: Timestamp.fromDate(expiresAt),
@@ -44,16 +55,30 @@ export function createPairingCodesRepo(db: Firestore) {
       }
     },
 
+    /** The elder's code of this kind that is still waiting to be used, if any. */
+    async findActive(elderId: string, kind: PairingCodeKind, now: Date): Promise<{ code: string; expiresAt: Date } | null> {
+      const snaps = await col.where('elderId', '==', elderId).get();
+      for (const snap of snaps.docs) {
+        const data = snap.data() as PairingCodeData;
+        const expiresAt = toDate(data.expiresAt);
+        if ((data.kind ?? 'elderPhone') === kind && data.usedAt === null && expiresAt.getTime() > now.getTime()) {
+          return { code: snap.id, expiresAt };
+        }
+      }
+      return null;
+    },
+
     /**
-     * Marks the code used, atomically. Returns the elder id, or null when the code does not
-     * exist, is expired or was already used (callers must not tell these apart).
+     * Marks the code used, atomically. Returns the elder id, or null when the code does not exist,
+     * is of another kind, is expired or was already used (callers must not tell these apart).
      */
-    redeem(code: string, now: Date): Promise<string | null> {
+    redeem(code: string, now: Date, kind: PairingCodeKind = 'elderPhone'): Promise<string | null> {
       const ref = col.doc(code);
       return db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         if (!snap.exists) return null;
         const data = snap.data() as PairingCodeData;
+        if ((data.kind ?? 'elderPhone') !== kind) return null;
         if (data.usedAt !== null || toDate(data.expiresAt).getTime() <= now.getTime()) return null;
         tx.update(ref, { usedAt: Timestamp.fromDate(now), attempts: data.attempts + 1 });
         return data.elderId;
