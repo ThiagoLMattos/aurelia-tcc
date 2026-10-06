@@ -51,6 +51,7 @@ export const queryKeys = {
   agenda: (elderId: string, date: string) => ['elder', elderId, 'agenda', date] as const,
   contacts: (elderId: string) => ['elder', elderId, 'contacts'] as const,
   caregivers: (elderId: string) => ['elder', elderId, 'caregivers'] as const,
+  memories: (elderId: string) => ['elder', elderId, 'memories'] as const,
   events: (elderId: string, params?: Omit<EventsParams, 'cursor'>) => ['elder', elderId, 'events', params ?? {}] as const,
   weeklyReport: (elderId: string, weekStart: string) => ['elder', elderId, 'weeklyReport', weekStart] as const,
   location: (elderId: string) => ['elder', elderId, 'location'] as const,

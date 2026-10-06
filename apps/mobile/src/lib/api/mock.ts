@@ -17,6 +17,7 @@ import {
   PAIRING_CODE_TTL_MIN,
   weekStartOf,
   type AgendaItem,
+  type AssistantMemory,
   type Caregiver,
   type Contact,
   type Device,
@@ -106,6 +107,7 @@ function makeElder(id: string, input: Pick<Elder, 'name' | 'birthDate' | 'diagno
     phonePaired: false,
     createdAt: new Date().toISOString(),
     ...input,
+    about: input.about ?? '',
   };
 }
 
@@ -133,6 +135,8 @@ export function createMockBackend(): MockBackend {
   const elders = new Map<string, MockElder>();
   const codes = new Map<string, { elderId: string; expiresAt: number }>();
   const invites = new Map<string, { elderId: string; expiresAt: number }>();
+  /** The mock has no model to summarise conversations; the demo elder starts with a few memories. */
+  const memories = new Map<string, AssistantMemory[]>();
   const listeners = new Set<(identity: AuthIdentity | null) => void>();
   let identity: AuthIdentity | null = null;
 
@@ -189,6 +193,21 @@ export function createMockBackend(): MockBackend {
     { id: nextId('contact'), name: 'Ana Gorete', phone: '+5511999990001', relation: 'Filha', isEmergency: true, priority: 1, createdAt: new Date().toISOString() },
     { id: nextId('contact'), name: 'Dr. Paulo', phone: '+5511999990002', relation: 'Médico', isEmergency: false, priority: 2, createdAt: new Date().toISOString() },
   );
+
+  memories.set(maria.elder.id, [
+    {
+      id: nextId('memory'),
+      at: instantOf(addDays(localDateOf(new Date(), TIMEZONE), -1), '16:10', TIMEZONE).toISOString(),
+      date: addDays(localDateOf(new Date(), TIMEZONE), -1),
+      summary: 'Contou que a neta Júlia vem visitar no domingo e que quer fazer bolo de fubá para ela. Estava animada.',
+    },
+    {
+      id: nextId('memory'),
+      at: instantOf(addDays(localDateOf(new Date(), TIMEZONE), -3), '10:30', TIMEZONE).toISOString(),
+      date: addDays(localDateOf(new Date(), TIMEZONE), -3),
+      summary: 'Lembrou dos tempos em que dava aula de português e disse que sente falta dos alunos.',
+    },
+  ]);
 
   // A few games over the last days, so the history and the report have something to show.
   const seedDay = localDateOf(new Date(), TIMEZONE);
@@ -619,6 +638,16 @@ export function createMockBackend(): MockBackend {
     async sendAssistantMessage(elderId) {
       elderFor(elderId);
       return { reply: 'Estou em modo de demonstração, sem conexão com o servidor. Em breve poderei ajudar de verdade!' };
+    },
+    async listMemories(elderId) {
+      elderFor(elderId, { caregiverOnly: true });
+      return { items: [...(memories.get(elderId) ?? [])] };
+    },
+    async forgetMemory(elderId, memoryId) {
+      elderFor(elderId, { caregiverOnly: true });
+      const items = memories.get(elderId) ?? [];
+      if (!items.some((memory) => memory.id === memoryId)) fail('NOT_FOUND', 'Lembrança não encontrada.');
+      memories.set(elderId, items.filter((memory) => memory.id !== memoryId));
     },
   };
 

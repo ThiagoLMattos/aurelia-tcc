@@ -97,6 +97,17 @@ the default, `log`, only logs them.
 | Endpoint | Who | Notes |
 |---|---|---|
 | `POST /elders/:elderId/assistant/messages` | both | `AssistantMessageBody` → `{ reply }`; 30/hour/elder; `503` when the model fails or takes over 15 s |
+| `GET /elders/:elderId/assistant/memories` | caregiver | `AssistantMemoriesResponse`: what Aurélia remembers from the elder's conversations, newest first |
+| `DELETE /elders/:elderId/assistant/memories/:memoryId` | caregiver | `204`; Aurélia forgets it |
+
+### Memory
+
+The prompt includes the elder's `about` ("Sobre", written by the caregivers in `PATCH /elders/:elderId`)
+and the latest `ASSISTANT_MEMORIES_IN_PROMPT` (12) memories, in both modes. Each exchange on the elder's
+phone is added to the elder's current conversation; a conversation quiet for
+`ASSISTANT_CONVERSATION_IDLE_MIN` (10) minutes is summarised by the jobs run into a memory of up to three
+sentences (or none, when there was nothing to remember) and then deleted. A caregiver's own questions
+are never kept.
 
 ### Daily summary
 
@@ -110,7 +121,7 @@ attempt is retried on the next run.
 
 | Endpoint | Who | Notes |
 |---|---|---|
-| `POST /internal/jobs/run` | `X-Jobs-Token` | only mounted when `JOBS_TOKEN` is set; runs the missed-task, device-offline and escalation checks and the daily summaries; `409` if a run is in progress |
+| `POST /internal/jobs/run` | `X-Jobs-Token` | only mounted when `JOBS_TOKEN` is set; runs the missed-task, device-offline and escalation checks, the daily summaries and Aurélia's memory; `409` if a run is in progress |
 | `POST /internal/jobs/escalate` | `X-Jobs-Token` | only the escalation check, for a scheduler that calls it every minute → `{ alertsEscalated }`; `409` if one is in progress |
 
 ## Push `data`

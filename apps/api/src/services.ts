@@ -21,6 +21,7 @@ import { createLocationService } from './modules/location/service';
 import { createMissedTasksJob } from './modules/jobs/missedTasks';
 import { createEscalationJob } from './modules/jobs/escalation';
 import { createDailySummaryJob } from './modules/jobs/dailySummary';
+import { createConversationMemoryJob } from './modules/jobs/conversationMemory';
 import { createMeService } from './modules/me/service';
 import { createPairingService } from './modules/pairing/service';
 import { createReportsService } from './modules/reports/service';
@@ -82,10 +83,12 @@ export function createServices({
     routines: repos.routines,
     occurrences: repos.occurrences,
     events: repos.events,
+    memories: repos.memories,
     now,
     logger,
     ...(assistantTimeoutMs ? { timeoutMs: assistantTimeoutMs } : {}),
   });
+  const conversationMemory = createConversationMemoryJob({ elders: repos.elders, memories: repos.memories, assistant, now, logger });
   const dailySummary = createDailySummaryJob({ elders: repos.elders, users: repos.users, assistant, events, notifier, now, logger });
 
   return {
@@ -127,6 +130,7 @@ export function createServices({
       missedTasks,
       escalation,
       dailySummary,
+      conversationMemory,
       notifier,
       now,
       logger,
@@ -134,6 +138,7 @@ export function createServices({
     missedTasks,
     escalation,
     dailySummary,
+    conversationMemory,
   };
 }
 

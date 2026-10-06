@@ -27,3 +27,10 @@ export const ESCALATION_WINDOW_MIN = 60;
  * "Insights da Aurélia" (one per elder per day, only on days with something to tell).
  */
 export const DAILY_SUMMARY_TIME = '20:00';
+
+/** "Sobre ela": what the caregivers tell Aurélia about the elder, read in every conversation. */
+export const ELDER_ABOUT_MAX_CHARS = 2000;
+/** A conversation with Aurélia that has been quiet this long is over, and gets summarised for her memory. */
+export const ASSISTANT_CONVERSATION_IDLE_MIN = 10;
+/** How many conversation summaries Aurélia is given to remember, newest first. */
+export const ASSISTANT_MEMORIES_IN_PROMPT = 12;

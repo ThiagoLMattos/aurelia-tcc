@@ -42,6 +42,7 @@ export default function CaregiverLayout() {
         <Stack.Screen name="settings" options={{ presentation: 'card' }} />
         <Stack.Screen name="pair-elder" options={{ presentation: 'card' }} />
         <Stack.Screen name="invite-caregiver" options={{ presentation: 'card' }} />
+        <Stack.Screen name="aurelia-memories" options={{ presentation: 'card' }} />
         <Stack.Screen name="safe-zone" options={{ presentation: 'card' }} />
         <Stack.Screen name="location" options={{ presentation: 'card' }} />
         <Stack.Screen name="tracker" options={{ presentation: 'card' }} />

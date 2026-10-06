@@ -313,6 +313,7 @@ describe('POST /internal/jobs/run', () => {
       devicesOffline: expect.any(Number),
       alertsEscalated: expect.any(Number),
       dailySummaries: expect.any(Number),
+      memoriesKept: expect.any(Number),
     });
   });
 
