@@ -75,14 +75,15 @@ const SOUNDS = {
   celebrate: render(1.5, (b) => {
     [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6].forEach((f, i) => note(b, i * 0.12, f, { length: 1.1, gain: 0.3, decay: 3.5 }));
   }),
-  // A message sent / a message arrived (when Aurélia's voice is off).
-  send: render(0.3, (b) => {
-    note(b, 0, NOTE.E5, { length: 0.2, gain: 0.3, decay: 18 });
-    note(b, 0.07, NOTE.G5, { length: 0.22, gain: 0.3, decay: 16 });
+  // A message sent / a message arrived (when Aurélia's voice is off): clear two-note chimes, as loud
+  // as the success sound, so they are noticed over a conversation.
+  send: render(0.6, (b) => {
+    note(b, 0, NOTE.C5, { length: 0.4, gain: 0.45, decay: 8 });
+    note(b, 0.12, NOTE.E5, { length: 0.45, gain: 0.45, decay: 7 });
   }),
-  receive: render(0.5, (b) => {
-    note(b, 0, NOTE.G5, { length: 0.35, gain: 0.3, decay: 10 });
-    note(b, 0.1, NOTE.E5, { length: 0.4, gain: 0.32, decay: 9 });
+  receive: render(0.8, (b) => {
+    note(b, 0, NOTE.G5, { length: 0.5, gain: 0.42, decay: 6 });
+    note(b, 0.16, NOTE.C5, { length: 0.6, gain: 0.48, decay: 5 });
   }),
   // The sequence game's four pads, one note each (like the classic toy, but softer).
   pad0: render(0.45, (b) => note(b, 0, NOTE.E4, { length: 0.45, gain: 0.45, decay: 6 })),
