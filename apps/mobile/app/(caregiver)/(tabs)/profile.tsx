@@ -212,7 +212,7 @@ function CaregiversSection({ elder }: { elder: Elder }) {
         );
       })}
       {items.length === 1 ? (
-        <Text style={extra.explain}>Só você acompanha {name}. Convide outra pessoa da família para dividir os cuidados.</Text>
+        <Text style={[extra.explain, extra.inset]}>Só você acompanha {name}. Convide outra pessoa da família para dividir os cuidados.</Text>
       ) : null}
       <TouchableOpacity
         style={styles.addContactBtn}
@@ -258,42 +258,44 @@ function AboutSection({ elder }: { elder: Elder }) {
 
   return (
     <>
-      {editing ? (
-        <View style={extra.editForm}>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            multiline
-            maxLength={ELDER_ABOUT_MAX_CHARS}
-            placeholder={ABOUT_PLACEHOLDER}
-            placeholderTextColor={Colors.textMuted}
-            style={extra.aboutInput}
-            accessibilityLabel={`Sobre ${name}`}
-            autoFocus
-          />
-          <Text style={extra.counter}>
-            {text.length}/{ELDER_ABOUT_MAX_CHARS}
-          </Text>
-          <FormError message={error} />
-          <View style={styles.addFormActions}>
-            <Button title="Cancelar" variant="ghost" onPress={() => setEditing(false)} style={{ flex: 1 }} />
-            <Button title="Salvar" onPress={save} loading={patch.isPending} style={{ flex: 1 }} />
+      <View style={extra.cardBody}>
+        {editing ? (
+          <View style={extra.aboutForm}>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              multiline
+              maxLength={ELDER_ABOUT_MAX_CHARS}
+              placeholder={ABOUT_PLACEHOLDER}
+              placeholderTextColor={Colors.textMuted}
+              style={extra.aboutInput}
+              accessibilityLabel={`Sobre ${name}`}
+              autoFocus
+            />
+            <Text style={extra.counter}>
+              {text.length}/{ELDER_ABOUT_MAX_CHARS}
+            </Text>
+            <FormError message={error} />
+            <View style={styles.addFormActions}>
+              <Button title="Cancelar" variant="ghost" onPress={() => setEditing(false)} style={{ flex: 1 }} />
+              <Button title="Salvar" onPress={save} loading={patch.isPending} style={{ flex: 1 }} />
+            </View>
           </View>
-        </View>
-      ) : elder.about ? (
-        <TouchableOpacity onPress={startEditing} accessibilityRole="button" accessibilityLabel={`Editar o texto sobre ${name}`}>
-          <Text style={extra.aboutText}>{elder.about}</Text>
-          <Text style={extra.editLink}>Editar</Text>
-        </TouchableOpacity>
-      ) : (
-        <>
-          <Text style={extra.explain}>
-            Conte para a Aurélia quem é {name}: família, profissão, lembranças queridas, gostos e como gosta que falem com {name}.
-            Ela usa isso para conversar e para ajudar a lembrar.
-          </Text>
-          <Button title="Escrever" variant="secondary" onPress={startEditing} />
-        </>
-      )}
+        ) : elder.about ? (
+          <TouchableOpacity onPress={startEditing} accessibilityRole="button" accessibilityLabel={`Editar o texto sobre ${name}`}>
+            <Text style={extra.aboutText}>{elder.about}</Text>
+            <Text style={extra.editLink}>Editar</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <Text style={extra.explain}>
+              Conte para a Aurélia quem é {name}: família, profissão, lembranças queridas, gostos e como gosta que falem com {name}.
+              Ela usa isso para conversar e para ajudar a lembrar.
+            </Text>
+            <Button title="Escrever" variant="secondary" onPress={startEditing} />
+          </>
+        )}
+      </View>
       <View style={styles.contactDivider} />
       <NavRow
         title="O que a Aurélia lembra"
@@ -427,8 +429,9 @@ function EditElderForm({ elder, onDone }: { elder: Elder; onDone: () => void }) 
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
-function SectionCard({ children }: { children: React.ReactNode }) {
-  return <View style={styles.card}>{children}</View>;
+/** `padded` for free-form content; rows bring their own padding. */
+function SectionCard({ padded, children }: { padded?: boolean; children: React.ReactNode }) {
+  return <View style={[styles.card, padded && extra.cardPadded]}>{children}</View>;
 }
 
 function SectionTitle({ title }: { title: string }) {
@@ -591,7 +594,7 @@ export default function PerfilScreen() {
 
         {/* ── Elder's phone ── */}
         <SectionTitle title="Celular do idoso" />
-        <SectionCard>
+        <SectionCard padded>
           <Text style={extra.explain}>
             {elder.phonePaired
               ? `O celular de ${name} está pareado e recebe os lembretes das rotinas.`
@@ -694,6 +697,10 @@ export default function PerfilScreen() {
 
 const extra = StyleSheet.create({
   editForm: { gap: Spacing.md, marginTop: Spacing.md },
+  aboutForm: { gap: Spacing.md },
+  cardPadded: { padding: Spacing.md },
+  cardBody: { padding: Spacing.md },
+  inset: { paddingHorizontal: Spacing.md },
   chipsLabel: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.textPrimary },
   chips: { flexDirection: 'row', gap: Spacing.sm },
   chip: {
@@ -710,7 +717,7 @@ const extra = StyleSheet.create({
   chipTextActive: { color: Colors.primaryText, fontWeight: Typography.weight.semibold },
   explain: { fontSize: Typography.size.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.sm },
   buttonRow: { flexDirection: 'row', gap: Spacing.sm },
-  navRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm },
+  navRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md },
   navTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.textPrimary },
   navValue: { fontSize: Typography.size.sm, color: Colors.textSecondary, marginTop: 2 },
   leaveText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.dangerText },

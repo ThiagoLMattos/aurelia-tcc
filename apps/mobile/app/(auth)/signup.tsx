@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { useSession } from '@/auth/SessionProvider';
-import { Button, FormError, Screen, TextField } from '@/components';
+import { Button, FormError, Logo, Screen, TextField } from '@/components';
 import { api } from '@/lib/backend';
 import { friendlyError } from '@/lib/errors';
 import { validateForm } from '@/lib/forms';
@@ -43,6 +43,7 @@ export default function SignupScreen() {
 
   return (
     <Screen scroll centered>
+      <Logo />
       <Text style={styles.title}>Criar conta de cuidador</Text>
       <TextField label="Seu nome" value={name} onChangeText={setName} error={errors.name} autoComplete="name" autoCapitalize="words" />
       <TextField
@@ -74,6 +75,6 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: Typography.size.xl, fontWeight: Typography.weight.bold, color: Colors.textPrimary },
+  title: { fontSize: Typography.size.xl, fontWeight: Typography.weight.bold, color: Colors.textPrimary, textAlign: 'center' },
   link: { textAlign: 'center', color: Colors.primary, fontSize: Typography.size.md, fontWeight: Typography.weight.semibold },
 });

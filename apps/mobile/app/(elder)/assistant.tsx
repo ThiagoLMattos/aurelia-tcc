@@ -1,16 +1,18 @@
 import type { AssistantTurn } from '@aurelia/shared';
 import { useRouter } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SPEECH_LANGUAGE } from '@/elder/speech';
 import { ElderHeader, MIN_TOUCH, type Section } from '@/elder/ui';
+import { useAureliaVoice, useDiiStatus } from '@/elder/useAureliaVoice';
 import { joinTranscript, MIN_HOLD_MS, voiceErrorMessage } from '@/elder/voice';
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
 import { useAssistantMessage, useElderSelf } from '@/queries';
+import { playSound, withTap } from '@/sound';
 import { PatientColors, PatientTypography } from '@/theme';
 
 const SECTION: Section = {
@@ -30,7 +32,6 @@ interface Message {
 
 const HISTORY_LIMIT = 20;
 const TURN_MAX_CHARS = 2000;
-const LANGUAGE = 'pt-BR';
 
 function historyOf(messages: Message[]): AssistantTurn[] {
   return messages
@@ -49,15 +50,12 @@ function voiceAvailable(): boolean {
   }
 }
 
-function speak(text: string) {
-  Speech.stop();
-  Speech.speak(text, { language: LANGUAGE, rate: 0.9 });
-}
-
 export default function ElderAssistantScreen() {
   const router = useRouter();
   const elder = useElderSelf();
   const ask = useAssistantMessage(elder.id);
+  const { speak, stop } = useAureliaVoice();
+  const dii = useDiiStatus();
 
   const [messages, setMessages] = useState<Message[]>(() => [
     { id: 'welcome', from: 'aurelia', text: `Olá, ${firstName(elder.name)}! Eu sou a Aurélia. Como posso ajudar?` },
@@ -78,10 +76,10 @@ export default function ElderAssistantScreen() {
   // Quiet when leaving the screen, and stop listening.
   useEffect(
     () => () => {
-      Speech.stop();
+      stop();
       if (canTalk) ExpoSpeechRecognitionModule.abort();
     },
-    [canTalk],
+    [canTalk, stop],
   );
 
   const submit = useCallback((raw: string, clearInput: boolean) => {
@@ -91,19 +89,21 @@ export default function ElderAssistantScreen() {
     const mine: Message = { id: `u${nextId.current++}`, from: 'user', text };
     setMessages((prev) => [...prev, mine]);
     if (clearInput) setInput('');
+    playSound('send');
     ask.mutate(
       { message: text, history },
       {
         onSuccess: ({ reply }) => {
           setMessages((prev) => [...prev, { id: `a${nextId.current++}`, from: 'aurelia', text: reply }]);
           if (readAloud) speak(reply);
+          else playSound('receive');
         },
         onError: (error) => {
           setMessages((prev) => [...prev, { id: `e${nextId.current++}`, from: 'aurelia', text: friendlyError(error), failed: true }]);
         },
       },
     );
-  }, [ask, messages, readAloud]);
+  }, [ask, messages, readAloud, speak]);
 
   const send = () => submit(input, true);
 
@@ -143,7 +143,7 @@ export default function ElderAssistantScreen() {
     const state = voice.current;
     Object.assign(state, { holding: true, pressedAt: Date.now(), released: false, finals: [], interim: '', error: null });
     setVoiceHint(null);
-    Speech.stop();
+    stop();
     const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission.granted) {
       setMicBlocked(!permission.canAskAgain);
@@ -154,7 +154,7 @@ export default function ElderAssistantScreen() {
     // Let go while the permission question was open: wait for the next press.
     if (!state.holding) return;
     ExpoSpeechRecognitionModule.start({
-      lang: LANGUAGE,
+      lang: SPEECH_LANGUAGE,
       interimResults: true,
       continuous: true,
       maxAlternatives: 1,
@@ -175,7 +175,7 @@ export default function ElderAssistantScreen() {
   }
 
   function toggleReadAloud() {
-    if (readAloud) Speech.stop();
+    if (readAloud) stop();
     setReadAloud(!readAloud);
   }
 
@@ -208,15 +208,24 @@ export default function ElderAssistantScreen() {
         />
 
         <View style={styles.composer}>
-          <Pressable
-            onPress={toggleReadAloud}
-            style={[styles.soundToggle, !readAloud && styles.soundOff]}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: readAloud }}
-            accessibilityLabel="Ler as respostas em voz alta"
-          >
-            <Text style={styles.soundToggleText}>{readAloud ? '🔊 VOZ LIGADA' : '🔇 VOZ DESLIGADA'}</Text>
-          </Pressable>
+          <View style={styles.voiceRow}>
+            <Pressable
+              onPress={withTap(toggleReadAloud)}
+              style={[styles.soundToggle, !readAloud && styles.soundOff]}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: readAloud }}
+              accessibilityLabel="Ler as respostas em voz alta"
+            >
+              <Text style={styles.soundToggleText}>{readAloud ? '🔊 VOZ LIGADA' : '🔇 VOZ DESLIGADA'}</Text>
+            </Pressable>
+          </View>
+          {readAloud && (dii.state === 'downloading' || dii.state === 'unpacking') ? (
+            <Text style={styles.voiceNote}>
+              {dii.state === 'downloading'
+                ? `Preparando a voz da Aurélia… ${Math.round(dii.progress * 100)}%`
+                : 'Preparando a voz da Aurélia…'}
+            </Text>
+          ) : null}
           {canTalk ? (
             <>
               <Pressable
@@ -285,7 +294,9 @@ const styles = StyleSheet.create({
   listenText: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: PatientColors.aureliaMain },
   typing: { fontSize: PatientTypography.size.reduced, color: '#5F5E5A', paddingLeft: 8 },
   composer: { backgroundColor: '#FFFFFF', padding: 12, gap: 10, borderTopWidth: 1, borderTopColor: '#D3D1C7' },
-  soundToggle: { minHeight: MIN_TOUCH, borderRadius: 12, backgroundColor: PatientColors.aureliaMain, alignItems: 'center', justifyContent: 'center' },
+  voiceRow: { flexDirection: 'row', gap: 10 },
+  soundToggle: { flex: 1, minHeight: MIN_TOUCH, borderRadius: 12, backgroundColor: PatientColors.aureliaMain, alignItems: 'center', justifyContent: 'center' },
+  voiceNote: { fontSize: PatientTypography.size.minimum, fontWeight: PatientTypography.weight.bold, color: PatientColors.aureliaTimestamp, textAlign: 'center' },
   soundOff: { backgroundColor: '#5F5E5A' },
   soundToggleText: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: '#FFFFFF' },
   micButton: {

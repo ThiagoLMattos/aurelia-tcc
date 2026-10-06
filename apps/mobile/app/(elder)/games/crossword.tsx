@@ -19,7 +19,7 @@ import {
 import { CROSSWORD_PUZZLES, type CrosswordPuzzle } from '@/elder/games/crosswordPuzzles';
 import { recordGame } from '@/elder/games/recordGame';
 import { elapsedSeconds } from '@/elder/games/results';
-import { GameOverCard, GAMES_SECTION, tapFeedback } from '@/elder/games/ui';
+import { GameOverCard, GAMES_SECTION, startFeedback, tapFeedback } from '@/elder/games/ui';
 import { BigButton, ElderHeader, MIN_TOUCH } from '@/elder/ui';
 import { useElderSelf } from '@/queries';
 import { PatientColors, PatientTypography, Shadow } from '@/theme';
@@ -76,17 +76,19 @@ export default function CrosswordScreen() {
     startedAt.current = Date.now();
     setPuzzle(next);
     setGame(newCrosswordGame(next));
+    startFeedback();
   }
 
   function update(next: CrosswordState) {
     if (!game || next === game || !puzzle) return;
     setGame(next);
     if (isCrosswordFinished(next)) {
-      tapFeedback('success');
+      tapFeedback('win');
       record(puzzle, next);
-    } else if (next.feedback === 'right') tapFeedback('success');
+    } else if (next.feedback === 'right') tapFeedback('success', 'match');
     else if (next.feedback === 'wrong') tapFeedback('miss');
-    else tapFeedback();
+    else if (next.hints > game.hints) tapFeedback('tap', 'hint');
+    else tapFeedback('tap', 'key');
   }
 
   return (

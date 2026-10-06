@@ -14,9 +14,10 @@ import {
   SEQUENCE_PADS,
   type SequenceState,
 } from '@/elder/games/sequence';
-import { GameOverCard, GAMES_SECTION, tapFeedback } from '@/elder/games/ui';
+import { GameOverCard, GAMES_SECTION, startFeedback, tapFeedback } from '@/elder/games/ui';
 import { BigButton, ElderHeader } from '@/elder/ui';
 import { useElderSelf } from '@/queries';
+import { playSound, type SoundName } from '@/sound';
 import { PatientColors, PatientTypography } from '@/theme';
 
 /** The phone plays the sequence slowly: each colour stays lit this long, with a pause between. */
@@ -28,6 +29,8 @@ const LEAD_IN_MS = 900;
 const TAP_MS = 250;
 const CLEARED_PAUSE_MS = 1_200;
 const RETRY_PAUSE_MS = 2_000;
+/** One note per pad, low to high, played when it lights up and when it is pressed. */
+const PAD_SOUNDS: readonly SoundName[] = ['pad0', 'pad1', 'pad2', 'pad3'];
 
 /**
  * Memória Sequencial: watch the colours light up, then tap them in the same order; one colour more
@@ -71,10 +74,17 @@ export default function SequenceGameScreen() {
     if (game.phase === 'showing') {
       game.sequence.forEach((pad, i) => {
         const on = LEAD_IN_MS + i * (LIT_MS + GAP_MS);
-        later(on, () => setLit(pad));
+        later(on, () => {
+          setLit(pad);
+          playSound(PAD_SOUNDS[pad] ?? 'tap');
+        });
         later(on + LIT_MS, () => setLit(null));
       });
-      later(LEAD_IN_MS + game.sequence.length * (LIT_MS + GAP_MS), () => setGame((s) => s && finishShowing(s)));
+      later(LEAD_IN_MS + game.sequence.length * (LIT_MS + GAP_MS), () => {
+        setGame((s) => s && finishShowing(s));
+        // Now it is the elder's turn: a soft bell says so.
+        playSound('yourTurn');
+      });
     }
     if (game.phase === 'cleared') later(CLEARED_PAUSE_MS, () => setGame((s) => s && nextRound(s)));
     if (game.phase === 'retry') later(RETRY_PAUSE_MS, () => setGame((s) => s && replay(s)));
@@ -88,6 +98,7 @@ export default function SequenceGameScreen() {
   function start() {
     recorded.current = false;
     startedAt.current = Date.now();
+    startFeedback();
     setGame(newSequenceGame());
   }
 
@@ -97,10 +108,14 @@ export default function SequenceGameScreen() {
     setLit(pad);
     setTimeout(() => setLit((current) => (current === pad ? null : current)), TAP_MS);
     if (next.phase === 'over') {
-      tapFeedback('miss');
+      tapFeedback('miss', 'gameOver');
       record(next);
+    } else if (next.phase === 'retry') {
+      tapFeedback('miss');
     } else {
-      tapFeedback(next.phase === 'retry' ? 'miss' : next.phase === 'cleared' ? 'success' : 'tap');
+      // Each pad sings its own note; the round's last right press is followed by the success chime.
+      tapFeedback('tap', PAD_SOUNDS[pad] ?? 'tap');
+      if (next.phase === 'cleared') setTimeout(() => playSound('levelUp'), TAP_MS);
     }
     setGame(next);
   }

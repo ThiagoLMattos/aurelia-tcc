@@ -7,6 +7,7 @@ import { clearRevoked, useRevoked } from '@/auth/revoked';
 import { useSession } from '@/auth/SessionProvider';
 import { useMe } from '@/auth/useMe';
 import { ErrorState, LoadingState, Screen } from '@/components';
+import { prepareDii } from '@/elder/dii';
 import { BigButton } from '@/elder/ui';
 import { clearLegacyElderStorage } from '@/elder/legacy';
 import { useElderReminders } from '@/elder/useElderReminders';
@@ -49,6 +50,8 @@ export default function ElderLayout() {
 
   useEffect(() => {
     void clearLegacyElderStorage();
+    // Aurélia's voice is downloaded once, in the background, as soon as the phone is paired.
+    void prepareDii();
     return () => clearRevoked();
   }, []);
 

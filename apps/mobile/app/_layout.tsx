@@ -11,10 +11,12 @@ import { queryClient, setupFocusManager } from '@/lib/query';
 import { configureNotificationHandler } from '@/push/registerPush';
 import { useNotificationRouting } from '@/push/useNotificationRouting';
 import { usePushRegistration } from '@/push/usePushRegistration';
+import { initSounds } from '@/sound';
 import { Colors } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
 configureNotificationHandler();
+void initSounds();
 
 // Force light theme — Aurélia is light-mode only for v1 (dark mode out of scope)
 const AureliaTheme = {

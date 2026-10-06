@@ -7,6 +7,7 @@
  *  1. Header with back button
  *  2. Account row (the signed-in caregiver)
  *  3. Notifications card (toggles, geo-fence locked) — saved to `PATCH /me`
+ *  3b. Sounds card (this phone only, kept on the device)
  *  4. Missed task timeout card (3 chips) — saved to `PATCH /elders/:id`
  *  5. Escalation card (2 radio options) — saved to `PATCH /me`; with "me, then the contacts" an SOS or
  *     safe-zone exit nobody answers in ESCALATE_AFTER_MIN is texted to the emergency contacts
@@ -36,6 +37,7 @@ import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
 import { firstName, initials } from '@/lib/format';
 import { useContacts, useCurrentElder, usePatchElder, usePatchMe } from '@/queries';
+import { setSoundsEnabled, useSoundsEnabled } from '@/sound';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
@@ -112,6 +114,7 @@ export default function SettingsScreen() {
   const elder = useCurrentElder();
   const router = useRouter();
   const { signOut, deleteAccount } = useSession();
+  const soundsOn = useSoundsEnabled();
   const [deleting, setDeleting] = useState<'closed' | 'open' | 'busy'>('closed');
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -238,6 +241,18 @@ export default function SettingsScreen() {
             sublabel={`Todo dia às ${DAILY_SUMMARY_TIME}, um resumo do dia de ${name} escrito pela Aurélia`}
             value={settings.notifyAssistantInsights}
             onValueChange={(v) => saveSettings({ notifyAssistantInsights: v })}
+            last
+          />
+        </SectionCard>
+
+        {/* ── Sounds (this phone) ── */}
+        <SectionTitle title="Sons" />
+        <SectionCard>
+          <ToggleRow
+            label="Sons do aplicativo"
+            sublabel="Um som suave ao tocar nos botões. Vale só para este celular e respeita o modo silencioso."
+            value={soundsOn}
+            onValueChange={setSoundsEnabled}
             last
           />
         </SectionCard>

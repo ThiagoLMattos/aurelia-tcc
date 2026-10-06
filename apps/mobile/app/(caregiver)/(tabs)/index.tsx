@@ -1205,7 +1205,7 @@ const styles = StyleSheet.create({
   },
   headerSub: {
     fontSize: Typography.size.xs,
-    color: '#9FE1CB',
+    color: Colors.primaryOnDark,
     marginTop: 2,
   },
 
@@ -1216,7 +1216,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   badgeOk: {
-    backgroundColor: '#085041',
+    backgroundColor: Colors.primaryDark,
   },
   badgeAlert: {
     backgroundColor: '#793F00',
@@ -1248,10 +1248,10 @@ const styles = StyleSheet.create({
   },
   tabPillText: {
     fontSize: Typography.size.xs,
-    color: '#9FE1CB',
+    color: Colors.primaryOnDark,
   },
   tabPillTextActive: {
-    color: '#0F6E56',
+    color: Colors.primaryText,
     fontWeight: Typography.weight.semibold,
   },
 
@@ -1558,7 +1558,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Badge text colors ──────────────────────────────────────────────────────
-  badgeTextOk: { color: '#9FE1CB' },
+  badgeTextOk: { color: Colors.primaryOnDark },
   badgeTextAlert: { color: '#FAC775' },
   badgeTextDanger: { color: '#F09595' },
 

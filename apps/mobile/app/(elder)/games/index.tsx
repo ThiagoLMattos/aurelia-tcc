@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GAMES_SECTION } from '@/elder/games/ui';
 import { ElderHeader, MIN_TOUCH } from '@/elder/ui';
 import { PatientColors, PatientTypography, Shadow } from '@/theme';
+import { withTap } from '@/sound';
 
 
 const GAMES: { id: string; name: string; image: number; href: Href }[] = [
@@ -31,7 +32,7 @@ export default function JogosIdosoScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Jogar ${game.name}`}
-              onPress={() => router.push(game.href)}
+              onPress={withTap(() => router.push(game.href))}
               style={({ pressed }) => [styles.playButton, pressed && { opacity: 0.85 }]}
             >
               <Text style={styles.playText}>JOGAR</Text>

@@ -2,6 +2,7 @@ export { AlertResponse } from './AlertResponse';
 export { Button } from './Button';
 export { Card } from './Card';
 export { FormError } from './FormError';
+export { Logo } from './Logo';
 export { Screen } from './Screen';
 export { EmptyState, ErrorState, LoadingState } from './StateViews';
 export { TextField } from './TextField';

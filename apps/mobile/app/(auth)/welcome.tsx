@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Button, Screen } from '@/components';
+import { Button, Logo, Screen } from '@/components';
 import { env } from '@/config/env';
 import { MOCK_DEMO_EMAIL, MOCK_DEMO_PAIRING_CODE, MOCK_DEMO_PASSWORD } from '@/lib/api/mock';
 import { Colors, Spacing, Typography } from '@/theme';
@@ -12,6 +12,7 @@ export default function WelcomeScreen() {
   return (
     <Screen centered>
       <View style={styles.header}>
+        <Logo size={120} />
         <Text style={styles.title}>Aurélia</Text>
         <Text style={styles.subtitle}>Cuidado com carinho, de pertinho.</Text>
       </View>

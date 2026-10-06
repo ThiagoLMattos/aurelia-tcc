@@ -8,11 +8,13 @@
  */
 
 export const Colors = {
-  // Primary — teal
+  // Primary — teal, the logo's colour
   primary: '#0F8080',
   primaryDark: '#0A5F5F',
   primaryLight: '#E0F7FA',
-  primaryText: '#0F6E56',
+  primaryText: '#0A5F5F',
+  /** Light teal for text and borders on a teal background. */
+  primaryOnDark: '#A6DCDC',
 
   // Surface & background
   surface: '#F8FAFC',
@@ -29,7 +31,7 @@ export const Colors = {
   // Sage green — completed / success
   successBg: '#EAF3DE',
   successText: '#3B6D11',
-  successBorder: '#1D9E75',
+  successBorder: '#639922',
 
   // Amber — missed / warning
   warningBg: '#FAEEDA',
@@ -62,9 +64,9 @@ export const Colors = {
 
 export const PatientColors = {
   // ── Home & Header ──────────────────────────────────────────────────────────
-  homeHeader: '#0F6E56', // header principal — identidade do app
-  homeHeaderButton: '#085041', // botão no header — tom mais escuro
-  homeHeaderBorder: '#9FE1CB', // borda do botão no header — tom claro
+  homeHeader: Colors.primary, // header principal — identidade do app
+  homeHeaderButton: Colors.primaryDark, // botão no header — tom mais escuro
+  homeHeaderBorder: Colors.primaryOnDark, // borda do botão no header — tom claro
   homeHeaderText: '#FFFFFF', // texto e ícones no header
   homeHeaderSubtitle: '#FFFFFF', // subtítulo no header
 
@@ -102,15 +104,15 @@ export const PatientColors = {
   phoneAvatar: '#B5D4F4', // avatar/inicial do contato
   phoneFieldBorder: '#185FA5', // borda ativa de campo
 
-  // ── Aurélia / Chat (Verde identidade) ─────────────────────────────────────
-  aureliaMain: '#0F6E56', // botão home, header, avatar IA, botão mic
-  aureliaHeaderButton: '#085041', // botão no header
-  aureliaHeaderBorder: '#9FE1CB', // borda botão no header
-  aureliaHeaderText: '#E1F5EE', // texto e ícones no header
-  aureliaSubtitle: '#9FE1CB', // subtítulo "Assistente virtual"
+  // ── Aurélia / Chat (teal identidade) ──────────────────────────────────────
+  aureliaMain: Colors.primary, // botão home, header, avatar IA, botão mic
+  aureliaHeaderButton: Colors.primaryDark, // botão no header
+  aureliaHeaderBorder: Colors.primaryOnDark, // borda botão no header
+  aureliaHeaderText: Colors.primaryLight, // texto e ícones no header
+  aureliaSubtitle: Colors.primaryOnDark, // subtítulo "Assistente virtual"
   aureliaChatBg: '#F1EFE8', // fundo da área de chat
-  aureliaBubbleUser: '#0F6E56', // balão do usuário
-  aureliaBubbleUserText: '#E1F5EE', // texto no balão do usuário
+  aureliaBubbleUser: Colors.primary, // balão do usuário
+  aureliaBubbleUserText: Colors.primaryLight, // texto no balão do usuário
   aureliaBubbleAI: '#FFFFFF', // balão da IA
   aureliaBubbleAIText: '#2C2C2C', // texto no balão da IA
   aureliaTimestamp: '#888780', // horário das mensagens
