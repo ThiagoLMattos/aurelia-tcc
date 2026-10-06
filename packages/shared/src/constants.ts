@@ -34,3 +34,5 @@ export const ELDER_ABOUT_MAX_CHARS = 2000;
 export const ASSISTANT_CONVERSATION_IDLE_MIN = 10;
 /** How many conversation summaries Aurélia is given to remember, newest first. */
 export const ASSISTANT_MEMORIES_IN_PROMPT = 12;
+/** Memories kept per elder; older ones are deleted as new ones arrive. */
+export const ASSISTANT_MEMORIES_KEPT = 200;

@@ -105,6 +105,16 @@ export function createMemoriesRepo(db: Firestore) {
       await conversations(elderId).doc(conversationId).update({ attempts });
     },
 
+    /** Deletes all but the newest `keep` memories. Returns how many were deleted. */
+    async trimMemories(elderId: string, keep: number): Promise<number> {
+      const old = await memories(elderId).orderBy('at', 'desc').offset(keep).select().get();
+      if (old.empty) return 0;
+      const batch = db.batch();
+      for (const snap of old.docs) batch.delete(snap.ref);
+      await batch.commit();
+      return old.size;
+    },
+
     /** Newest first. */
     async listMemories(elderId: string, limit: number): Promise<MemoryDoc[]> {
       const snaps = await memories(elderId).orderBy('at', 'desc').limit(limit).get();

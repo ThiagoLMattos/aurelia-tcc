@@ -121,6 +121,19 @@ describe('Aurélia’s memory of the elder’s conversations', () => {
     clock.set(START);
   });
 
+  it('keeps only the newest memories', async () => {
+    const { elderId } = await createScenario();
+    for (const [i, summary] of ['primeira', 'segunda', 'terceira'].entries()) {
+      await repos.memories.keepSummary(
+        elderId,
+        { id: `missing-${i}`, startedAt: minutesAfter(i), lastAt: minutesAfter(i), turns: [], attempts: 0 },
+        { date: '2026-05-20', summary },
+      );
+    }
+    expect(await repos.memories.trimMemories(elderId, 2)).toBe(1);
+    expect((await memoriesOf(elderId)).map((memory) => memory.summary)).toEqual(['terceira', 'segunda']);
+  });
+
   it('lets the caregivers see and remove memories, and keeps "Sobre" short', async () => {
     const { elderId, elderToken, caregiver, other } = await createScenario();
     clock.set(START);
