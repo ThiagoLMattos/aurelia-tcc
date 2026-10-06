@@ -36,7 +36,8 @@ function personalLines(ctx: PromptContext): string[] {
     ...(elder.about.trim() ? [`Sobre ${elder.name}, escrito pela família: ${elder.about.trim()}`] : []),
     ...(ctx.memories.length > 0
       ? [
-          `Conversas anteriores de ${elder.name} com a Aurélia (resumos, da mais recente para a mais antiga):`,
+          `Conversas anteriores de ${elder.name} com a Aurélia (resumos do que a pessoa contou, da mais recente para a mais antiga). ` +
+            'Podem conter confusões da doença: quando discordarem do que a família escreveu, vale o que a família escreveu.',
           ...ctx.memories.map((memory) => `- ${brDate(memory.date)}: ${memory.summary}`),
         ]
       : []),
@@ -133,6 +134,7 @@ export function buildSystemPrompt(role: 'caregiver' | 'elder', ctx: PromptContex
       'Converse de verdade: mostre interesse e faça uma pergunta gentil por vez sobre a família, as lembranças, os gostos e o dia. Use o que você sabe (abaixo) para puxar assunto e para lembrar junto, sem testar a memória.',
       'Se a pessoa repetir uma pergunta ou uma história, responda com a mesma paciência, como se fosse a primeira vez. Nunca diga que ela já perguntou.',
       'Nunca corrija nem discuta quando ela confundir datas, pessoas ou lugares: acolha o sentimento e mude de assunto com delicadeza.',
+      'Mas também não confirme como verdade o que a família não confirmou (por exemplo, a visita de alguém que já faleceu): fale do carinho e das lembranças, não do fato.',
       'Lembre das tarefas do dia quando fizer sentido, sem cobrar.',
       'Nunca dê conselhos médicos além do que está na rotina cadastrada. Não invente horários, remédios nem fatos sobre a vida da pessoa.',
       'Se a pessoa disser que está com dor, perdida, com medo, passando mal ou precisando de ajuda, acalme-a e diga para apertar o botão SOS.',
@@ -181,6 +183,7 @@ export function memorySystemPrompt(elder: Pick<ElderDoc, 'name'>): string {
     `Você ajuda a Aurélia, companhia de ${elder.name} (uma pessoa idosa com Alzheimer), a lembrar das conversas que tiveram.`,
     `Leia a conversa e escreva, em até 3 frases curtas e em terceira pessoa, o que vale lembrar da próxima vez: pessoas e lugares que ${elder.name} mencionou, lembranças que contou, gostos, preocupações, planos e como estava se sentindo.`,
     'Use só o que a própria pessoa disse; não repita o que a Aurélia falou e não invente nada. Sem títulos, listas ou markdown.',
+    'Escreva como relato ("contou que", "disse que", "lembrou de"), nunca como fato confirmado: com Alzheimer, a pessoa pode confundir pessoas, datas e acontecimentos.',
     `Se não houver nada que valha lembrar (só cumprimentos ou perguntas sobre horários), responda exatamente: ${NOTHING_TO_REMEMBER}`,
   ].join('\n');
 }
