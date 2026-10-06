@@ -12,6 +12,7 @@ const raw = {
   EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
   EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
   EXPO_PUBLIC_EAS_PROJECT_ID: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+  EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: process.env.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST,
 };
 
 /** An unset (or empty) variable counts as missing. */
@@ -26,6 +27,7 @@ const EnvSchema = z
     EXPO_PUBLIC_FIREBASE_PROJECT_ID: optional,
     EXPO_PUBLIC_FIREBASE_APP_ID: optional,
     EXPO_PUBLIC_EAS_PROJECT_ID: optional,
+    EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: optional,
   })
   .superRefine((value, ctx) => {
     if (value.EXPO_PUBLIC_API_MODE === 'mock') return;
@@ -48,6 +50,8 @@ export interface Env {
   firebase: { apiKey: string; authDomain: string; projectId: string; appId: string };
   /** Needed to get an Expo push token; push is skipped without it. */
   easProjectId: string | null;
+  /** `host:port` of a local Firebase Auth emulator, for running the whole stack on one machine. */
+  authEmulatorHost: string | null;
 }
 
 export function parseEnv(source: Record<string, string | undefined>): Env {
@@ -70,6 +74,7 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
       appId: data.EXPO_PUBLIC_FIREBASE_APP_ID ?? '',
     },
     easProjectId: data.EXPO_PUBLIC_EAS_PROJECT_ID ?? null,
+    authEmulatorHost: data.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST ?? null,
   };
 }
 
