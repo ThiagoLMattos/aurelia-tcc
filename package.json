@@ -25,6 +25,7 @@
     "firebase-tools": "^14.0.0"
   },
   "overrides": {
-    "@dr.pogodin/react-native-fs": "2.35.1"
+    "@dr.pogodin/react-native-fs": "2.35.1",
+    "expo-asset": "~12.0.13"
   }
 }
