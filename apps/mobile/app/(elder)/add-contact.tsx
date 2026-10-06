@@ -9,6 +9,7 @@ import { friendlyError } from '@/lib/errors';
 import { formatPhone } from '@/lib/format';
 import { useContacts, useCreateContact, useElderSelf } from '@/queries';
 import { PatientColors, PatientTypography } from '@/theme';
+import { withTap } from '@/sound';
 
 const SECTION: Section = {
   main: PatientColors.phoneMain,
@@ -93,7 +94,7 @@ export default function AddContactElderScreen() {
           <Text style={styles.fieldLabel}>Contato</Text>
           <Pressable
             style={styles.selectButton}
-            onPress={() => router.push({ pathname: '/(elder)/phone', params: { mode: 'select' } })}
+            onPress={withTap(() => router.push({ pathname: '/(elder)/phone', params: { mode: 'select' } }))}
             accessibilityRole="button"
             accessibilityLabel="Escolher um contato do telefone"
           >
@@ -104,7 +105,7 @@ export default function AddContactElderScreen() {
 
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Parentesco</Text>
-          <Pressable style={styles.selectButton} onPress={() => setStep('relations')} accessibilityRole="button" accessibilityLabel="Escolher o parentesco">
+          <Pressable style={styles.selectButton} onPress={withTap(() => setStep('relations'))} accessibilityRole="button" accessibilityLabel="Escolher o parentesco">
             <Text style={[styles.selectButtonText, !relation && styles.placeholder]}>{relation || 'APERTE PARA SELECIONAR'}</Text>
           </Pressable>
         </View>
@@ -120,7 +121,7 @@ export default function AddContactElderScreen() {
           style={styles.relationList}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <Pressable style={styles.relationItem} onPress={() => pickRelation(item)} accessibilityRole="button">
+            <Pressable style={styles.relationItem} onPress={withTap(() => pickRelation(item))} accessibilityRole="button">
               <Text style={styles.relationItemText}>{item}</Text>
             </Pressable>
           )}
@@ -162,7 +163,7 @@ export default function AddContactElderScreen() {
         )}
         <BigButton
           label={emergencyFull ? 'ADICIONAR' : 'NÃO'}
-          onPress={() => save(false)}
+          onPress={withTap(() => save(false))}
           loading={create.isPending}
           color={PatientColors.sosHeaderButton}
           textColor={PatientColors.sosHeaderText}

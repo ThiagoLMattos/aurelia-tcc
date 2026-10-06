@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { Section } from '@/elder/ui';
+import { playSound, type SoundName } from '@/sound';
 import { PatientColors, PatientTypography, Shadow } from '@/theme';
 
 export const GAMES_SECTION: Section = {
@@ -12,13 +13,19 @@ export const GAMES_SECTION: Section = {
   text: PatientColors.gamesHeaderText,
 };
 
-/** A light tap on phones that have it; nothing on the web preview. */
-export function tapFeedback(kind: 'tap' | 'success' | 'miss' = 'tap'): void {
+const SOUND_OF: Record<'tap' | 'success' | 'miss' | 'win', SoundName> = { tap: 'tap', success: 'success', miss: 'miss', win: 'celebrate' };
+
+/**
+ * A sound, and a light buzz on phones that have it. `sound` replaces the kind's usual sound (the
+ * sequence pads each play their own note).
+ */
+export function tapFeedback(kind: 'tap' | 'success' | 'miss' | 'win' = 'tap', sound: SoundName = SOUND_OF[kind]): void {
+  playSound(sound);
   if (process.env.EXPO_OS === 'web') return;
   const done =
     kind === 'tap'
       ? Haptics.selectionAsync()
-      : Haptics.notificationAsync(kind === 'success' ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning);
+      : Haptics.notificationAsync(kind === 'miss' ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success);
   void done.catch(() => undefined);
 }
 

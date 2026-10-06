@@ -56,10 +56,13 @@ export default function MemoryGameScreen() {
     if (next === game) return;
     setGame(next);
     if (isMemoryFinished(next)) {
-      tapFeedback('success');
+      tapFeedback('win');
       recordGame(elder.id, { game: 'memory', pairs: MEMORY_LEVELS[level].pairs, moves: next.moves, durationSec: elapsedSeconds(startedAt.current) });
     } else {
-      tapFeedback(isShowingMismatch(next) ? 'miss' : 'tap');
+      const matched = next.cards.filter((card) => card.matched).length > game.cards.filter((card) => card.matched).length;
+      if (matched) tapFeedback('success');
+      else if (isShowingMismatch(next)) tapFeedback('miss');
+      else tapFeedback('tap', 'flip');
     }
   }
 

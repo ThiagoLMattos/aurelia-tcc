@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 
+import { withTap } from '@/sound';
 import { fontSizes, palette, Radius, Spacing, type Role } from '@/theme';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -27,7 +28,7 @@ export function Button({ title, onPress, variant = 'primary', role = 'caregiver'
       accessibilityRole="button"
       accessibilityState={{ disabled: inactive, busy: loading }}
       disabled={inactive}
-      onPress={onPress}
+      onPress={withTap(onPress)}
       style={({ pressed }) => [
         styles.base,
         role === 'elder' && styles.elder,

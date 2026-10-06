@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import type { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { withTap } from '@/sound';
 import { Layout, PatientTypography, Shadow } from '@/theme';
 
 /** One colour family of the elder app (SOS red, tasks green, phone blue, …), as the screens' headers use it. */
@@ -31,7 +32,7 @@ export function ElderHeader({ title, section, onBack, backLabel = 'VOLTAR', titl
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Voltar"
-        onPress={onBack}
+        onPress={withTap(onBack)}
         style={[styles.back, { backgroundColor: section.headerButton, borderColor: section.border }]}
       >
         <Text style={[styles.backText, { color: section.text }]}>{backLabel}</Text>
@@ -58,7 +59,7 @@ export function BigButton({ label, onPress, color, textColor, disabled, loading,
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: inactive, busy: loading }}
       disabled={inactive}
-      onPress={onPress}
+      onPress={withTap(onPress)}
       style={({ pressed }) => [styles.big, { backgroundColor: color, opacity: inactive ? 0.5 : pressed ? 0.85 : 1 }, style]}
     >
       <Text style={[styles.bigText, { color: textColor }]}>{loading ? '…' : label}</Text>

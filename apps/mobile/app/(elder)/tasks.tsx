@@ -10,6 +10,7 @@ import { BigButton, ElderHeader, MIN_TOUCH, Sheet, SheetText, type Section } fro
 import { friendlyError } from '@/lib/errors';
 import { useAgenda, useElderSelf, useMarkDone, useToday } from '@/queries';
 import { PatientColors, PatientTypography, Shadow } from '@/theme';
+import { playSound, withTap } from '@/sound';
 
 const SECTION: Section = {
   main: PatientColors.tasksMain,
@@ -65,7 +66,7 @@ function TaskCard({ item, onConclude }: { item: AgendaItem; onConclude: (item: A
         ) : (
           <Pressable
             style={styles.concludeButton}
-            onPress={() => onConclude(item)}
+            onPress={withTap(() => onConclude(item))}
             accessibilityRole="button"
             accessibilityLabel={`Marcar ${item.name} como feita`}
           >
@@ -96,6 +97,7 @@ export default function TarefasIdosoScreen() {
     markDone.mutate(routineId, {
       onSuccess: () => {
         setCelebrating(true);
+        playSound('celebrate');
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       },
       onError: (error) => Alert.alert('Não foi possível confirmar', friendlyError(error)),

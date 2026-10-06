@@ -82,7 +82,7 @@ export default function CrosswordScreen() {
     if (!game || next === game || !puzzle) return;
     setGame(next);
     if (isCrosswordFinished(next)) {
-      tapFeedback('success');
+      tapFeedback('win');
       record(puzzle, next);
     } else if (next.feedback === 'right') tapFeedback('success');
     else if (next.feedback === 'wrong') tapFeedback('miss');

@@ -45,7 +45,7 @@ export default function TicTacToeScreen() {
 
   function finish(next: TicTacToeState, played: TicTacToeLevel) {
     if (!next.outcome) return;
-    tapFeedback(next.outcome === 'win' ? 'success' : 'miss');
+    tapFeedback(next.outcome === 'win' ? 'win' : next.outcome === 'loss' ? 'miss' : 'tap');
     recordGame(elder.id, { game: 'tictactoe', level: played, outcome: next.outcome, durationSec: elapsedSeconds(startedAt.current) });
   }
 

@@ -10,6 +10,7 @@ import { dialable, phoneKey } from '@/elder/phones';
 import { formatPhone } from '@/lib/format';
 import { useContacts, useElderSelf } from '@/queries';
 import { PatientColors, PatientTypography } from '@/theme';
+import { withTap } from '@/sound';
 
 const SECTION: Section = {
   main: PatientColors.phoneMain,
@@ -124,7 +125,7 @@ export default function PhoneElderScreen() {
           renderItem={({ item }) => (
             <Pressable
               style={styles.contactCard}
-              onPress={() => pick(item)}
+              onPress={withTap(() => pick(item))}
               accessibilityRole="button"
               accessibilityLabel={selecting ? `Escolher ${item.name}` : `Ligar para ${item.name}${item.relation ? `, ${item.relation}` : ''}`}
             >
@@ -147,7 +148,7 @@ export default function PhoneElderScreen() {
         <View style={styles.footer}>
           <BigButton
             label="+ ADICIONAR CONTATO"
-            onPress={() => router.push('/(elder)/add-contact')}
+            onPress={withTap(() => router.push('/(elder)/add-contact'))}
             color={PatientColors.phoneHeaderButton}
             textColor={PatientColors.phoneHeaderText}
             style={styles.footerButton}

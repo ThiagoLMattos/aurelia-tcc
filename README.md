@@ -136,7 +136,8 @@ os dois lados.
 O Aurélia une as duas pontas dessa rotina em um único sistema:
 
 - **App do idoso**: interface simplificada, com lembretes de medicação e rotina guiados por
-  uma assistente de IA com quem o idoso conversa por voz (segura o botão, fala, e ela responde em voz alta).
+  uma assistente de IA com quem o idoso conversa por voz (segura o botão, fala, e ela responde em voz alta,
+  na melhor voz em português do celular). Botões e jogos têm sons suaves, pensados para quem ouve menos.
 - **Painel do cuidador**: histórico de atividades, alertas em tempo real, gestão de contatos
   de emergência e um resumo diário escrito pela assistente. Vários cuidadores da família podem
   acompanhar o mesmo idoso, por convite.
