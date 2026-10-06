@@ -5,6 +5,7 @@ import { createDevicesRepo, type DevicesRepo } from './devices';
 import { createEldersRepo, type EldersRepo } from './elders';
 import { createEventsRepo, type EventsRepo } from './events';
 import { createLocationRepo, type LocationRepo } from './location';
+import { createMemoriesRepo, type MemoriesRepo } from './memories';
 import { createOccurrencesRepo, type OccurrencesRepo } from './occurrences';
 import { createPairingCodesRepo, type PairingCodesRepo } from './pairingCodes';
 import { createRoutinesRepo, type RoutinesRepo } from './routines';
@@ -20,6 +21,7 @@ export interface Repos {
   devices: DevicesRepo;
   location: LocationRepo;
   pairingCodes: PairingCodesRepo;
+  memories: MemoriesRepo;
 }
 
 export function createRepos(db: Firestore): Repos {
@@ -34,6 +36,7 @@ export function createRepos(db: Firestore): Repos {
     devices: createDevicesRepo(db, events),
     location: createLocationRepo(db, events),
     pairingCodes: createPairingCodesRepo(db),
+    memories: createMemoriesRepo(db),
   };
 }
 

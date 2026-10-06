@@ -35,10 +35,13 @@ export interface ElderDoc {
   pushTokens: string[];
   /** When the elder phone last paired; null while unpaired. */
   phonePairedAt: Date | null;
+  /** "Sobre ela", written by the caregivers for Aurélia. */
+  about: string;
 }
 
-interface ElderData extends Omit<ElderDoc, 'id' | 'createdAt' | 'locationState' | 'phonePairedAt'> {
+interface ElderData extends Omit<ElderDoc, 'id' | 'createdAt' | 'locationState' | 'phonePairedAt' | 'about'> {
   createdAt: Timestamp;
+  about?: string;
   phonePairedAt?: Timestamp | null;
   locationState?: Partial<Omit<ElderLocationState, 'since' | 'lastAt'>> & {
     since?: Timestamp | null;
@@ -72,6 +75,7 @@ export function elderFromSnapshot(snap: FirebaseFirestore.DocumentSnapshot): Eld
     },
     pushTokens: data.pushTokens ?? [],
     phonePairedAt: toDateOrNull(data.phonePairedAt),
+    about: data.about ?? '',
   };
 }
 
@@ -126,6 +130,7 @@ export function createEldersRepo(db: Firestore) {
         locationState: INITIAL_LOCATION_STATE,
         pushTokens: [],
         phonePairedAt: null,
+        about: '',
       });
       batch.update(db.collection('users').doc(creatorId), { elderIds: FieldValue.arrayUnion(ref.id) });
       try {
@@ -146,6 +151,7 @@ export function createEldersRepo(db: Firestore) {
       if (patch.timezone !== undefined) fields.timezone = patch.timezone;
       if (patch.missedTaskTimeoutMin !== undefined) fields.missedTaskTimeoutMin = patch.missedTaskTimeoutMin;
       if (patch.safeZone !== undefined) fields.safeZone = patch.safeZone;
+      if (patch.about !== undefined) fields.about = patch.about;
       return updateIfExists(id, fields);
     },
 

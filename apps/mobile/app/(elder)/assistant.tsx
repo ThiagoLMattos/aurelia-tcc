@@ -1,11 +1,13 @@
 import type { AssistantTurn } from '@aurelia/shared';
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ElderHeader, MIN_TOUCH, type Section } from '@/elder/ui';
+import { joinTranscript, MIN_HOLD_MS, voiceErrorMessage } from '@/elder/voice';
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
 import { useAssistantMessage, useElderSelf } from '@/queries';
@@ -37,6 +39,16 @@ function historyOf(messages: Message[]): AssistantTurn[] {
     .slice(-HISTORY_LIMIT);
 }
 
+/** Whether this phone can turn speech into text (Android needs Google's speech service). */
+function voiceAvailable(): boolean {
+  if (Platform.OS === 'web') return false;
+  try {
+    return ExpoSpeechRecognitionModule.isRecognitionAvailable();
+  } catch {
+    return false;
+  }
+}
+
 function speak(text: string) {
   Speech.stop();
   Speech.speak(text, { language: LANGUAGE, rate: 0.9 });
@@ -55,16 +67,30 @@ export default function ElderAssistantScreen() {
   const list = useRef<FlatList<Message>>(null);
   const nextId = useRef(0);
 
-  // Quiet when leaving the screen.
-  useEffect(() => () => void Speech.stop(), []);
+  // "Segure para falar": the button listens while pressed and sends what was heard on release.
+  const [canTalk] = useState(voiceAvailable);
+  const [listening, setListening] = useState(false);
+  const [heard, setHeard] = useState('');
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const [micBlocked, setMicBlocked] = useState(false);
+  const voice = useRef({ holding: false, pressedAt: 0, released: false, finals: [] as string[], interim: '', error: null as string | null });
 
-  const send = useCallback(() => {
-    const text = input.trim();
+  // Quiet when leaving the screen, and stop listening.
+  useEffect(
+    () => () => {
+      Speech.stop();
+      if (canTalk) ExpoSpeechRecognitionModule.abort();
+    },
+    [canTalk],
+  );
+
+  const submit = useCallback((raw: string, clearInput: boolean) => {
+    const text = raw.trim();
     if (!text || ask.isPending) return;
     const history = historyOf(messages);
     const mine: Message = { id: `u${nextId.current++}`, from: 'user', text };
     setMessages((prev) => [...prev, mine]);
-    setInput('');
+    if (clearInput) setInput('');
     ask.mutate(
       { message: text, history },
       {
@@ -77,7 +103,76 @@ export default function ElderAssistantScreen() {
         },
       },
     );
-  }, [input, ask, messages, readAloud]);
+  }, [ask, messages, readAloud]);
+
+  const send = () => submit(input, true);
+
+  useSpeechRecognitionEvent('start', () => setListening(true));
+  useSpeechRecognitionEvent('result', (event) => {
+    const text = event.results[0]?.transcript ?? '';
+    const state = voice.current;
+    if (event.isFinal) {
+      state.finals.push(text);
+      state.interim = '';
+    } else {
+      state.interim = text;
+    }
+    setHeard(joinTranscript(state.finals, state.interim));
+  });
+  useSpeechRecognitionEvent('error', (event) => {
+    voice.current.error = event.error;
+  });
+  // Always the last event, after a result or an error.
+  useSpeechRecognitionEvent('end', () => {
+    const state = voice.current;
+    const text = joinTranscript(state.finals, state.interim);
+    setListening(false);
+    setHeard('');
+    // Sent on release, or when the phone stopped listening by itself while the button was still held.
+    if (text && (state.released || state.holding)) submit(text, false);
+    else if (state.released || state.error) {
+      // A cancelled tap already left its own hint; keep it.
+      const hint = voiceErrorMessage(state.error ?? 'no-speech');
+      if (hint) setVoiceHint(hint);
+    }
+    state.released = false;
+    state.error = null;
+  });
+
+  async function startListening() {
+    const state = voice.current;
+    Object.assign(state, { holding: true, pressedAt: Date.now(), released: false, finals: [], interim: '', error: null });
+    setVoiceHint(null);
+    Speech.stop();
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setMicBlocked(!permission.canAskAgain);
+      setVoiceHint(voiceErrorMessage('not-allowed'));
+      return;
+    }
+    setMicBlocked(false);
+    // Let go while the permission question was open: wait for the next press.
+    if (!state.holding) return;
+    ExpoSpeechRecognitionModule.start({
+      lang: LANGUAGE,
+      interimResults: true,
+      continuous: true,
+      maxAlternatives: 1,
+      contextualStrings: ['Aurélia', firstName(elder.name)],
+    });
+  }
+
+  function stopListening() {
+    const state = voice.current;
+    state.holding = false;
+    if (Date.now() - state.pressedAt < MIN_HOLD_MS) {
+      ExpoSpeechRecognitionModule.abort();
+      setVoiceHint('Segure o botão apertado enquanto fala e solte quando terminar.');
+      return;
+    }
+    state.released = true;
+    ExpoSpeechRecognitionModule.stop();
+  }
 
   function toggleReadAloud() {
     if (readAloud) Speech.stop();
@@ -122,6 +217,28 @@ export default function ElderAssistantScreen() {
           >
             <Text style={styles.soundToggleText}>{readAloud ? '🔊 VOZ LIGADA' : '🔇 VOZ DESLIGADA'}</Text>
           </Pressable>
+          {canTalk ? (
+            <>
+              <Pressable
+                onPressIn={() => void startListening()}
+                onPressOut={stopListening}
+                disabled={ask.isPending}
+                style={[styles.micButton, listening && styles.micListening, ask.isPending && styles.sendDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Segure para falar com a Aurélia"
+                accessibilityHint="Mantenha apertado enquanto fala e solte para enviar"
+              >
+                <Text style={styles.micText}>{listening ? '🎙️ OUVINDO… SOLTE PARA ENVIAR' : '🎤 SEGURE PARA FALAR'}</Text>
+              </Pressable>
+              {heard ? <Text style={styles.heard}>“{heard}”</Text> : null}
+              {voiceHint ? <Text style={styles.voiceHint}>{voiceHint}</Text> : null}
+              {micBlocked ? (
+                <Pressable onPress={() => void Linking.openSettings()} style={styles.settingsLink} accessibilityRole="button">
+                  <Text style={styles.settingsLinkText}>ABRIR CONFIGURAÇÕES</Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : null}
           <View style={styles.inputRow}>
             <TextInput
               style={styles.input}
@@ -171,6 +288,20 @@ const styles = StyleSheet.create({
   soundToggle: { minHeight: MIN_TOUCH, borderRadius: 12, backgroundColor: PatientColors.aureliaMain, alignItems: 'center', justifyContent: 'center' },
   soundOff: { backgroundColor: '#5F5E5A' },
   soundToggleText: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: '#FFFFFF' },
+  micButton: {
+    minHeight: 80,
+    borderRadius: 16,
+    backgroundColor: PatientColors.aureliaMain,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  micListening: { backgroundColor: PatientColors.sosMain },
+  micText: { fontSize: PatientTypography.size.common, fontWeight: PatientTypography.weight.bold, color: '#FFFFFF', textAlign: 'center' },
+  heard: { fontSize: PatientTypography.size.reduced, color: PatientColors.aureliaBubbleAIText, fontStyle: 'italic' },
+  voiceHint: { fontSize: PatientTypography.size.reduced, color: PatientColors.sosText },
+  settingsLink: { minHeight: MIN_TOUCH, justifyContent: 'center', alignSelf: 'flex-start' },
+  settingsLinkText: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: PatientColors.aureliaMain },
   inputRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-end' },
   input: {
     flex: 1,

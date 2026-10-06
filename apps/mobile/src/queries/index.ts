@@ -92,6 +92,10 @@ export function useCaregivers(elderId: string) {
   return useQuery({ queryKey: queryKeys.caregivers(elderId), queryFn: () => api.listCaregivers(elderId) });
 }
 
+export function useMemories(elderId: string) {
+  return useQuery({ queryKey: queryKeys.memories(elderId), queryFn: () => api.listMemories(elderId) });
+}
+
 export function useLocation(elderId: string) {
   return useQuery({
     queryKey: queryKeys.location(elderId),
@@ -351,6 +355,14 @@ export function useDeleteDevice(elderId: string) {
   return useMutation({
     mutationFn: (deviceId: string) => api.deleteDevice(elderId, deviceId),
     onSuccess: () => refreshElder(client, elderId),
+  });
+}
+
+export function useForgetMemory(elderId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (memoryId: string) => api.forgetMemory(elderId, memoryId),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.memories(elderId) }),
   });
 }
 

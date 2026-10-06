@@ -5,6 +5,7 @@ import type { Notifier } from '../../push/notify';
 import type { DevicesRepo } from '../../repos/devices';
 import type { EldersRepo } from '../../repos/elders';
 import type { EventsService } from '../events/service';
+import type { ConversationMemoryJob } from './conversationMemory';
 import type { DailySummaryJob } from './dailySummary';
 import type { EscalationJob } from './escalation';
 import type { MissedTasksJob } from './missedTasks';
@@ -16,6 +17,7 @@ interface Deps {
   missedTasks: MissedTasksJob;
   escalation: EscalationJob;
   dailySummary: DailySummaryJob;
+  conversationMemory: ConversationMemoryJob;
   notifier: Notifier;
   now: Clock;
   logger: Logger;
@@ -29,9 +31,10 @@ export interface JobsSummary {
   devicesOffline: number;
   alertsEscalated: number;
   dailySummaries: number;
+  memoriesKept: number;
 }
 
-export function createJobsService({ elders, devices, events, missedTasks, escalation, dailySummary, notifier, now, logger }: Deps) {
+export function createJobsService({ elders, devices, events, missedTasks, escalation, dailySummary, conversationMemory, notifier, now, logger }: Deps) {
   let running = false;
   let escalating = false;
 
@@ -74,7 +77,14 @@ export function createJobsService({ elders, devices, events, missedTasks, escala
         const offline = await checkDevicesOffline(at);
         const escalated = await escalation.run(at);
         const summaries = await dailySummary.run(at);
-        return { missedTasks: missed.length, devicesOffline: offline, alertsEscalated: escalated, dailySummaries: summaries };
+        const memoriesKept = await conversationMemory.run(at);
+        return {
+          missedTasks: missed.length,
+          devicesOffline: offline,
+          alertsEscalated: escalated,
+          dailySummaries: summaries,
+          memoriesKept,
+        };
       } finally {
         running = false;
       }

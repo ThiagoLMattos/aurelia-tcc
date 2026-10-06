@@ -7,6 +7,7 @@
  *  3. Personal details card
  *  4. Elder's phone (pair / unpair)
  *  4b. Caregivers (who follows the elder, invite, remove / leave)
+ *  4c. About the elder, for Aurélia, and what she remembers from their conversations
  *  5. Safe zone and tracker rows (open their own screens)
  *  6. Contacts (emergency switch, call, delete, add)
  */
@@ -14,6 +15,7 @@
 import {
   CreateContactBodySchema,
   DiagnosisStageSchema,
+  ELDER_ABOUT_MAX_CHARS,
   LABELS_PT,
   PatchElderBodySchema,
   type Contact,
@@ -31,6 +33,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -220,6 +223,83 @@ function CaregiversSection({ elder }: { elder: Elder }) {
         <IconSymbol name="plus.circle.fill" size={18} color={Colors.primary} />
         <Text style={styles.addContactBtnText}>Convidar cuidador</Text>
       </TouchableOpacity>
+    </>
+  );
+}
+
+// ─── About the elder (for Aurélia) ─────────────────────────────────────────────
+
+const ABOUT_PLACEHOLDER =
+  'Ex.: Foi professora por 30 anos. Tem dois filhos, Ana e Paulo, e a neta Júlia. Adora samba, novela e a gata Mimi. ' +
+  'Fica ansiosa no fim da tarde; acalma conversar sobre a fazenda onde cresceu. Gosta de ser chamada de Dona Maria.';
+
+/** What the family tells Aurélia about the elder; she reads it in every conversation. */
+function AboutSection({ elder }: { elder: Elder }) {
+  const router = useRouter();
+  const patch = usePatchElder(elder.id);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(elder.about);
+  const [error, setError] = useState<string | null>(null);
+  const name = firstName(elder.name);
+
+  function startEditing() {
+    setText(elder.about);
+    setError(null);
+    setEditing(true);
+  }
+
+  function save() {
+    setError(null);
+    patch.mutate(
+      { about: text.trim() },
+      { onSuccess: () => setEditing(false), onError: (saveError) => setError(friendlyError(saveError)) },
+    );
+  }
+
+  return (
+    <>
+      {editing ? (
+        <View style={extra.editForm}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            multiline
+            maxLength={ELDER_ABOUT_MAX_CHARS}
+            placeholder={ABOUT_PLACEHOLDER}
+            placeholderTextColor={Colors.textMuted}
+            style={extra.aboutInput}
+            accessibilityLabel={`Sobre ${name}`}
+            autoFocus
+          />
+          <Text style={extra.counter}>
+            {text.length}/{ELDER_ABOUT_MAX_CHARS}
+          </Text>
+          <FormError message={error} />
+          <View style={styles.addFormActions}>
+            <Button title="Cancelar" variant="ghost" onPress={() => setEditing(false)} style={{ flex: 1 }} />
+            <Button title="Salvar" onPress={save} loading={patch.isPending} style={{ flex: 1 }} />
+          </View>
+        </View>
+      ) : elder.about ? (
+        <TouchableOpacity onPress={startEditing} accessibilityRole="button" accessibilityLabel={`Editar o texto sobre ${name}`}>
+          <Text style={extra.aboutText}>{elder.about}</Text>
+          <Text style={extra.editLink}>Editar</Text>
+        </TouchableOpacity>
+      ) : (
+        <>
+          <Text style={extra.explain}>
+            Conte para a Aurélia quem é {name}: família, profissão, lembranças queridas, gostos e como gosta que falem com {name}.
+            Ela usa isso para conversar e para ajudar a lembrar.
+          </Text>
+          <Button title="Escrever" variant="secondary" onPress={startEditing} />
+        </>
+      )}
+      <View style={styles.contactDivider} />
+      <NavRow
+        title="O que a Aurélia lembra"
+        value={`Resumos das conversas com ${name}`}
+        onPress={() => router.push('/(caregiver)/aurelia-memories')}
+      />
     </>
   );
 }
@@ -527,6 +607,12 @@ export default function PerfilScreen() {
           )}
         </SectionCard>
 
+        {/* ── About, for Aurélia ── */}
+        <SectionTitle title={`Sobre ${name}`} />
+        <SectionCard>
+          <AboutSection elder={elder} />
+        </SectionCard>
+
         {/* ── Caregivers ── */}
         <SectionTitle title="Cuidadores" />
         <SectionCard>
@@ -628,6 +714,19 @@ const extra = StyleSheet.create({
   navTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.textPrimary },
   navValue: { fontSize: Typography.size.sm, color: Colors.textSecondary, marginTop: 2 },
   leaveText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.dangerText },
+  aboutInput: {
+    minHeight: 160,
+    borderWidth: 1.5,
+    borderColor: Colors.borderMid,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    fontSize: Typography.size.base,
+    color: Colors.textPrimary,
+    textAlignVertical: 'top',
+  },
+  counter: { alignSelf: 'flex-end', fontSize: Typography.size.xs, color: Colors.textMuted },
+  aboutText: { fontSize: Typography.size.base, color: Colors.textPrimary, lineHeight: 22 },
+  editLink: { marginTop: Spacing.sm, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.primary },
 });
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

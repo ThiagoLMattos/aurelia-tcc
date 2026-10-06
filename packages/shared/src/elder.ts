@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DEFAULT_MISSED_TASK_TIMEOUT_MIN, DEFAULT_TIMEZONE } from './constants';
+import { DEFAULT_MISSED_TASK_TIMEOUT_MIN, DEFAULT_TIMEZONE, ELDER_ABOUT_MAX_CHARS } from './constants';
 import { IdSchema, IsoDateTimeSchema, LatSchema, LngSchema, LocalDateSchema, ShortTextSchema, TimezoneSchema } from './primitives';
 
 export const DiagnosisStageSchema = z.enum(['early', 'moderate', 'advanced']);
@@ -50,6 +50,8 @@ export const ElderSchema = z.object({
   locationState: LocationStateSchema,
   /** True while an elder phone is signed in (has push tokens / active pairing). */
   phonePaired: z.boolean(),
+  /** "Sobre ela": family, past, tastes, how to talk to them. Aurélia reads it in every conversation. */
+  about: z.string(),
   createdAt: IsoDateTimeSchema,
 });
 export type Elder = z.infer<typeof ElderSchema>;
@@ -86,6 +88,7 @@ export const PatchElderBodySchema = z
     timezone: TimezoneSchema,
     missedTaskTimeoutMin: MissedTaskTimeoutSchema,
     safeZone: SafeZoneSchema.nullable(),
+    about: z.string().trim().max(ELDER_ABOUT_MAX_CHARS),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, 'Envie ao menos um campo.');
