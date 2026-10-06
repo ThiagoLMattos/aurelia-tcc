@@ -4,13 +4,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
 import { useAgenda, useContacts, useElderSelf, useNow, useToday } from '@/queries';
 import { Layout, PatientColors, PatientTypography, Shadow } from '@/theme';
+import { withTap } from '@/sound';
 
 /** The first task of today that is still open: the one the elder should do next. */
 function nextTaskOf(items: readonly AgendaItem[]): AgendaItem | undefined {
@@ -62,7 +63,7 @@ export default function PatientHomeScreen() {
         {/* Próxima tarefa */}
         <Pressable
           style={styles.summaryCard}
-          onPress={() => router.push('/(elder)/tasks')}
+          onPress={withTap(() => router.push('/(elder)/tasks'))}
           accessibilityRole="button"
           accessibilityLabel={`${taskTitle}. ${taskLine}. Toque para ver as tarefas.`}
         >
@@ -74,7 +75,7 @@ export default function PatientHomeScreen() {
         <View style={styles.buttonGrid}>
           <Pressable
             style={[styles.gridButton, { backgroundColor: PatientColors.sosMain }]}
-            onPress={() => router.push('/(elder)/sos')}
+            onPress={withTap(() => router.push('/(elder)/sos'))}
             accessibilityRole="button"
             accessibilityLabel="SOS. Pedir ajuda"
           >
@@ -84,7 +85,7 @@ export default function PatientHomeScreen() {
 
           <Pressable
             style={[styles.gridButton, { backgroundColor: PatientColors.tasksMain }]}
-            onPress={() => router.push('/(elder)/tasks')}
+            onPress={withTap(() => router.push('/(elder)/tasks'))}
             accessibilityRole="button"
             accessibilityLabel="Tarefas"
           >
@@ -94,7 +95,7 @@ export default function PatientHomeScreen() {
 
           <Pressable
             style={[styles.gridButton, { backgroundColor: PatientColors.gamesMain }]}
-            onPress={() => router.push('/(elder)/games')}
+            onPress={withTap(() => router.push('/(elder)/games'))}
             accessibilityRole="button"
             accessibilityLabel="Jogos"
           >
@@ -104,7 +105,7 @@ export default function PatientHomeScreen() {
 
           <Pressable
             style={[styles.gridButton, { backgroundColor: PatientColors.phoneMain }]}
-            onPress={() => router.push('/(elder)/phone')}
+            onPress={withTap(() => router.push('/(elder)/phone'))}
             accessibilityRole="button"
             accessibilityLabel="Telefone"
           >
@@ -116,14 +117,15 @@ export default function PatientHomeScreen() {
         {/* Botão Aurélia */}
         <Pressable
           style={[styles.aureliaButton, { backgroundColor: PatientColors.aureliaMain }]}
-          onPress={() => router.push('/(elder)/assistant')}
+          onPress={withTap(() => router.push('/(elder)/assistant'))}
           accessibilityRole="button"
           accessibilityLabel="Conversar com a Aurélia"
         >
-          <View style={styles.avatarCircle}>
-            <Image source={require('../../assets/images/LogoAvatar.png')} style={styles.avatarImage} resizeMode="contain" />
+          <MaterialCommunityIcons name="chat-processing-outline" size={56} color={PatientColors.aureliaHeaderText} />
+          <View style={styles.aureliaLabel}>
+            <Text style={styles.aureliaButtonText}>CONVERSAR</Text>
+            <Text style={styles.aureliaButtonSub}>com a Aurélia</Text>
           </View>
-          <Text style={styles.aureliaButtonText}>CONVERSAR COM AURÉLIA</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -235,32 +237,27 @@ const styles = StyleSheet.create({
   // Botão Aurélia
   aureliaButton: {
     width: '100%',
+    minHeight: 110,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 16,
-    gap: 15,
+    paddingHorizontal: 20,
+    gap: 18,
     borderRadius: 10,
     ...Shadow.medium,
   },
-  avatarCircle: {
-    width: 35,
-    height: 35,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: 45,
-    height: 45,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+  aureliaLabel: {
+    alignItems: 'flex-start',
   },
   aureliaButtonText: {
     color: PatientColors.aureliaHeaderText,
-    fontSize: PatientTypography.size.reduced,
+    fontSize: PatientTypography.size.header,
+    fontWeight: PatientTypography.weight.bold,
+  },
+  aureliaButtonSub: {
+    color: PatientColors.aureliaSubtitle,
+    fontSize: PatientTypography.size.common,
     fontWeight: PatientTypography.weight.bold,
   },
 });
