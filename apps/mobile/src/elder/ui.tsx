@@ -1,6 +1,8 @@
-import { StatusBar } from 'expo-status-bar';
 import type { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { FocusStatusBar } from '@/components/FocusStatusBar';
 
 import { withTap } from '@/sound';
 import { Layout, PatientTypography, Shadow } from '@/theme';
@@ -15,7 +17,10 @@ export interface Section {
 
 export const MIN_TOUCH = 56;
 
-/** Header drawn by every elder screen: the section title and a big VOLTAR button. */
+/**
+ * Header drawn by every elder screen: the section title and a big VOLTAR button. It also paints the
+ * status-bar strip in the section colour, so screens leave the top edge out of their own SafeAreaView.
+ */
 export function ElderHeader({ title, section, onBack, backLabel = 'VOLTAR', titleSize = PatientTypography.size.header }: {
   title: string;
   section: Section;
@@ -24,20 +29,22 @@ export function ElderHeader({ title, section, onBack, backLabel = 'VOLTAR', titl
   titleSize?: number;
 }) {
   return (
-    <View style={[styles.header, { backgroundColor: section.main }]}>
-      <StatusBar style="light" backgroundColor={section.main} />
-      <Text style={[styles.title, { color: section.text, fontSize: titleSize }]} numberOfLines={2} adjustsFontSizeToFit accessibilityRole="header">
-        {title}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Voltar"
-        onPress={withTap(onBack)}
-        style={[styles.back, { backgroundColor: section.headerButton, borderColor: section.border }]}
-      >
-        <Text style={[styles.backText, { color: section.text }]}>{backLabel}</Text>
-      </Pressable>
-    </View>
+    <SafeAreaView edges={['top']} style={[styles.headerBar, { backgroundColor: section.main }]}>
+      <FocusStatusBar style="light" />
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: section.text, fontSize: titleSize }]} numberOfLines={2} adjustsFontSizeToFit accessibilityRole="header">
+          {title}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+          onPress={withTap(onBack)}
+          style={[styles.back, { backgroundColor: section.headerButton, borderColor: section.border }]}
+        >
+          <Text style={[styles.backText, { color: section.text }]}>{backLabel}</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -93,15 +100,14 @@ export function SheetText({ children, strong, color = '#2C2C2C' }: { children: R
 }
 
 const styles = StyleSheet.create({
+  headerBar: { zIndex: 1, ...Shadow.header },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 25,
     height: Layout.headerHeight,
-    zIndex: 1,
     gap: 12,
-    ...Shadow.header,
   },
   title: { flex: 1, fontWeight: PatientTypography.weight.regular },
   back: { borderWidth: 1.5, borderRadius: 10, minHeight: MIN_TOUCH, paddingVertical: 14, paddingHorizontal: 20, justifyContent: 'center', flexShrink: 0 },

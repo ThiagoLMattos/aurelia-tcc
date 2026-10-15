@@ -123,7 +123,7 @@ export default function SequenceGameScreen() {
   const over = game?.phase === 'over';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ElderHeader title="SEQUÊNCIA" titleSize={28} section={GAMES_SECTION} onBack={() => router.back()} />
       <View style={styles.content}>
         {over ? (

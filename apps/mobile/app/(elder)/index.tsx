@@ -2,11 +2,11 @@ import { localTimeOf, type AgendaItem } from '@aurelia/shared';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FocusStatusBar } from '@/components';
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
 import { useAgenda, useContacts, useElderSelf, useNow, useToday } from '@/queries';
@@ -43,21 +43,22 @@ export default function PatientHomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" backgroundColor={PatientColors.aureliaMain} />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* Cabeçalho: também pinta a faixa da barra de status */}
+      <SafeAreaView edges={['top']} style={styles.headerBar}>
+        <FocusStatusBar style="light" />
+        <View style={styles.header}>
+          <Text style={styles.greetingText} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="header">
+            OLÁ {firstName(elder.name).toUpperCase()}
+          </Text>
 
-      {/* Cabeçalho */}
-      <View style={styles.header}>
-        <Text style={styles.greetingText} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="header">
-          OLÁ {firstName(elder.name).toUpperCase()}
-        </Text>
-
-        {/* Hora à esquerda, data à direita */}
-        <View style={styles.dateTimeRow}>
-          <Text style={styles.timeText}>{timeLabel}</Text>
-          <Text style={styles.dateText}>{dateLabel}</Text>
+          {/* Hora à esquerda, data à direita */}
+          <View style={styles.dateTimeRow}>
+            <Text style={styles.timeText}>{timeLabel}</Text>
+            <Text style={styles.dateText}>{dateLabel}</Text>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Próxima tarefa */}
@@ -140,11 +141,14 @@ const styles = StyleSheet.create({
   },
 
   // Cabeçalho
-  header: {
+  headerBar: {
     backgroundColor: PatientColors.homeHeader,
+    zIndex: 1,
+    ...Shadow.header,
+  },
+  header: {
     paddingHorizontal: 25,
     height: Layout.headerHeight,
-    ...Shadow.header,
   },
   greetingText: {
     color: PatientColors.homeHeaderText,

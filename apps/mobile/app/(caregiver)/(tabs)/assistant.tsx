@@ -11,7 +11,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FocusStatusBar } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
@@ -233,7 +233,7 @@ export default function AureliaScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.aureliaText} />
+      <FocusStatusBar style="light" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -241,7 +241,7 @@ export default function AureliaScreen() {
           <Text style={styles.headerAvatarText}>A</Text>
         </View>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Aurélia</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Aurélia</Text>
           <Text style={styles.headerSub}>Assistente de cuidados · {name}</Text>
         </View>
       </View>

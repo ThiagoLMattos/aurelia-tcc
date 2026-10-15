@@ -108,7 +108,7 @@ export default function PhoneElderScreen() {
         : 'Nenhum contato disponível.';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={selecting ? ['bottom'] : []}>
       <ElderHeader title={selecting ? 'SELECIONAR CONTATO' : 'TELEFONE'} section={SECTION} onBack={() => router.back()} />
 
       {state === 'loading' && registered.length === 0 ? (
@@ -145,15 +145,16 @@ export default function PhoneElderScreen() {
       )}
 
       {!selecting && (
-        <View style={styles.footer}>
+        // The footer takes the bottom inset itself, so its blue runs down behind the home indicator.
+        <SafeAreaView edges={['bottom']} style={styles.footer}>
           <BigButton
             label="+ ADICIONAR CONTATO"
-            onPress={withTap(() => router.push('/(elder)/add-contact'))}
+            onPress={() => router.push('/(elder)/add-contact')}
             color={PatientColors.phoneHeaderButton}
             textColor={PatientColors.phoneHeaderText}
             style={styles.footerButton}
           />
-        </View>
+        </SafeAreaView>
       )}
 
       <Sheet visible={selected !== null} onClose={() => setSelected(null)} accent={PatientColors.phoneMain}>
@@ -167,7 +168,7 @@ export default function PhoneElderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: PatientColors.phoneMain },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: '#FFFFFF' },
   loadingText: { fontSize: PatientTypography.size.common, color: '#2C2C2C' },
   list: { paddingBottom: 16, backgroundColor: '#FFFFFF', flexGrow: 1 },

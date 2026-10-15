@@ -29,7 +29,6 @@ import {
   Alert,
   Linking,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -41,7 +40,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { useMe } from '@/auth/useMe';
-import { Button, ErrorState, FormError, LoadingState, TextField } from '@/components';
+import { Button, ErrorState, FocusStatusBar, FormError, LoadingState, TextField } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
@@ -526,12 +525,12 @@ export default function PerfilScreen() {
   }, [name, unpair]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+    <View style={styles.safeArea}>
+      <FocusStatusBar style="dark" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Perfil</Text>
+      {/* Header (paints the status-bar strip in its own colour) */}
+      <SafeAreaView edges={['top']} style={styles.header}>
+        <Text style={styles.headerTitle} accessibilityRole="header">Perfil</Text>
         <TouchableOpacity
           style={styles.settingsBtn}
           onPress={() => router.push('/(caregiver)/settings')}
@@ -540,7 +539,7 @@ export default function PerfilScreen() {
         >
           <IconSymbol name="gear" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
 
       <ScrollView
         style={styles.scroll}
@@ -691,7 +690,7 @@ export default function PerfilScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
