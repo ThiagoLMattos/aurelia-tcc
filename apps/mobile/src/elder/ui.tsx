@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FocusStatusBar } from '@/components/FocusStatusBar';
 
 import { withTap } from '@/sound';
-import { Layout, PatientTypography, Shadow } from '@/theme';
+import { Layout, PatientColors, PatientTypography, Shadow } from '@/theme';
 
 /** One colour family of the elder app (SOS red, tasks green, phone blue, …), as the screens' headers use it. */
 export interface Section {
@@ -16,6 +16,12 @@ export interface Section {
 }
 
 export const MIN_TOUCH = 56;
+
+/**
+ * Elder text is already large; past this the phone's "big text" setting would push headers and buttons
+ * off their layout, so it is capped here.
+ */
+export const MAX_FONT_SCALE = 1.3;
 
 /**
  * Header drawn by every elder screen: the section title and a big VOLTAR button. It also paints the
@@ -32,7 +38,7 @@ export function ElderHeader({ title, section, onBack, backLabel = 'VOLTAR', titl
     <SafeAreaView edges={['top']} style={[styles.headerBar, { backgroundColor: section.main }]}>
       <FocusStatusBar style="light" />
       <View style={styles.header}>
-        <Text style={[styles.title, { color: section.text, fontSize: titleSize }]} numberOfLines={2} adjustsFontSizeToFit accessibilityRole="header">
+        <Text style={[styles.title, { color: section.text, fontSize: titleSize }]} numberOfLines={2} adjustsFontSizeToFit maxFontSizeMultiplier={MAX_FONT_SCALE} accessibilityRole="header">
           {title}
         </Text>
         <Pressable
@@ -41,7 +47,7 @@ export function ElderHeader({ title, section, onBack, backLabel = 'VOLTAR', titl
           onPress={withTap(onBack)}
           style={[styles.back, { backgroundColor: section.headerButton, borderColor: section.border }]}
         >
-          <Text style={[styles.backText, { color: section.text }]}>{backLabel}</Text>
+          <Text style={[styles.backText, { color: section.text }]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{backLabel}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -69,13 +75,13 @@ export function BigButton({ label, onPress, color, textColor, disabled, loading,
       onPress={withTap(onPress)}
       style={({ pressed }) => [styles.big, { backgroundColor: color, opacity: inactive ? 0.5 : pressed ? 0.85 : 1 }, style]}
     >
-      <Text style={[styles.bigText, { color: textColor }]}>{loading ? '…' : label}</Text>
+      <Text style={[styles.bigText, { color: textColor }]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{loading ? '…' : label}</Text>
     </Pressable>
   );
 }
 
 /** Bottom sheet in the section's colours: a question, optional detail, then big buttons. */
-export function Sheet({ visible, onClose, accent, background = '#F1EFE8', children }: {
+export function Sheet({ visible, onClose, accent, background = PatientColors.sheetBg, children }: {
   visible: boolean;
   onClose: () => void;
   accent: string;
@@ -91,7 +97,7 @@ export function Sheet({ visible, onClose, accent, background = '#F1EFE8', childr
   );
 }
 
-export function SheetText({ children, strong, color = '#2C2C2C' }: { children: ReactNode; strong?: boolean; color?: string }) {
+export function SheetText({ children, strong, color = PatientColors.text }: { children: ReactNode; strong?: boolean; color?: string }) {
   return (
     <Text style={[strong ? styles.sheetStrong : styles.sheetQuestion, { color }]} accessibilityRole={strong ? 'header' : undefined}>
       {children}
@@ -106,7 +112,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 25,
-    height: Layout.headerHeight,
+    paddingVertical: 8,
+    minHeight: Layout.headerHeight,
     gap: 12,
   },
   title: { flex: 1, fontWeight: PatientTypography.weight.regular },

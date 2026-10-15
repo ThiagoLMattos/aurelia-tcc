@@ -1,6 +1,7 @@
 import { PUSH_CHANNELS } from '@aurelia/shared';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import { useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 
 import { env } from '@/config/env';
@@ -8,6 +9,32 @@ import type { Api } from '@/lib/api/types';
 
 /** The token handed to the API in this run of the app; see `unregisterPush` for after a restart. */
 let registeredToken: string | null = null;
+
+/**
+ * Whether this phone will get pushes, so Settings can say so instead of only logging it:
+ * `on` registered; `denied` the user refused notifications; `unavailable` push cannot work here
+ * (simulator, Expo Go on Android, no EAS project); `error` registering failed and can be retried;
+ * `off` not tried (mock API or web), which needs no warning.
+ */
+export type PushStatus = 'pending' | 'on' | 'denied' | 'unavailable' | 'error' | 'off';
+
+let pushStatus: PushStatus = 'pending';
+const listeners = new Set<() => void>();
+
+function setPushStatus(next: PushStatus): void {
+  pushStatus = next;
+  listeners.forEach((listener) => listener());
+}
+
+export function usePushStatus(): PushStatus {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => pushStatus,
+  );
+}
 
 /** Show pushes that arrive while the app is open, instead of swallowing them. */
 export function configureNotificationHandler(): void {
@@ -56,20 +83,33 @@ export async function ensureNotificationPermission(): Promise<boolean> {
  * or Android in Expo Go). It never throws: missing push must not get in the way of using the app.
  */
 export async function registerPush(api: Api): Promise<string | null> {
-  if (env.apiMode === 'mock' || Platform.OS === 'web' || !Device.isDevice) return null;
+  if (env.apiMode === 'mock' || Platform.OS === 'web') {
+    setPushStatus('off');
+    return null;
+  }
+  if (!Device.isDevice) {
+    setPushStatus('unavailable');
+    return null;
+  }
   if (!env.easProjectId) {
     console.warn('[push] EXPO_PUBLIC_EAS_PROJECT_ID não definido; notificações push desativadas.');
+    setPushStatus('unavailable');
     return null;
   }
   try {
     if (Platform.OS === 'android') await createAndroidChannels();
-    if (!(await ensureNotificationPermission())) return null;
+    if (!(await ensureNotificationPermission())) {
+      setPushStatus('denied');
+      return null;
+    }
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: env.easProjectId });
     await api.registerPushToken(token);
     registeredToken = token;
+    setPushStatus('on');
     return token;
   } catch (error) {
     console.warn('[push] não foi possível registrar o token', error);
+    setPushStatus('error');
     return null;
   }
 }

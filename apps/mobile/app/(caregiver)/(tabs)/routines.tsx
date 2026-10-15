@@ -58,6 +58,7 @@ function RoutineCard({
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       style={styles.card}
       onPress={() => onEdit(routine.id)}
       onLongPress={() => onDelete(routine)}
@@ -102,6 +103,7 @@ function RoutineCard({
       {/* Actions */}
       <View style={styles.cardActions}>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => onEdit(routine.id)}
           style={styles.editBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -110,6 +112,7 @@ function RoutineCard({
           <IconSymbol name="pencil" size={15} color={Colors.primary} />
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => onDelete(routine)}
           style={styles.deleteBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -134,7 +137,7 @@ function EmptyRoutines({ name, onAdd }: { name: string; onAdd: () => void }) {
       <Text style={styles.emptySub}>
         Adicione medicações, refeições e atividades para que Aurélia possa acompanhar o dia de {name}.
       </Text>
-      <TouchableOpacity style={styles.emptyBtn} onPress={onAdd} activeOpacity={0.85}>
+      <TouchableOpacity accessibilityRole="button" style={styles.emptyBtn} onPress={onAdd} activeOpacity={0.85}>
         <IconSymbol name="plus" size={16} color={Colors.white} />
         <Text style={styles.emptyBtnText}>Criar primeira rotina</Text>
       </TouchableOpacity>
@@ -198,7 +201,7 @@ export default function RotinasScreen() {
             {items.length} {items.length === 1 ? 'item' : 'itens'} configurados
           </Text>
         </View>
-        <TouchableOpacity style={styles.headerAddBtn} onPress={handleAdd} activeOpacity={0.85} accessibilityLabel="Nova rotina">
+        <TouchableOpacity accessibilityRole="button" style={styles.headerAddBtn} onPress={handleAdd} activeOpacity={0.85} accessibilityLabel="Nova rotina">
           <IconSymbol name="plus" size={20} color={Colors.white} />
         </TouchableOpacity>
       </SafeAreaView>
@@ -227,7 +230,7 @@ export default function RotinasScreen() {
 
       {/* FAB */}
       {items.length > 0 && (
-        <TouchableOpacity style={styles.fab} onPress={handleAdd} activeOpacity={0.85} accessibilityLabel="Nova rotina">
+        <TouchableOpacity accessibilityRole="button" style={styles.fab} onPress={handleAdd} activeOpacity={0.85} accessibilityLabel="Nova rotina">
           <IconSymbol name="plus" size={24} color={Colors.white} />
         </TouchableOpacity>
       )}

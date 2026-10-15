@@ -27,7 +27,7 @@ export function voiceErrorMessage(code: string): string | null {
     case 'nomatch':
       return 'Não ouvi nada. Segure o botão e fale perto do celular.';
     case 'not-allowed':
-      return 'O Aurélia precisa de permissão para usar o microfone.';
+      return 'O app Aurélia precisa de permissão para usar o microfone.';
     case 'network':
       return 'Sem internet para entender a sua voz. Tente de novo ou escreva.';
     case 'language-not-supported':

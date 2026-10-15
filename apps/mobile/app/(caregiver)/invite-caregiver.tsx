@@ -45,7 +45,7 @@ export default function InviteCaregiverScreen() {
   function send(code: string, expiresAt: string) {
     void Share.share({
       message:
-        `Convite para acompanhar ${name} no Aurélia: instale o app, crie sua conta de cuidador e, em "Quem você cuida?", ` +
+        `Convite para acompanhar ${name} no app Aurélia: instale-o, crie sua conta de cuidador e, em "Quem você cuida?", ` +
         `toque em "Tenho um código de convite" e digite ${code}. O código vale até ${expiryLabel(expiresAt)}.`,
     });
   }

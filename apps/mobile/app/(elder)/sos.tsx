@@ -122,7 +122,7 @@ export default function SosElderScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PatientColors.sosBg },
-  status: { backgroundColor: '#FFFFFF', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: PatientColors.sosBorder },
+  status: { backgroundColor: PatientColors.surface, paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: PatientColors.sosBorder },
   statusAlarm: { backgroundColor: PatientColors.sosTextEmphasis },
   statusText: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: PatientColors.sosText, textAlign: 'center' },
   content: { padding: 20, gap: 16 },

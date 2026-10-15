@@ -180,13 +180,13 @@ export default function AddContactElderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: PatientColors.surface },
   form: { padding: 24, gap: 24 },
   fieldGroup: { gap: 10 },
-  fieldLabel: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: '#2C2C2A' },
+  fieldLabel: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: PatientColors.text },
   selectButton: {
     minHeight: MIN_TOUCH,
-    backgroundColor: '#F1EFE8',
+    backgroundColor: PatientColors.sheetBg,
     borderWidth: 1.5,
     borderColor: PatientColors.phoneMain,
     borderRadius: 10,
@@ -196,19 +196,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectButtonText: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: PatientColors.phoneMain },
-  placeholder: { color: '#5F5E5A', fontWeight: PatientTypography.weight.regular },
-  selectedPhone: { fontSize: PatientTypography.size.reduced, color: '#5F5E5A', paddingLeft: 4 },
+  placeholder: { color: PatientColors.textSecondary, fontWeight: PatientTypography.weight.regular },
+  selectedPhone: { fontSize: PatientTypography.size.reduced, color: PatientColors.textSecondary, paddingLeft: 4 },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PatientColors.surface,
     borderWidth: 1.5,
     borderColor: PatientColors.phoneFieldBorder,
     borderRadius: 10,
     minHeight: MIN_TOUCH,
     paddingHorizontal: 18,
     fontSize: PatientTypography.size.common,
-    color: '#2C2C2A',
+    color: PatientColors.text,
   },
   relationList: { maxHeight: 300 },
-  relationItem: { minHeight: MIN_TOUCH, justifyContent: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#D3D1C7', alignItems: 'center' },
-  relationItemText: { fontSize: PatientTypography.size.common, color: '#2C2C2A' },
+  relationItem: { minHeight: MIN_TOUCH, justifyContent: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: PatientColors.divider, alignItems: 'center' },
+  relationItemText: { fontSize: PatientTypography.size.common, color: PatientColors.text },
 });

@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FocusStatusBar } from '@/components';
+import { MAX_FONT_SCALE } from '@/elder/ui';
 import { friendlyError } from '@/lib/errors';
 import { firstName } from '@/lib/format';
 import { useAgenda, useContacts, useElderSelf, useNow, useToday } from '@/queries';
@@ -48,14 +49,14 @@ export default function PatientHomeScreen() {
       <SafeAreaView edges={['top']} style={styles.headerBar}>
         <FocusStatusBar style="light" />
         <View style={styles.header}>
-          <Text style={styles.greetingText} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="header">
+          <Text style={styles.greetingText} numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={MAX_FONT_SCALE} accessibilityRole="header">
             OLÁ {firstName(elder.name).toUpperCase()}
           </Text>
 
           {/* Hora à esquerda, data à direita */}
           <View style={styles.dateTimeRow}>
-            <Text style={styles.timeText}>{timeLabel}</Text>
-            <Text style={styles.dateText}>{dateLabel}</Text>
+            <Text style={styles.timeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{timeLabel}</Text>
+            <Text style={styles.dateText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{dateLabel}</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -137,7 +138,7 @@ export default function PatientHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PatientColors.surface,
   },
 
   // Cabeçalho
@@ -148,7 +149,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 25,
-    height: Layout.headerHeight,
+    paddingBottom: 12,
+    minHeight: Layout.headerHeight,
   },
   greetingText: {
     color: PatientColors.homeHeaderText,
@@ -178,8 +180,8 @@ const styles = StyleSheet.create({
     gap: 37,
   },
   summaryCard: {
-    backgroundColor: '#FAEEDA',
-    borderColor: '#412402',
+    backgroundColor: PatientColors.noticeBg,
+    borderColor: PatientColors.noticeText,
     borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 20,
@@ -192,12 +194,12 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: PatientTypography.size.reduced,
     fontWeight: PatientTypography.weight.bold,
-    color: '#412402',
+    color: PatientColors.noticeText,
   },
   summaryTask: {
     fontSize: PatientTypography.size.common,
     fontWeight: PatientTypography.weight.bold,
-    color: '#000000',
+    color: PatientColors.text,
   },
 
   // Grade de botões

@@ -18,7 +18,7 @@ export default function WelcomeScreen() {
       </View>
 
       <Button title="Sou cuidador" onPress={() => router.push('/(auth)/login')} />
-      <Button title="Sou o idoso (parear este celular)" variant="secondary" onPress={() => router.push('/(auth)/pair')} />
+      <Button title="Sou a pessoa idosa (parear este celular)" variant="secondary" onPress={() => router.push('/(auth)/pair')} />
 
       {env.apiMode === 'mock' ? (
         <View style={styles.demo}>

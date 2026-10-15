@@ -168,10 +168,10 @@ export default function PhoneElderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: '#FFFFFF' },
-  loadingText: { fontSize: PatientTypography.size.common, color: '#2C2C2C' },
-  list: { paddingBottom: 16, backgroundColor: '#FFFFFF', flexGrow: 1 },
+  container: { flex: 1, backgroundColor: PatientColors.surface },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: PatientColors.surface },
+  loadingText: { fontSize: PatientTypography.size.common, color: PatientColors.text },
+  list: { paddingBottom: 16, backgroundColor: PatientColors.surface, flexGrow: 1 },
   sectionTitle: {
     fontSize: PatientTypography.size.reduced,
     fontWeight: PatientTypography.weight.bold,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     minHeight: MIN_TOUCH,
     borderWidth: 0.5,
     borderColor: PatientColors.phoneFieldBorder,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PatientColors.surface,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -193,9 +193,9 @@ const styles = StyleSheet.create({
   },
   avatar: { width: 100, height: 100 },
   contactInfo: { flex: 1 },
-  contactName: { fontSize: PatientTypography.size.common, fontWeight: PatientTypography.weight.bold, color: '#2C2C2C', marginBottom: 4 },
-  contactPhone: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: '#2C2C2C' },
-  empty: { fontSize: PatientTypography.size.common, color: '#2C2C2C', textAlign: 'center', padding: 32 },
-  footer: { backgroundColor: PatientColors.phoneMain, padding: 16, borderTopWidth: 0.5, borderTopColor: '#D3D1C7' },
+  contactName: { fontSize: PatientTypography.size.common, fontWeight: PatientTypography.weight.bold, color: PatientColors.text, marginBottom: 4 },
+  contactPhone: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: PatientColors.text },
+  empty: { fontSize: PatientTypography.size.common, color: PatientColors.text, textAlign: 'center', padding: 32 },
+  footer: { backgroundColor: PatientColors.phoneMain, padding: 16, borderTopWidth: 0.5, borderTopColor: PatientColors.divider },
   footerButton: { borderColor: PatientColors.phoneHeaderBorder, borderWidth: 1 },
 });

@@ -113,6 +113,7 @@ function MessageBubble({
           <View style={styles.chipsWrap}>
             {suggestions.map((s) => (
               <TouchableOpacity
+                accessibilityRole="button"
                 key={s}
                 style={styles.chip}
                 onPress={() => onSuggest(s)}
@@ -281,6 +282,9 @@ export default function AureliaScreen() {
             onPress={() => sendMessage(input)}
             disabled={!input.trim() || isTyping}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Enviar mensagem"
+            accessibilityState={{ disabled: !input.trim() || isTyping }}
           >
             <IconSymbol name="paperplane.fill" size={18} color={Colors.white} />
           </TouchableOpacity>

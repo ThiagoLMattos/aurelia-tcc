@@ -158,10 +158,10 @@ function Board({ game, columns, onFlip }: { game: MemoryState; columns: number; 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: PatientColors.surface },
   content: { padding: 16, paddingBottom: 40 },
   picker: { gap: 16 },
-  lead: { fontSize: PatientTypography.size.common, color: '#2C2C2A', textAlign: 'center', marginVertical: 8 },
+  lead: { fontSize: PatientTypography.size.common, color: PatientColors.text, textAlign: 'center', marginVertical: 8 },
   question: { fontSize: PatientTypography.size.common, fontWeight: PatientTypography.weight.bold, color: PatientColors.gamesMain, textAlign: 'center' },
   outlined: { borderWidth: 1.5, borderColor: PatientColors.gamesMain },
   board: { gap: 10 },
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10 },
   card: { flex: 1, aspectRatio: 0.9, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, ...Shadow.soft },
   cardDown: { backgroundColor: PatientColors.gamesMain, borderColor: PatientColors.gamesHeaderButton },
-  cardUp: { backgroundColor: '#FFFFFF', borderColor: PatientColors.gamesMain },
+  cardUp: { backgroundColor: PatientColors.surface, borderColor: PatientColors.gamesMain },
   cardMatched: { backgroundColor: PatientColors.gamesCardBg, borderColor: PatientColors.gamesHeaderBorder },
   cardText: { textAlign: 'center' },
   cardBack: { color: PatientColors.gamesHeaderBorder, fontWeight: PatientTypography.weight.bold },

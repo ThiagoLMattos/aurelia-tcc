@@ -1,15 +1,11 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/theme';
 
 export default function TabLayout() {
-  // A fixed height replaces the tab bar's own inset handling, so the home indicator / gesture bar is added back here.
-  const insets = useSafeAreaInsets();
-
   return (
     <Tabs
       screenOptions={{
@@ -21,9 +17,8 @@ export default function TabLayout() {
           backgroundColor: Colors.white,
           borderTopColor: Colors.borderLight,
           borderTopWidth: 0.5,
-          height: 60 + insets.bottom,
-          paddingBottom: 8 + insets.bottom,
-          paddingTop: 6,
+          // No fixed height or padding: the tab bar sizes itself to fit icon + label and adds the
+          // home indicator / gesture bar inset on its own. A fixed height clipped the labels.
         },
         tabBarLabelStyle: {
           fontSize: 10,

@@ -144,7 +144,7 @@ describe('escalation to the emergency contacts', () => {
 
     await services.escalation.run(minutesAfter(ESCALATE_AFTER_MIN));
     const [text] = textsTo(outside.emergency.phone);
-    expect(text?.body).toContain('saiu da área segura às 15:00');
+    expect(text?.body).toContain('saiu da zona segura às 15:00');
     expect(text?.body).toContain('q=-23.57000,-46.65000'); // the latest position, not where she crossed
     expect(textsTo(back.emergency.phone)).toHaveLength(0);
     expect(textsTo(resolved.emergency.phone)).toHaveLength(0);

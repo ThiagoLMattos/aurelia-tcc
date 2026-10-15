@@ -73,7 +73,7 @@ export default function SafeZoneScreen() {
       <Text style={styles.lead}>
         Use sua localização atual como centro (estando na casa de {firstName(elder.name)}, por exemplo)
         {nativeMapAvailable ? ' e depois toque no mapa para ajustar o ponto, se precisar' : ''}. Você será avisado
-        quando ela sair do raio escolhido.
+        quando {firstName(elder.name)} sair do raio escolhido.
       </Text>
 
       <Card style={styles.previewCard}>

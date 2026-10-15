@@ -38,7 +38,7 @@ const mapLink = (lat: number, lng: number) => `https://maps.google.com/?q=${lat.
 /** The text each emergency contact gets; kept short, it is billed per segment. */
 export function escalationSms(elder: ElderDoc, alert: Alert): string {
   const time = localTimeOf(new Date(alert.at), elder.timezone);
-  const what = alert.type === 'sos' ? `pediu ajuda (SOS) às ${time}` : `saiu da área segura às ${time}`;
+  const what = alert.type === 'sos' ? `pediu ajuda (SOS) às ${time}` : `saiu da zona segura às ${time}`;
   const { lastLat, lastLng } = elder.locationState;
   const position =
     alert.type === 'geofenceExit' && lastLat !== null && lastLng !== null
