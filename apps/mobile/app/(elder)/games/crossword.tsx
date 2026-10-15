@@ -259,10 +259,10 @@ function Grid({ game, onTap }: { game: CrosswordState; onTap: (key: string) => v
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: PatientColors.surface },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   picker: { gap: 14 },
-  lead: { fontSize: PatientTypography.size.common, color: '#2C2C2A', textAlign: 'center', marginVertical: 8 },
+  lead: { fontSize: PatientTypography.size.common, color: PatientColors.text, textAlign: 'center', marginVertical: 8 },
   question: { fontSize: PatientTypography.size.common, fontWeight: PatientTypography.weight.bold, color: PatientColors.gamesMain, textAlign: 'center' },
   clueCard: {
     flexDirection: 'row',
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   /** Tall enough for a three-line clue, so the grid below does not jump from word to word. */
   clueBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 150 },
   clueEmoji: { fontSize: 38 },
-  clueText: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: '#2C2C2A', textAlign: 'center' },
+  clueText: { fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold, color: PatientColors.text, textAlign: 'center' },
   clueMeta: { fontSize: PatientTypography.size.minimum, fontWeight: PatientTypography.weight.bold, color: PatientColors.gamesMain, textAlign: 'center' },
   arrow: { width: 48, minHeight: MIN_TOUCH, borderRadius: 10, backgroundColor: PatientColors.gamesMain, alignItems: 'center', justifyContent: 'center' },
   arrowText: { color: PatientColors.gamesHeaderText, fontSize: 22, fontWeight: PatientTypography.weight.bold },
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: PatientColors.gamesHeaderBorder,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PatientColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -3,7 +3,7 @@
  *
  * Full-screen modal. Highest-stakes screen in the app.
  * gestureEnabled: false is set in the layout — do not change.
- * Resolving ("ela está segura") needs a deliberate two-step confirmation (tap link → confirm).
+ * Resolving ("está em segurança") needs a deliberate two-step confirmation (tap link → confirm).
  *
  * "Estou cuidando disso" acknowledges the exit, so the emergency contacts are not texted for it.
  *
@@ -132,8 +132,8 @@ export default function GeoFenceBreachScreen() {
   const handleResolve = useCallback(async () => {
     const ok = await confirm(
       'Confirmar',
-      `Tem certeza que ${name} está segura e deseja dispensar o alerta?`,
-      'Sim, está segura',
+      `Tem certeza de que ${name} está em segurança e deseja dispensar o alerta?`,
+      'Sim, está em segurança',
       true,
     );
     if (!ok) return;
@@ -196,7 +196,7 @@ export default function GeoFenceBreachScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <ErrorState message={friendlyError(location.error)} onRetry={() => void location.refetch()} />
-        <TouchableOpacity onPress={leave} style={styles.dismissWrap}>
+        <TouchableOpacity accessibilityRole="button" onPress={leave} style={styles.dismissWrap}>
           <Text style={styles.dismissLink}>Voltar</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -209,11 +209,11 @@ export default function GeoFenceBreachScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={extra.settled}>
           <IconSymbol name="checkmark.circle.fill" size={48} color={Colors.successText} />
-          <Text style={extra.settledTitle}>{outside ? `${name} foi confirmada como segura` : `${name} está na zona segura`}</Text>
+          <Text style={extra.settledTitle}>{outside ? `Alguém confirmou que ${name} está em segurança` : `${name} está na zona segura`}</Text>
           <Text style={extra.settledSub}>
             {outside
-              ? 'O alerta foi resolvido. Você será avisado de novo se ela voltar a sair.'
-              : 'Não há saída ativa. Você será avisado se ela sair do raio seguro.'}
+              ? `O alerta foi resolvido. Você será avisado de novo se ${name} voltar a sair.`
+              : `Não há saída ativa. Você será avisado se ${name} sair do raio seguro.`}
           </Text>
           <TouchableOpacity style={styles.btnCall} onPress={leave} activeOpacity={0.85} accessibilityRole="button">
             <Text style={styles.btnCallText}>Fechar</Text>
@@ -353,7 +353,7 @@ export default function GeoFenceBreachScreen() {
           style={styles.dismissWrap}
           accessibilityRole="button"
         >
-          <Text style={styles.dismissLink}>{resolve.isPending ? 'Resolvendo…' : 'Ela está segura — dispensar alerta'}</Text>
+          <Text style={styles.dismissLink}>{resolve.isPending ? 'Resolvendo…' : `${name} está em segurança — dispensar alerta`}</Text>
         </TouchableOpacity>
 
         {/* Leaving without resolving keeps the alert on Início */}

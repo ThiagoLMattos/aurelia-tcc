@@ -304,9 +304,11 @@ function WeekStrip({
         const isSelected = day.date === selectedDate;
         return (
           <TouchableOpacity
+            accessibilityRole="button"
             key={day.date}
             style={[styles.dayCell, isSelected && styles.dayCellSelected]}
             onPress={() => onSelect(day.date)}
+            accessibilityState={{ selected: isSelected }}
             activeOpacity={0.75}
           >
             <Text style={[styles.dayName, isSelected && styles.dayCellTextSelected]}>
@@ -366,6 +368,7 @@ function EntryCard({
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       style={styles.entryCard}
       onPress={onToggle}
       activeOpacity={0.85}
@@ -542,11 +545,12 @@ export default function HistoricoScreen() {
       <SafeAreaView edges={['top']} style={styles.header}>
         <Text style={styles.headerTitle} accessibilityRole="header">Histórico</Text>
         <View style={extra.weekNav}>
-          <TouchableOpacity onPress={() => moveWeek(-1)} hitSlop={12} accessibilityLabel="Semana anterior">
+          <TouchableOpacity accessibilityRole="button" onPress={() => moveWeek(-1)} hitSlop={12} accessibilityLabel="Semana anterior">
             <IconSymbol name="chevron.left" size={18} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={extra.weekLabel}>{weekRange(shownWeek, dates[6] ?? shownWeek)}</Text>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => moveWeek(1)}
             disabled={isCurrentWeek}
             hitSlop={12}
@@ -572,9 +576,11 @@ export default function HistoricoScreen() {
       >
         {FILTERS.map((f) => (
           <TouchableOpacity
+            accessibilityRole="button"
             key={f.key}
             style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
             onPress={() => handleFilterChange(f.key)}
+            accessibilityState={{ selected: filter === f.key }}
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>

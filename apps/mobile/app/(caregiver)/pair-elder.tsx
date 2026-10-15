@@ -31,7 +31,7 @@ export default function PairElderScreen() {
     <Screen scroll>
       <ScreenHeader title="Parear o celular" />
       <Text style={styles.lead}>
-        Instale o Aurélia no celular de {name} e escolha “Sou o idoso”. Depois digite o código abaixo.
+        Instale o app Aurélia no celular de {name} e escolha “Sou a pessoa idosa”. Depois digite o código abaixo.
       </Text>
 
       {issue.isPending && !issue.data ? <LoadingState message="Gerando código…" /> : null}

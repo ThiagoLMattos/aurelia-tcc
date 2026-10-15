@@ -46,16 +46,16 @@ export default function JogosIdosoScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: PatientColors.surface },
 
   // Lista
   scrollContent: {
     paddingHorizontal: 0,
   },
   gameCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PatientColors.surface,
     borderWidth: 0.5,
-    borderColor: '#2C2C2C',
+    borderColor: PatientColors.text,
     paddingVertical: 20,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   gameName: {
     fontSize: PatientTypography.size.common,
     fontWeight: PatientTypography.weight.regular,
-    color: '#2C2C2A',
+    color: PatientColors.text,
     flexShrink: 1,
     flexWrap: 'wrap',
   },

@@ -125,6 +125,7 @@ function ContactRow({
       {/* Actions */}
       <View style={styles.contactActions}>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.callBtn}
           onPress={() => onCall(contact.phone)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -133,6 +134,7 @@ function ContactRow({
           <IconSymbol name="phone.fill" size={14} color={Colors.white} />
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.removeContactBtn}
           onPress={() => onDelete(contact)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -195,6 +197,7 @@ function CaregiversSection({ elder }: { elder: Elder }) {
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     style={styles.removeContactBtn}
                     onPress={() => void handleRemove(person)}
                     disabled={remove.isPending}
@@ -356,7 +359,7 @@ function AddContactForm({ elderId, nextPriority, onDone }: { elderId: string; ne
       />
       <FormError message={submitError} />
       <View style={styles.addFormActions}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={onDone}>
+        <TouchableOpacity accessibilityRole="button" style={styles.cancelBtn} onPress={onDone}>
           <Text style={styles.cancelBtnText}>Cancelar</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.saveContactBtn} onPress={handleSave} disabled={create.isPending} accessibilityRole="button">
@@ -532,6 +535,7 @@ export default function PerfilScreen() {
       <SafeAreaView edges={['top']} style={styles.header}>
         <Text style={styles.headerTitle} accessibilityRole="header">Perfil</Text>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.settingsBtn}
           onPress={() => router.push('/(caregiver)/settings')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -568,6 +572,7 @@ export default function PerfilScreen() {
             </View>
             {!editing && (
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={() => setEditing(true)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityLabel="Editar dados do idoso"

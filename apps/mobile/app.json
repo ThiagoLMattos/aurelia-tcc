@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aurelia",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "app.aurelia.tcc",
@@ -41,16 +41,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "backgroundColor": "#ffffff"
         }
       ],
       [
         "expo-contacts",
         {
-          "contactsPermission": "O Aurélia mostra os contatos do celular na tela Telefone, para ligar com um toque. Nada é alterado nem enviado."
+          "contactsPermission": "O app Aurélia mostra os contatos do celular na tela Telefone, para ligar com um toque. Nada é alterado nem enviado."
         }
       ],
       [
@@ -63,14 +60,14 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "O Aurélia usa a sua localização atual só para marcar o centro da zona segura."
+          "locationWhenInUsePermission": "O app Aurélia usa a sua localização atual só para marcar o centro da zona segura."
         }
       ],
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "O Aurélia usa o microfone só enquanto você segura o botão para falar com a assistente.",
-          "speechRecognitionPermission": "O Aurélia transforma o que você fala em texto para a assistente responder.",
+          "microphonePermission": "O app Aurélia usa o microfone só enquanto você segura o botão para falar com a assistente.",
+          "speechRecognitionPermission": "O app Aurélia transforma o que você fala em texto para a assistente responder.",
           "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox", "com.google.android.tts"]
         }
       ],

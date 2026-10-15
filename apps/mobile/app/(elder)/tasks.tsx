@@ -139,21 +139,21 @@ export default function TarefasIdosoScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: PatientColors.surface },
 
-  empty: { fontSize: PatientTypography.size.common, color: '#2C2C2C', textAlign: 'center', padding: 32 },
+  empty: { fontSize: PatientTypography.size.common, color: PatientColors.text, textAlign: 'center', padding: 32 },
   emptyWrap: { flexGrow: 1, justifyContent: 'center' },
 
-  taskCard: { borderWidth: 0.5, borderColor: '#2C2C2C', paddingVertical: 20, paddingHorizontal: 16, gap: 12 },
-  taskCardDone: { backgroundColor: '#F1EFE8', borderColor: PatientColors.tasksDoneIcon, opacity: 0.8 },
+  taskCard: { borderWidth: 0.5, borderColor: PatientColors.text, paddingVertical: 20, paddingHorizontal: 16, gap: 12 },
+  taskCardDone: { backgroundColor: PatientColors.sheetBg, borderColor: PatientColors.tasksDoneIcon, opacity: 0.8 },
   taskCardNow: { borderWidth: 3, borderColor: PatientColors.tasksMain },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
-  taskName: { flex: 1, fontSize: PatientTypography.size.common, color: '#2C2C2C' },
-  taskNameDone: { textDecorationLine: 'line-through', color: '#5F5E5A' },
+  taskName: { flex: 1, fontSize: PatientTypography.size.common, color: PatientColors.text },
+  taskNameDone: { textDecorationLine: 'line-through', color: PatientColors.textSecondary },
   taskDescription: {
     fontSize: PatientTypography.size.reduced,
     fontWeight: PatientTypography.weight.bold,
-    color: '#2C2C2C',
+    color: PatientColors.text,
     lineHeight: PatientTypography.size.reduced * PatientTypography.lineHeight.normal,
   },
   concludeButton: {
@@ -168,12 +168,12 @@ const styles = StyleSheet.create({
     ...Shadow.soft,
   },
   concludeButtonDone: { backgroundColor: PatientColors.tasksMain, borderColor: PatientColors.tasksDoneIcon },
-  concludeButtonMissed: { backgroundColor: '#FAEEDA', borderColor: '#EF9F27' },
+  concludeButtonMissed: { backgroundColor: PatientColors.noticeBg, borderColor: PatientColors.missedBorder },
   concludeButtonText: { color: PatientColors.tasksHeaderText, fontSize: PatientTypography.size.reduced, fontWeight: PatientTypography.weight.bold },
-  missedText: { color: '#854F0B' },
+  missedText: { color: PatientColors.missedText },
 
   celebrateOverlay: { flex: 1, backgroundColor: 'rgba(15, 80, 30, 0.85)', alignItems: 'center', justifyContent: 'center', gap: 24 },
-  celebrateBadge: { width: 180, height: 180, borderRadius: 90, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  celebrateBadge: { width: 180, height: 180, borderRadius: 90, backgroundColor: PatientColors.surface, alignItems: 'center', justifyContent: 'center' },
   celebrateCheck: { fontSize: 110, color: PatientColors.tasksMain, fontWeight: '700' },
-  celebrateText: { fontSize: PatientTypography.size.header, color: '#FFFFFF', fontWeight: '700' },
+  celebrateText: { fontSize: PatientTypography.size.header, color: PatientColors.surface, fontWeight: '700' },
 });

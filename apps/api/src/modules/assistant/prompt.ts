@@ -112,7 +112,7 @@ export function hasSomethingToday(ctx: PromptContext): boolean {
 export function dailySummaryRequest(elderName: string): string {
   return [
     `Escreva para os cuidadores o resumo do dia de hoje de ${elderName}, em no máximo 3 frases curtas:`,
-    'o que foi feito, o que ficou para trás, qualquer alerta (SOS, saída da área segura, rastreador sem sinal)',
+    'o que foi feito, o que ficou para trás, qualquer alerta (SOS, saída da zona segura, rastreador sem sinal)',
     'e, se conversou com a Aurélia hoje, como estava se sentindo.',
     'Se fizer sentido, termine com uma sugestão prática para amanhã. Sem títulos, listas, emojis ou markdown.',
   ].join(' ');

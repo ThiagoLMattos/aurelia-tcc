@@ -86,13 +86,13 @@ export function createLocationService({ location, devices, eventsRepo, events, n
       if (!eventId) {
         const latest = (await eventsRepo.query(elder.id, { limit: 1, types: ['geofenceExit'] }))?.items[0];
         if (!latest || (latest.type === 'geofenceExit' && latest.payload.resolvedAt)) {
-          throw notFound('Nenhuma saída da área segura pendente.');
+          throw notFound('Nenhuma saída da zona segura pendente.');
         }
         eventId = latest.id;
       }
 
       const result = await eventsRepo.resolveExit(elder.id, eventId, { at: now(), note: body.note ?? null });
-      if (result === 'notFound') throw notFound('Saída da área segura não encontrada.');
+      if (result === 'notFound') throw notFound('Saída da zona segura não encontrada.');
       if (result === 'alreadyResolved') throw conflict('Esta saída já foi confirmada.');
       return (await eventsRepo.get(elder.id, eventId)) as Event;
     },

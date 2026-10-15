@@ -63,6 +63,17 @@ export const Colors = {
 };
 
 export const PatientColors = {
+  // ── Neutros (comuns a todas as telas do idoso) ───────────────────────────
+  surface: '#FFFFFF', // fundo das telas e dos cards
+  text: '#2C2C2A', // texto principal
+  textSecondary: '#5F5E5A', // texto de apoio, dicas
+  divider: '#D3D1C7', // bordas e divisórias
+  sheetBg: '#F1EFE8', // fundo dos avisos (sheets) e áreas neutras
+  noticeBg: '#FAEEDA', // cartão de resumo âmbar (próxima tarefa) e tarefa perdida
+  noticeText: '#412402', // título e borda do cartão de resumo
+  missedBorder: '#EF9F27', // borda do botão de tarefa perdida
+  missedText: '#854F0B', // texto de tarefa perdida
+
   // ── Home & Header ──────────────────────────────────────────────────────────
   homeHeader: Colors.primary, // header principal — identidade do app
   homeHeaderButton: Colors.primaryDark, // botão no header — tom mais escuro
@@ -155,8 +166,8 @@ export const palette: Record<Role, Palette> = {
   elder: {
     primary: PatientColors.homeHeader,
     onPrimary: PatientColors.homeHeaderText,
-    background: '#FFFFFF',
-    card: '#FFFFFF',
+    background: PatientColors.surface,
+    card: PatientColors.surface,
     text: PatientColors.aureliaBubbleAIText,
     textMuted: PatientColors.aureliaTimestamp,
     border: PatientColors.homeHeaderBorder,

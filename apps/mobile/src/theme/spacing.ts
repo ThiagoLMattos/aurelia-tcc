@@ -55,5 +55,5 @@ export const Shadow = {
 };
 
 export const Layout = {
-  headerHeight: 100,  // altura fixa de todos os headers do app do idoso
+  headerHeight: 100,  // altura mínima dos headers do app do idoso (cresce com fonte grande)
 };

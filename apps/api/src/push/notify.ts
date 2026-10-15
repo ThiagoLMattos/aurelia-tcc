@@ -70,7 +70,7 @@ export function createNotifier({ sender, users, elders, logger }: Deps) {
 
     geofenceExit: (elder: ElderDoc, eventId: string, distanceM: number) =>
       deliver(elder, 'all', (elderId) => ({
-        title: `${elder.name} saiu da área segura`,
+        title: `${elder.name} saiu da zona segura`,
         body: `Está a cerca de ${Math.round(distanceM)} m do local seguro.`,
         data: { type: 'geofenceExit', elderId, eventId },
         channelId: 'alerts',
@@ -79,7 +79,7 @@ export function createNotifier({ sender, users, elders, logger }: Deps) {
 
     geofenceReturn: (elder: ElderDoc, eventId: string) =>
       deliver(elder, 'all', (elderId) => ({
-        title: `${elder.name} voltou à área segura`,
+        title: `${elder.name} voltou à zona segura`,
         body: `${elder.name} está de volta ao local seguro.`,
         data: { type: 'geofenceReturn', elderId, eventId },
         channelId: 'alerts',
@@ -128,7 +128,7 @@ export function createNotifier({ sender, users, elders, logger }: Deps) {
         title: sent > 0 ? 'Contatos de emergência avisados' : 'Não foi possível avisar os contatos',
         body:
           sent > 0
-            ? `Ninguém respondeu ao alerta de ${alertType === 'sos' ? 'SOS' : 'saída da área segura'} de ${elder.name}. ${sent === 1 ? '1 contato recebeu' : `${sent} contatos receberam`} um SMS.`
+            ? `Ninguém respondeu ao alerta de ${alertType === 'sos' ? 'SOS' : 'saída da zona segura'} de ${elder.name}. ${sent === 1 ? '1 contato recebeu' : `${sent} contatos receberam`} um SMS.`
             : `O SMS para os contatos de emergência de ${elder.name} falhou. Ligue para eles.`,
         data: { type: 'contactsAlerted', elderId, eventId },
         channelId: 'alerts',

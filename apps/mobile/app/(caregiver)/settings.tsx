@@ -6,7 +6,8 @@
  * Sections:
  *  1. Header with back button
  *  2. Account row (the signed-in caregiver)
- *  3. Notifications card (toggles, geo-fence locked) — saved to `PATCH /me`
+ *  3. Notifications card (toggles, geo-fence locked) — saved to `PATCH /me`; above it, a warning when
+ *     this phone cannot get pushes (permission refused, registration failed, push unavailable here)
  *  3b. Sounds card (this phone only, kept on the device)
  *  4. Missed task timeout card (3 chips) — saved to `PATCH /elders/:id`
  *  5. Escalation card (2 radio options) — saved to `PATCH /me`; with "me, then the contacts" an SOS or
@@ -18,6 +19,7 @@ import { DAILY_SUMMARY_TIME, ESCALATE_AFTER_MIN, MISSED_TASK_TIMEOUT_OPTIONS, ty
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Switch,
@@ -33,8 +35,10 @@ import { useMe } from '@/auth/useMe';
 import { Button, ErrorState, FocusStatusBar, FormError, LoadingState, TextField } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
+import { api } from '@/lib/backend';
 import { friendlyError } from '@/lib/errors';
 import { firstName, initials } from '@/lib/format';
+import { registerPush, usePushStatus } from '@/push/registerPush';
 import { useContacts, useCurrentElder, usePatchElder, usePatchMe } from '@/queries';
 import { setSoundsEnabled, useSoundsEnabled } from '@/sound';
 import { Colors, Radius, Spacing, Typography } from '@/theme';
@@ -47,6 +51,46 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 
 function SectionTitle({ title }: { title: string }) {
   return <Text style={styles.sectionTitle}>{title}</Text>;
+}
+
+// ─── Push warning ─────────────────────────────────────────────────────────────
+
+/** Says when this phone will not get alerts, which the toggles below cannot change on their own. */
+function PushWarning() {
+  const status = usePushStatus();
+  const [retrying, setRetrying] = useState(false);
+  if (status !== 'denied' && status !== 'error' && status !== 'unavailable') return null;
+
+  const message =
+    status === 'denied'
+      ? 'As notificações estão bloqueadas neste celular. Sem elas, você não recebe os alertas de SOS e de zona segura.'
+      : status === 'error'
+        ? 'Não foi possível ativar as notificações neste celular. Você pode não receber os alertas de SOS e de zona segura.'
+        : 'Este aparelho não recebe notificações push (simulador ou app de testes). Use o app instalado no celular para receber os alertas.';
+
+  async function retry() {
+    setRetrying(true);
+    await registerPush(api);
+    setRetrying(false);
+  }
+
+  return (
+    <View style={styles.pushWarning} accessibilityRole="alert">
+      <IconSymbol name="exclamationmark.triangle.fill" size={18} color={Colors.warningText} />
+      <View style={{ flex: 1, gap: Spacing.xs }}>
+        <Text style={styles.pushWarningText}>{message}</Text>
+        {status === 'denied' ? (
+          <TouchableOpacity accessibilityRole="button" onPress={() => void Linking.openSettings()} hitSlop={8}>
+            <Text style={styles.pushWarningAction}>Abrir configurações do celular</Text>
+          </TouchableOpacity>
+        ) : status === 'error' ? (
+          <TouchableOpacity accessibilityRole="button" onPress={() => void retry()} disabled={retrying} hitSlop={8}>
+            <Text style={styles.pushWarningAction}>{retrying ? 'Tentando…' : 'Tentar de novo'}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  );
 }
 
 // ─── Toggle row ───────────────────────────────────────────────────────────────
@@ -180,6 +224,7 @@ export default function SettingsScreen() {
       {/* Header (paints the status-bar strip in its own colour) */}
       <SafeAreaView edges={['top']} style={styles.header}>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.backBtn}
           onPress={() => router.back()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -216,6 +261,7 @@ export default function SettingsScreen() {
 
         {/* ── Notifications ── */}
         <SectionTitle title="Notificações" />
+        <PushWarning />
         <SectionCard>
           <ToggleRow
             label="Alertas de zona segura e SOS"
@@ -386,6 +432,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.surface,
   },
+
+  // Push warning
+  pushWarning: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    backgroundColor: Colors.warningBg,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  pushWarningText: { fontSize: Typography.size.sm, color: Colors.warningText },
+  pushWarningAction: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: Colors.warningText, textDecorationLine: 'underline' },
 
   // Header
   header: {

@@ -296,7 +296,7 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
 
       {/* Header (paints the status-bar strip in its own colour) */}
       <SafeAreaView edges={['top']} style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Voltar">
+        <TouchableOpacity accessibilityRole="button" onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Voltar">
           <IconSymbol name="chevron.left" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} accessibilityRole="header">{isEditing ? 'Editar rotina' : 'Nova rotina'}</Text>
@@ -375,9 +375,11 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
                     <View style={styles.formPillRow}>
                       {MED_FORMS.map((f) => (
                         <TouchableOpacity
+                          accessibilityRole="button"
                           key={f}
                           style={[styles.formPill, form === f && styles.formPillSelected]}
                           onPress={() => setForm(f)}
+                          accessibilityState={{ selected: form === f }}
                         >
                           <Text style={[styles.formPillText, form === f && styles.formPillTextSelected]}>
                             {f}
@@ -425,11 +427,11 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
             <View style={styles.timePicker}>
               {/* Hour column */}
               <View style={styles.timeColumn}>
-                <TouchableOpacity onPress={incrementHour} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Hora mais uma">
+                <TouchableOpacity accessibilityRole="button" onPress={incrementHour} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Hora mais uma">
                   <IconSymbol name="chevron.left" size={18} color={Colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
                 <Text style={styles.timeValue}>{padTwo(hour)}</Text>
-                <TouchableOpacity onPress={decrementHour} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Hora menos uma">
+                <TouchableOpacity accessibilityRole="button" onPress={decrementHour} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Hora menos uma">
                   <IconSymbol name="chevron.right" size={18} color={Colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
                 <Text style={styles.timeUnit}>hora</Text>
@@ -439,11 +441,11 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
 
               {/* Minute column */}
               <View style={styles.timeColumn}>
-                <TouchableOpacity onPress={incrementMinute} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Minutos mais cinco">
+                <TouchableOpacity accessibilityRole="button" onPress={incrementMinute} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Minutos mais cinco">
                   <IconSymbol name="chevron.left" size={18} color={Colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
                 <Text style={styles.timeValue}>{padTwo(minute)}</Text>
-                <TouchableOpacity onPress={decrementMinute} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Minutos menos cinco">
+                <TouchableOpacity accessibilityRole="button" onPress={decrementMinute} style={styles.timeArrow} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }} accessibilityLabel="Minutos menos cinco">
                   <IconSymbol name="chevron.right" size={18} color={Colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
                 <Text style={styles.timeUnit}>min</Text>
@@ -457,9 +459,11 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
             <View style={styles.presetRow}>
               {PRESETS.map((p) => (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={p.key}
                   style={[styles.presetChip, currentPreset === p.key && styles.presetChipActive]}
                   onPress={() => handlePreset(p)}
+                  accessibilityState={{ selected: currentPreset === p.key }}
                   disabled={p.key === 'custom' && currentPreset !== 'custom'}
                 >
                   <Text style={[styles.presetChipText, currentPreset === p.key && styles.presetChipTextActive]}>
@@ -473,6 +477,7 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
             <View style={styles.dayRow}>
               {DAY_PILLS.map((label, index) => (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={index}
                   style={[styles.dayPill, days.includes(index) && styles.dayPillActive]}
                   onPress={() => toggleDay(index)}

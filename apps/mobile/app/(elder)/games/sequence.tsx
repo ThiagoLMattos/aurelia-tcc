@@ -205,7 +205,7 @@ function overMessage(longest: number): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: PatientColors.surface },
   content: { flex: 1, padding: 16, gap: 16, justifyContent: 'center' },
   message: {
     fontSize: PatientTypography.size.common,
@@ -226,16 +226,16 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: 'transparent',
   },
-  padLit: { borderColor: '#2C2C2A', transform: [{ scale: 1.04 }] },
+  padLit: { borderColor: PatientColors.text, transform: [{ scale: 1.04 }] },
   padText: {
-    color: '#FFFFFF',
+    color: PatientColors.surface,
     fontSize: PatientTypography.size.reduced,
     fontWeight: PatientTypography.weight.bold,
   },
-  padTextLit: { color: '#2C2C2A' },
+  padTextLit: { color: PatientColors.text },
   round: {
     fontSize: PatientTypography.size.reduced,
-    color: '#2C2C2A',
+    color: PatientColors.text,
     textAlign: 'center',
     minHeight: 72,
     textAlignVertical: 'center',

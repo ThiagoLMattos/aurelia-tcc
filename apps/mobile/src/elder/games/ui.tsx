@@ -58,6 +58,6 @@ const styles = StyleSheet.create({
     ...Shadow.soft,
   },
   title: { fontSize: PatientTypography.size.header, fontWeight: PatientTypography.weight.bold, color: PatientColors.gamesMain, textAlign: 'center' },
-  message: { fontSize: PatientTypography.size.common, color: '#2C2C2A', textAlign: 'center' },
+  message: { fontSize: PatientTypography.size.common, color: PatientColors.text, textAlign: 'center' },
   buttons: { gap: 12 },
 });
