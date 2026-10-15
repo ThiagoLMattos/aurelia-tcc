@@ -28,7 +28,8 @@ export function Button({ title, onPress, variant = 'primary', role = 'caregiver'
       accessibilityRole="button"
       accessibilityState={{ disabled: inactive, busy: loading }}
       disabled={inactive}
-      onPress={withTap(onPress)}
+      // Tap sounds are for the elder only; the caregiver's buttons stay quiet.
+      onPress={role === 'elder' ? withTap(onPress) : onPress}
       style={({ pressed }) => [
         styles.base,
         role === 'elder' && styles.elder,
