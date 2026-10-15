@@ -1,13 +1,13 @@
 import type { Contact } from '@aurelia/shared';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
-import { Image, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { callNow } from '@/elder/call';
 import { BigButton, ElderHeader, type Section } from '@/elder/ui';
 import { raiseSos, useSosStatus } from '@/elder/sosService';
 import type { SosStatus } from '@/elder/sos';
-import { dialable } from '@/elder/phones';
 import { formatPhone } from '@/lib/format';
 import { useContacts, useElderSelf } from '@/queries';
 import { playSound } from '@/sound';
@@ -31,7 +31,7 @@ const STATUS_TEXT: Record<SosStatus, string> = {
 };
 
 function dial(phone: string) {
-  void Linking.openURL(`tel:${dialable(phone)}`);
+  void callNow(phone);
 }
 
 /**
