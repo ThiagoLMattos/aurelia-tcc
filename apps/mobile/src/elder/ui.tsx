@@ -38,7 +38,14 @@ export function ElderHeader({ title, section, onBack, backLabel = 'VOLTAR', titl
     <SafeAreaView edges={['top']} style={[styles.headerBar, { backgroundColor: section.main }]}>
       <FocusStatusBar style="light" />
       <View style={styles.header}>
-        <Text style={[styles.title, { color: section.text, fontSize: titleSize }]} numberOfLines={2} adjustsFontSizeToFit maxFontSizeMultiplier={MAX_FONT_SCALE} accessibilityRole="header">
+        <Text
+          style={[styles.title, { color: section.text, fontSize: titleSize }]}
+          // A one-word title ("CRUZADINHA") shrinks to fit one line; with two lines Android would split the word.
+          numberOfLines={title.trim().includes(' ') ? 2 : 1}
+          adjustsFontSizeToFit
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
+          accessibilityRole="header"
+        >
           {title}
         </Text>
         <Pressable

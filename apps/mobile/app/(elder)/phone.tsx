@@ -2,11 +2,12 @@ import type { Contact } from '@aurelia/shared';
 import * as Contacts from 'expo-contacts';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BigButton, ElderHeader, MIN_TOUCH, Sheet, SheetText, type Section } from '@/elder/ui';
-import { dialable, phoneKey } from '@/elder/phones';
+import { callNow } from '@/elder/call';
+import { phoneKey } from '@/elder/phones';
 import { formatPhone } from '@/lib/format';
 import { useContacts, useElderSelf } from '@/queries';
 import { PatientColors, PatientTypography } from '@/theme';
@@ -96,7 +97,7 @@ export default function PhoneElderScreen() {
 
   function call() {
     if (!selected) return;
-    void Linking.openURL(`tel:${dialable(selected.phone)}`);
+    void callNow(selected.phone);
     setSelected(null);
   }
 

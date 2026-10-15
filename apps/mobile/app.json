@@ -23,7 +23,8 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "READ_CONTACTS"
+        "READ_CONTACTS",
+        "CALL_PHONE"
       ],
       "blockedPermissions": [
         "android.permission.WRITE_CONTACTS"
