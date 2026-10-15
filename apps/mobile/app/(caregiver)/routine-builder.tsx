@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -21,7 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { ErrorState, FormError, LoadingState } from '@/components';
+import { ErrorState, FocusStatusBar, FormError, LoadingState } from '@/components';
 import { IconSymbol, IconSymbolName } from '@/components/ui/icon-symbol';
 import { friendlyError } from '@/lib/errors';
 import { validateForm } from '@/lib/forms';
@@ -292,17 +291,17 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
   const currentPreset = activePreset(days);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+    <View style={styles.safeArea}>
+      <FocusStatusBar style="dark" />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header (paints the status-bar strip in its own colour) */}
+      <SafeAreaView edges={['top']} style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Voltar">
           <IconSymbol name="chevron.left" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEditing ? 'Editar rotina' : 'Nova rotina'}</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">{isEditing ? 'Editar rotina' : 'Nova rotina'}</Text>
         <View style={{ width: 22 }} />
-      </View>
+      </SafeAreaView>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -527,8 +526,8 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Fixed footer */}
-      <View style={styles.footer}>
+      {/* Fixed footer, kept above the home indicator */}
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
         <TouchableOpacity
           style={[styles.btnSave, saving && { opacity: 0.6 }]}
           onPress={handleSave}
@@ -539,8 +538,8 @@ function RoutineForm({ existing }: { existing: Routine | null }) {
           <IconSymbol name="checkmark" size={16} color={Colors.white} />
           <Text style={styles.btnSaveText}>{saving ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Salvar rotina'}</Text>
         </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 

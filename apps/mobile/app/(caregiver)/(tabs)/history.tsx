@@ -24,7 +24,6 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -33,7 +32,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ErrorState, LoadingState } from '@/components';
+import { ErrorState, FocusStatusBar, LoadingState } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { friendlyError } from '@/lib/errors';
 import { clockTime, dayOfMonth, mapsUrl, weekRange } from '@/lib/format';
@@ -536,12 +535,12 @@ export default function HistoricoScreen() {
   }, [events, report]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+    <View style={styles.safeArea}>
+      <FocusStatusBar style="dark" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Histórico</Text>
+      {/* Header (paints the status-bar strip in its own colour) */}
+      <SafeAreaView edges={['top']} style={styles.header}>
+        <Text style={styles.headerTitle} accessibilityRole="header">Histórico</Text>
         <View style={extra.weekNav}>
           <TouchableOpacity onPress={() => moveWeek(-1)} hitSlop={12} accessibilityLabel="Semana anterior">
             <IconSymbol name="chevron.left" size={18} color={Colors.textPrimary} />
@@ -557,7 +556,7 @@ export default function HistoricoScreen() {
             <IconSymbol name="chevron.right" size={18} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
 
       {/* Week strip */}
       <View style={styles.weekStripWrap}>
@@ -630,7 +629,7 @@ export default function HistoricoScreen() {
           <View style={{ height: Spacing.lg }} />
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

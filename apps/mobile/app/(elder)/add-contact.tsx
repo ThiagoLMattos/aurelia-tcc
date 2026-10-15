@@ -86,7 +86,7 @@ export default function AddContactElderScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ElderHeader title="ADICIONAR CONTATO" section={SECTION} onBack={() => router.back()} titleSize={PatientTypography.size.common} />
 
       <View style={styles.form}>
@@ -163,7 +163,7 @@ export default function AddContactElderScreen() {
         )}
         <BigButton
           label={emergencyFull ? 'ADICIONAR' : 'NÃO'}
-          onPress={withTap(() => save(false))}
+          onPress={() => save(false)}
           loading={create.isPending}
           color={PatientColors.sosHeaderButton}
           textColor={PatientColors.sosHeaderText}

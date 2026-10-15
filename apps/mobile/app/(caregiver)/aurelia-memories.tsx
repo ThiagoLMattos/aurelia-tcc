@@ -30,7 +30,7 @@ export default function AureliaMemoriesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={memories.isRefetching} onRefresh={() => void memories.refetch()} />}

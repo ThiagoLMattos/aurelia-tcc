@@ -9,7 +9,6 @@ import React, { useCallback, useMemo } from 'react';
 import {
   Alert,
   SectionList,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,7 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { ErrorState, LoadingState } from '@/components';
+import { ErrorState, FocusStatusBar, LoadingState } from '@/components';
 import { IconSymbol, IconSymbolName } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
@@ -188,13 +187,13 @@ export default function RotinasScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+    <View style={styles.safeArea}>
+      <FocusStatusBar style="dark" />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header (paints the status-bar strip in its own colour) */}
+      <SafeAreaView edges={['top']} style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Rotinas</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Rotinas</Text>
           <Text style={styles.headerSub}>
             {items.length} {items.length === 1 ? 'item' : 'itens'} configurados
           </Text>
@@ -202,7 +201,7 @@ export default function RotinasScreen() {
         <TouchableOpacity style={styles.headerAddBtn} onPress={handleAdd} activeOpacity={0.85} accessibilityLabel="Nova rotina">
           <IconSymbol name="plus" size={20} color={Colors.white} />
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
 
       {/* List */}
       {routines.isPending ? (
@@ -232,7 +231,7 @@ export default function RotinasScreen() {
           <IconSymbol name="plus" size={24} color={Colors.white} />
         </TouchableOpacity>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

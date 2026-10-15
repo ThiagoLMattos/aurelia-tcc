@@ -107,7 +107,7 @@ export default function TarefasIdosoScreen() {
   const items = agenda.data?.items ?? [];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ElderHeader title="TAREFAS" section={SECTION} onBack={() => router.back()} />
 
       {agenda.isPending ? (

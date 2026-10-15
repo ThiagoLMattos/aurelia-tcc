@@ -19,7 +19,6 @@ import React, { useCallback, useState } from 'react';
 import {
   Alert,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -31,7 +30,7 @@ import { useRouter } from 'expo-router';
 
 import { useSession } from '@/auth/SessionProvider';
 import { useMe } from '@/auth/useMe';
-import { Button, ErrorState, FormError, LoadingState, TextField } from '@/components';
+import { Button, ErrorState, FocusStatusBar, FormError, LoadingState, TextField } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
 import { friendlyError } from '@/lib/errors';
@@ -175,11 +174,11 @@ export default function SettingsScreen() {
   const name = firstName(elder.name);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <FocusStatusBar style="dark" />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header (paints the status-bar strip in its own colour) */}
+      <SafeAreaView edges={['top']} style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => router.back()}
@@ -188,9 +187,9 @@ export default function SettingsScreen() {
         >
           <IconSymbol name="chevron.left" size={20} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Configurações</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">Configurações</Text>
         <View style={{ width: 36 }} />
-      </View>
+      </SafeAreaView>
 
       {!caregiver || !settings ? (
         me.isError ? <ErrorState message={friendlyError(me.error)} onRetry={() => void me.refetch()} /> : <LoadingState />

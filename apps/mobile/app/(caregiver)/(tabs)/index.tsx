@@ -31,7 +31,6 @@ import {
   type RefreshControlProps,
   ScrollView,
   Share,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -40,7 +39,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { ErrorState, LoadingState } from '@/components';
+import { ErrorState, FocusStatusBar, LoadingState } from '@/components';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { friendlyError } from '@/lib/errors';
 import { clockTime, countdownLabel, firstName, weekRange } from '@/lib/format';
@@ -857,7 +856,7 @@ function GamesCard({
         {sessionsBefore !== undefined && report.sessions !== sessionsBefore ? (
           <View style={[games.pill, report.sessions > sessionsBefore ? games.pillUp : games.pillDown]}>
             <Text style={[games.pillText, report.sessions > sessionsBefore ? styles.rDeltaUp : styles.rDeltaDown]}>
-              {`${report.sessions > sessionsBefore ? '▲ +' : '▼ −'}${Math.abs(report.sessions - sessionsBefore)} partidas`}
+              {`${report.sessions > sessionsBefore ? '▲ +' : '▼ −'}${plural(Math.abs(report.sessions - sessionsBefore), 'partida', 'partidas')}`}
             </Text>
           </View>
         ) : null}
@@ -874,7 +873,7 @@ function GamesCard({
             name={LABELS_PT.game.memory}
             value={memory.played > 0 ? `${memory.bestAccuracyPct}%` : null}
             caption="melhor taxa de acertos"
-            footer={`${plural(memory.played, 'partida', 'partidas')} · até ${memory.mostPairs} pares`}
+            footer={`${plural(memory.played, 'partida', 'partidas')} · até ${plural(memory.mostPairs ?? 0, 'par', 'pares')}`}
             delta={<GameDelta current={memory.bestAccuracyPct} previous={previous?.memory.bestAccuracyPct} suffix=" p.p." />}
           />
           <GameTile
@@ -1070,7 +1069,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+      <FocusStatusBar style="light" />
 
       {/* Teal header section */}
       <View style={styles.headerSection}>

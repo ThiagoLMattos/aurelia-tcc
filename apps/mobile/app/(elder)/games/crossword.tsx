@@ -92,7 +92,7 @@ export default function CrosswordScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ElderHeader title="CRUZADINHA" titleSize={30} section={GAMES_SECTION} onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
         {!game || !puzzle ? (

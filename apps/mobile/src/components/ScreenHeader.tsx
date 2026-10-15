@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { fontSizes, palette, Spacing, type Role } from '@/theme';
 
-/** Back arrow + title for pushed screens. */
+/** Back chevron + title for pushed screens (the same chevron the custom caregiver headers use). */
 export function ScreenHeader({ title, role = 'caregiver' }: { title: string; role?: Role }) {
   const router = useRouter();
   const colors = palette[role];
@@ -15,7 +16,7 @@ export function ScreenHeader({ title, role = 'caregiver' }: { title: string; rol
         hitSlop={12}
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
       >
-        <Text style={[styles.back, { color: colors.primary }]}>‹</Text>
+        <IconSymbol name="chevron.left" size={22} color={colors.text} />
       </Pressable>
       <Text accessibilityRole="header" style={[styles.title, { color: colors.text, fontSize: fontSizes[role].title }]}>
         {title}
@@ -26,6 +27,5 @@ export function ScreenHeader({ title, role = 'caregiver' }: { title: string; rol
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  back: { fontSize: 36, lineHeight: 36, fontWeight: '300' },
   title: { fontWeight: '700', flex: 1 },
 });

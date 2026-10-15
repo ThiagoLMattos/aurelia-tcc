@@ -19,16 +19,15 @@ import {
   Linking,
   ScrollView,
   Share,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { AlertResponse, ErrorState, FormError, LoadingState } from '@/components';
+import { AlertResponse, ErrorState, FocusStatusBar, FormError, LoadingState } from '@/components';
 import { SafeZoneMap } from '@/components/SafeZoneMap';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { confirm } from '@/lib/confirm';
@@ -106,6 +105,7 @@ function callOrder(contacts: Contact[]): Contact[] {
 export default function GeoFenceBreachScreen() {
   const elder = useCurrentElder();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ eventId?: string }>();
   const location = useLocation(elder.id);
   const outside = location.data?.status === 'outside';
@@ -230,8 +230,9 @@ export default function GeoFenceBreachScreen() {
   const primary = order[0];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.dangerHeader} />
+    // Only the top edge here: the red background would otherwise show as a strip under the list.
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <FocusStatusBar style="light" />
 
       {/* Red header */}
       <View style={styles.redHeader}>
@@ -252,7 +253,7 @@ export default function GeoFenceBreachScreen() {
       {/* Scrollable body */}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.md + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Map */}

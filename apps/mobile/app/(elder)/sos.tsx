@@ -61,7 +61,7 @@ export default function SosElderScreen() {
   const alarming = status === 'retrying' || status === 'failed';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ElderHeader title="SOS" section={SECTION} onBack={() => router.back()} titleSize={50} />
 
       <View style={[styles.status, alarming && styles.statusAlarm]} accessibilityLiveRegion="polite">

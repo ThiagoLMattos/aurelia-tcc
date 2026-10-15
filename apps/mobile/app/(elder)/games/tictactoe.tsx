@@ -81,7 +81,7 @@ export default function TicTacToeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <ElderHeader title="JOGO DA VELHA" titleSize={28} section={GAMES_SECTION} onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
         {!game || !level ? (
